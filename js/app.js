@@ -13,7 +13,7 @@ import { GEMINI_VOICES, listLiveModels } from './gemini.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
-const IDLE_MS = 20000;          // Gaby tidur lagi setelah 20 detik tanpa obrolan (mode "Hai Gaby")
+const IDLE_MS = 40000;          // Gaby tidur lagi setelah 40 detik tanpa obrolan (mode "Hai Gaby")
 const MOOD_EMOJI = { tenang: '💙', senang: '😄', gemas: '🥰', ngambek: '😤', marah: '😡', mikir: '🤔', sedih: '🥺', kaget: '😲' };
 
 const audio = new AudioEngine();
@@ -31,7 +31,10 @@ let mood = 'tenang';
 let moodTimer = null;
 let reconnects = [];
 let wakeLock = null;
-let dropAudio = false;          // abaikan sisa suara Gaby setelah kamu memotongnya
+let duckTimer = null;
+let userSpokeAt = 0;            // kapan kamu terakhir bicara (untuk mengukur waktu respons)
+let awaitingReply = false;
+const latencies = [];
 let gabyTurnText = '';
 
 // ---------- Tampilan kecil ----------
@@ -168,23 +171,31 @@ const ui = {
 
 const brain = new Brain({
   onAudio(buf, rate) {
-    if (dropAudio) return;
+    if (awaitingReply) {
+      awaitingReply = false;
+      latencies.push(Date.now() - userSpokeAt);
+      if (latencies.length > 10) latencies.shift();
+    }
     audio.play(buf, rate);
     lastAudioAt = Date.now();
     touch();
   },
   onInterrupted() {
-    dropAudio = false;
+    clearTimeout(duckTimer);
     audio.interrupt();
+    audio.duck(false);
     finishCaption('gaby');
   },
   onUserText(t) {
+    if (!audio.isSpeaking()) {
+      userSpokeAt = Date.now();
+      awaitingReply = true;
+    }
     caption('user', t);
     memory.addHistory('user', t);
     touch();
   },
   onGabyText(t) {
-    if (dropAudio) return;
     caption('gaby', t);
     memory.addHistory('gaby', t);
     gabyTurnText = (gabyTurnText + t).slice(-120);
@@ -192,7 +203,6 @@ const brain = new Brain({
     if (m && m !== mood) setMood(m);
   },
   onTurnComplete() {
-    dropAudio = false;
     gabyTurnText = '';
     finishCaption('gaby');
     touch();
@@ -232,11 +242,12 @@ function currentMode() {
   return m;
 }
 
-// Kamu memotong Gaby: hentikan suaranya saat itu juga, tanpa menunggu server.
+// Mungkin kamu memotong Gaby: kecilkan suaranya dulu. Kalau Gemini memastikan kamu bicara,
+// suara dihentikan (onInterrupted); kalau ternyata cuma gema, volume kembali normal.
 audio.onBargeIn = () => {
-  audio.interrupt();
-  dropAudio = true;
-  finishCaption('gaby');
+  audio.duck(true);
+  clearTimeout(duckTimer);
+  duckTimer = setTimeout(() => audio.duck(false), 1300);
   touch();
 };
 
@@ -572,6 +583,9 @@ async function fillChain() {
     const order = brain.describeChain(await brain.chain());
     const active = brain.connected && brain.current ? (brain.current.model || 'OpenAI') : null;
     $('set-chain').textContent = active ? `${order}  ·  sedang aktif: ${active}` : order;
+    $('set-latency').textContent = latencies.length
+      ? `${(latencies.reduce((a, b) => a + b, 0) / latencies.length / 1000).toFixed(1)} detik (terakhir ${(latencies[latencies.length - 1] / 1000).toFixed(1)} dtk)`
+      : 'belum ada data';
   } catch {
     $('set-chain').textContent = '–';
   }

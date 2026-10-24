@@ -62,9 +62,10 @@ export class GeminiLive {
     this.key = key;
     this.model = model;
     this.voice = voice;
-    // Tingkat pengaturan: 0 = lengkap & tercepat, 1 = tanpa matikan "berpikir",
-    // 2 = paling sederhana. Dipakai bergantian kalau model menolak pengaturan tertentu.
+    // Tingkat pengaturan: 0 = lengkap & tercepat, makin tinggi makin sederhana.
+    // Dipakai bergantian kalau model menolak pengaturan tertentu.
     this.level = level;
+    this.silentTools = new Set();
     this.name = 'gemini';
     this.label = `Gemini (${model})`;
     this.inputRate = 16000;
@@ -102,6 +103,11 @@ export class GeminiLive {
         const declarations = tools.map((t) => {
           const d = { name: t.name, description: t.description };
           if (t.parameters && Object.keys(t.parameters.properties || {}).length) d.parameters = toGeminiSchema(t.parameters);
+          // Alat "latar belakang" (misal simpan ingatan) tidak membuat Gaby berhenti bicara.
+          if (t.background && this.level <= 1) {
+            d.behavior = 'NON_BLOCKING';
+            this.silentTools.add(t.name);
+          }
           return d;
         });
         const setup = {
@@ -119,14 +125,14 @@ export class GeminiLive {
           // Langsung bicara tanpa "berpikir" dulu: jauh lebih cepat.
           setup.generationConfig.thinkingConfig = { thinkingBudget: 0 };
         }
-        if (this.level < 2) {
-          // Cepat sadar saat kamu mulai bicara (memotong) dan saat kamu selesai bicara.
+        if (this.level < 3) {
+          // Cepat menjawab saat kamu selesai bicara, tapi tidak mudah tertipu gema suara Gaby sendiri.
           setup.realtimeInputConfig = {
             automaticActivityDetection: {
-              startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+              startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
               endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-              prefixPaddingMs: 40,
-              silenceDurationMs: 500,
+              prefixPaddingMs: 200,
+              silenceDurationMs: 600,
             },
           };
           setup.tools.push({ googleSearch: {} });
@@ -192,7 +198,9 @@ export class GeminiLive {
     const responses = [];
     for (const call of calls) {
       const result = await this.onToolCall(call.name, call.args || {});
-      responses.push({ id: call.id, name: call.name, response: { result } });
+      const response = { result };
+      if (this.silentTools.has(call.name)) response.scheduling = 'SILENT';
+      responses.push({ id: call.id, name: call.name, response });
     }
     this.send({ toolResponse: { functionResponses: responses } });
   }

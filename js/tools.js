@@ -7,6 +7,7 @@ import { LANGS } from './persona.js';
 export const TOOL_DEFS = [
   {
     name: 'simpan_nama',
+    background: true,
     description: 'Simpan nama panggilan pengguna. Panggil begitu pengguna menyebut nama panggilannya atau minta dipanggil dengan nama lain.',
     parameters: {
       type: 'object',
@@ -16,6 +17,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'ingat',
+    background: true,
     description: 'Simpan satu fakta penting tentang pengguna untuk diingat selamanya (hobi, pekerjaan, kesukaan, ulang tahun, keluarga, rencana).',
     parameters: {
       type: 'object',
@@ -25,6 +27,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'lupakan',
+    background: true,
     description: 'Hapus ingatan tentang pengguna yang mengandung kata kunci tertentu, jika pengguna memintanya.',
     parameters: {
       type: 'object',
@@ -34,6 +37,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'ganti_bahasa',
+    background: true,
     description: 'Ganti bahasa bicara Gaby secara permanen: id = Indonesia, en = Inggris, auto = ikuti bahasa pengguna.',
     parameters: {
       type: 'object',

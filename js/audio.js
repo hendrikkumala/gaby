@@ -83,10 +83,10 @@ export class AudioEngine {
       this.echoBase = 0.01;
       return;
     }
-    const threshold = Math.max(0.035, this.echoBase * 3);
+    const threshold = Math.max(0.05, this.echoBase * 4);
     if (level > threshold) {
       this.loudMs += 50;
-      if (this.loudMs >= 200) {
+      if (this.loudMs >= 300) {
         this.loudMs = 0;
         this.onBargeIn && this.onBargeIn();
       }
@@ -181,6 +181,14 @@ export class AudioEngine {
     this.nextTime += buf.duration;
     this.sources.add(src);
     src.onended = () => this.sources.delete(src);
+  }
+
+  // Kecilkan suara Gaby sementara (saat mungkin kamu sedang memotong).
+  duck(on) {
+    if (!this.outGain) return;
+    const g = this.outGain.gain;
+    g.cancelScheduledValues(this.ctx.currentTime);
+    g.setTargetAtTime(on ? 0.15 : 1, this.ctx.currentTime, 0.04);
   }
 
   // Hentikan Gaby bicara (misal saat kamu memotong).

@@ -13,7 +13,8 @@ export class Brain {
     this.h = handlers;    // { onAudio, onInterrupted, onUserText, onGabyText, onTurnComplete, onToolCall, onLost, notice }
     this.provider = null;
     this.models = null;
-    this.levels = {};     // tingkat pengaturan Gemini yang berhasil, per model
+    // Tingkat pengaturan Gemini yang berhasil per model, diingat supaya bangun lebih cepat.
+    try { this.levels = JSON.parse(localStorage.getItem('gaby.levels') || '{}'); } catch { this.levels = {}; }
   }
 
   async discover(force = false) {
@@ -73,14 +74,17 @@ export class Brain {
       if (p.kind === 'gemini' && geminiAuthFailed) continue;
       // Mulai dari tingkat pengaturan yang terakhir berhasil, supaya bangun lebih cepat.
       const start = this.levels[p.id] || 0;
-      for (const level of p.kind === 'gemini' ? [0, 1, 2].filter((l) => l >= start) : [0]) {
+      for (const level of p.kind === 'gemini' ? [0, 1, 2, 3].filter((l) => l >= start) : [0]) {
         const prov = this.makeProvider(p, level);
         this.wire(prov, p);
         try {
           await prov.connect({ system: buildPersona(prov.name), tools: TOOL_DEFS });
           this.provider = prov;
           this.current = p;
-          this.levels[p.id] = level;
+          if (this.levels[p.id] !== level) {
+            this.levels[p.id] = level;
+            try { localStorage.setItem('gaby.levels', JSON.stringify(this.levels)); } catch {}
+          }
           memory.clearExhausted(p.id);
           return prov;
         } catch (e) {
