@@ -108,6 +108,7 @@ export class AudioEngine {
       this.outGain.connect(this.outAnalyser);
       this.outAnalyser.connect(this.ctx.destination);
       this.outData = new Uint8Array(this.outAnalyser.frequencyBinCount);
+      this.outWave = new Uint8Array(this.outAnalyser.fftSize);
       // iPhone: resume & bunyi hening harus terjadi langsung di dalam ketukan, sebelum await.
       const resumed = this.ctx.resume();
       const silence = this.ctx.createBufferSource();
@@ -201,6 +202,12 @@ export class AudioEngine {
     let sum = 0;
     for (let i = 0; i < this.outData.length; i++) sum += this.outData[i];
     return sum / this.outData.length / 255;
+  }
+
+  waveform() {
+    if (!this.outAnalyser) return null;
+    this.outAnalyser.getByteTimeDomainData(this.outWave);
+    return this.outWave;
   }
 
   spectrum() {
