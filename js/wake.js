@@ -16,8 +16,10 @@ export class WakeListener {
     this.failures = 0;
   }
 
+  // Di Android, pengenal suara berbunyi "tetung" setiap mulai/berhenti dan
+  // berhenti sendiri tiap beberapa detik, jadi tidak cocok untuk mendengar terus.
   static get supported() {
-    return !!SR;
+    return !!SR && !/Android/i.test(navigator.userAgent);
   }
 
   start() {

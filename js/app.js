@@ -568,9 +568,13 @@ function fillSettings() {
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });
   document.querySelectorAll('input[name="lang"]').forEach((r) => { r.checked = r.value === (st.settings.lang || 'id'); });
-  $('wake-support').textContent = WakeListener.supported && !wakeBroken
+  const wakeOk = WakeListener.supported && !wakeBroken;
+  document.querySelector('input[name="mode"][value="wake"]').disabled = !wakeOk;
+  $('wake-support').textContent = wakeOk
     ? '"Hai Gaby" bekerja selama aplikasi terbuka di layar.'
-    : '"Hai Gaby" tidak didukung browser ini — pakai Chrome (Android/komputer) atau Safari (iPhone).';
+    : /Android/i.test(navigator.userAgent)
+      ? '"Hai Gaby" dimatikan di Android karena Android terus berbunyi "tetung" saat Gaby mendengarkan. Pakai "Ketuk bola" atau "Selalu dengar".'
+      : '"Hai Gaby" tidak didukung browser ini — pakai Chrome (komputer) atau Safari (iPhone).';
   $('set-captions').checked = st.settings.captions;
   $('set-echo').checked = st.settings.antiEcho;
   $('set-voice').value = st.settings.voice;
