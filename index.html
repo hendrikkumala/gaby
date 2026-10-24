@@ -124,7 +124,11 @@
         <div class="row"><span>API key OpenAI <i>(opsional, berbayar)</i></span>
           <input id="set-openai" class="field small" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false"></div>
         <p class="hint">Urutan cadangan otomatis: <span id="set-chain">–</span></p>
-        <div class="btn-row"><button id="set-save-keys" class="btn primary">Simpan key</button></div>
+        <div class="btn-row">
+          <button id="set-save-keys" class="btn primary">Simpan key</button>
+          <button id="set-del-gemini" class="btn danger">Hapus key Gemini</button>
+          <button id="set-del-openai" class="btn danger">Hapus key OpenAI</button>
+        </div>
       </div>
 
       <p class="hint center">Gabriella v<span id="set-version"></span> · data tersimpan hanya di perangkat ini</p>

@@ -595,6 +595,25 @@ for (const m of Object.keys(MOOD_COLORS)) {
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });
 $('set-echo').addEventListener('change', (e) => { memory.setSetting('antiEcho', e.target.checked); applySettings(); });
 
+function deleteKey(which, label) {
+  if (!memory.get().keys[which]) { toast(`Belum ada key ${label}.`); return; }
+  if (!confirm(`Hapus API key ${label} dari perangkat ini?`)) return;
+  memory.setKeys({ [which]: '' });
+  $(`set-${which}`).value = '';
+  brain.models = null;
+  if (phase === 'active' || phase === 'connecting') goSleep(true);
+  toast(`Key ${label} sudah dihapus.`);
+  fillChain();
+  const { keys } = memory.get();
+  if (!keys.gemini && !keys.openai) {
+    $('settings').hidden = true;
+    phase = 'locked';
+    showGate('key');
+  }
+}
+$('set-del-gemini').addEventListener('click', () => deleteKey('gemini', 'Gemini'));
+$('set-del-openai').addEventListener('click', () => deleteKey('openai', 'OpenAI'));
+
 $('set-save-keys').addEventListener('click', async () => {
   const gemini = $('set-gemini').value.trim();
   const openai = $('set-openai').value.trim();
