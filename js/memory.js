@@ -12,6 +12,7 @@ const DEFAULTS = {
   settings: {
     mode: null,      // 'wake' | 'always' | 'tap' (null = pilih otomatis)
     voice: 'Aoede',
+    lang: 'id',      // 'id' | 'en' | 'auto'
     captions: true,
     antiEcho: false,
   },

@@ -58,11 +58,13 @@ function toGeminiSchema(s) {
 }
 
 export class GeminiLive {
-  constructor({ key, model, voice, lite = false }) {
+  constructor({ key, model, voice, level = 0 }) {
     this.key = key;
     this.model = model;
     this.voice = voice;
-    this.lite = lite; // tanpa Google Search & kompresi, jika model menolak pengaturan lengkap
+    // Tingkat pengaturan: 0 = lengkap & tercepat, 1 = tanpa matikan "berpikir",
+    // 2 = paling sederhana. Dipakai bergantian kalau model menolak pengaturan tertentu.
+    this.level = level;
     this.name = 'gemini';
     this.label = `Gemini (${model})`;
     this.inputRate = 16000;
@@ -113,7 +115,20 @@ export class GeminiLive {
           inputAudioTranscription: {},
           outputAudioTranscription: {},
         };
-        if (!this.lite) {
+        if (this.level === 0) {
+          // Langsung bicara tanpa "berpikir" dulu: jauh lebih cepat.
+          setup.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        }
+        if (this.level < 2) {
+          // Cepat sadar saat kamu mulai bicara (memotong) dan saat kamu selesai bicara.
+          setup.realtimeInputConfig = {
+            automaticActivityDetection: {
+              startOfSpeechSensitivity: 'START_SENSITIVITY_HIGH',
+              endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+              prefixPaddingMs: 40,
+              silenceDurationMs: 500,
+            },
+          };
           setup.tools.push({ googleSearch: {} });
           setup.contextWindowCompression = { slidingWindow: {} };
         }

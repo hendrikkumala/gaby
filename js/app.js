@@ -2,7 +2,8 @@
 
 import { VERSION, PIN_HASH, PIN_LENGTH } from './config.js';
 import { memory } from './memory.js';
-import { openingCue } from './persona.js';
+import { openingCue, LANGS } from './persona.js';
+import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
 import { Visual, MOOD_COLORS } from './visual.js';
 import { Brain } from './brain.js';
@@ -29,6 +30,8 @@ let mood = 'tenang';
 let moodTimer = null;
 let reconnects = [];
 let wakeLock = null;
+let dropAudio = false;          // abaikan sisa suara Gaby setelah kamu memotongnya
+let gabyTurnText = '';
 
 // ---------- Tampilan kecil ----------
 
@@ -115,6 +118,10 @@ const ui = {
   linkToast,
   setMood,
   refreshSettings: () => fillSettings(),
+  setLang(lang) {
+    memory.setSetting('lang', lang);
+    fillSettings();
+  },
   requestNotify() {
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission().catch(() => {});
@@ -129,11 +136,13 @@ const ui = {
 
 const brain = new Brain({
   onAudio(buf, rate) {
+    if (dropAudio) return;
     audio.play(buf, rate);
     lastAudioAt = Date.now();
     touch();
   },
   onInterrupted() {
+    dropAudio = false;
     audio.interrupt();
     finishCaption('gaby');
   },
@@ -143,10 +152,16 @@ const brain = new Brain({
     touch();
   },
   onGabyText(t) {
+    if (dropAudio) return;
     caption('gaby', t);
     memory.addHistory('gaby', t);
+    gabyTurnText = (gabyTurnText + t).slice(-120);
+    const m = detectMood(gabyTurnText.slice(-60));
+    if (m && m !== mood) setMood(m);
   },
   onTurnComplete() {
+    dropAudio = false;
+    gabyTurnText = '';
     finishCaption('gaby');
     touch();
   },
@@ -185,7 +200,16 @@ function currentMode() {
   return m;
 }
 
+// Kamu memotong Gaby: hentikan suaranya saat itu juga, tanpa menunggu server.
+audio.onBargeIn = () => {
+  audio.interrupt();
+  dropAudio = true;
+  finishCaption('gaby');
+  touch();
+};
+
 const wake = new WakeListener({
+  getLang: () => (memory.get().settings.lang === 'en' ? 'en-US' : 'id-ID'),
   onWake: (rest) => activate('wake', rest),
   onUnavailable: () => {
     wakeBroken = true;
@@ -500,6 +524,7 @@ function fillSettings() {
   }
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });
+  document.querySelectorAll('input[name="lang"]').forEach((r) => { r.checked = r.value === (st.settings.lang || 'id'); });
   $('wake-support').textContent = WakeListener.supported && !wakeBroken
     ? '"Hai Gaby" bekerja selama aplikasi terbuka di layar.'
     : '"Hai Gaby" tidak didukung browser ini — pakai Chrome (Android/komputer) atau Safari (iPhone).';
@@ -512,7 +537,9 @@ function fillSettings() {
 
 async function fillChain() {
   try {
-    $('set-chain').textContent = brain.describeChain(await brain.chain());
+    const order = brain.describeChain(await brain.chain());
+    const active = brain.connected && brain.current ? (brain.current.model || 'OpenAI') : null;
+    $('set-chain').textContent = active ? `${order}  ·  sedang aktif: ${active}` : order;
   } catch {
     $('set-chain').textContent = '–';
   }
@@ -545,6 +572,12 @@ document.querySelectorAll('input[name="mode"]').forEach((r) => r.addEventListene
   if (r.value === 'wake') wakeBroken = false;
   if (phase === 'sleep') goSleep(true);
   render();
+}));
+
+document.querySelectorAll('input[name="lang"]').forEach((r) => r.addEventListener('change', () => {
+  memory.setSetting('lang', r.value);
+  toast(`Bahasa Gaby: ${LANGS[r.value]}`);
+  restartSession();
 }));
 
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });

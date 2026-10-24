@@ -1,7 +1,7 @@
 // Kemampuan Gaby: nama, ingatan, emosi, waktu, cuaca, pengingat, buka situs.
 
 import { memory } from './memory.js';
-import { MOODS } from './persona.js';
+import { LANGS } from './persona.js';
 
 // Definisi alat dalam format umum (JSON Schema sederhana).
 export const TOOL_DEFS = [
@@ -33,12 +33,12 @@ export const TOOL_DEFS = [
     },
   },
   {
-    name: 'ubah_suasana_hati',
-    description: 'Ubah warna cahaya Gaby di layar sesuai emosi Gaby saat ini.',
+    name: 'ganti_bahasa',
+    description: 'Ganti bahasa bicara Gaby secara permanen: id = Indonesia, en = Inggris, auto = ikuti bahasa pengguna.',
     parameters: {
       type: 'object',
-      properties: { suasana: { type: 'string', enum: MOODS } },
-      required: ['suasana'],
+      properties: { bahasa: { type: 'string', enum: Object.keys(LANGS) } },
+      required: ['bahasa'],
     },
   },
   {
@@ -180,9 +180,10 @@ export async function runTool(name, args, ui) {
       case 'lupakan':
         return { ok: true, dihapus: memory.forget(args.kata_kunci) };
 
-      case 'ubah_suasana_hati':
-        ui.setMood(args.suasana);
-        return { ok: true };
+      case 'ganti_bahasa':
+        if (!LANGS[args.bahasa]) return { error: 'Bahasa tidak dikenal' };
+        ui.setLang(args.bahasa);
+        return { ok: true, bahasa: LANGS[args.bahasa] };
 
       case 'waktu_sekarang': {
         const d = new Date();

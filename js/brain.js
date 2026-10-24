@@ -13,6 +13,7 @@ export class Brain {
     this.h = handlers;    // { onAudio, onInterrupted, onUserText, onGabyText, onTurnComplete, onToolCall, onLost, notice }
     this.provider = null;
     this.models = null;
+    this.levels = {};     // tingkat pengaturan Gemini yang berhasil, per model
   }
 
   async discover(force = false) {
@@ -48,10 +49,10 @@ export class Brain {
     return list.map((p) => (p.kind === 'openai' ? 'OpenAI' : p.model)).join(' → ') || '(belum ada key)';
   }
 
-  makeProvider(p, lite) {
+  makeProvider(p, level) {
     const { keys, settings } = memory.get();
     return p.kind === 'gemini'
-      ? new GeminiLive({ key: keys.gemini, model: p.model, voice: settings.voice, lite })
+      ? new GeminiLive({ key: keys.gemini, model: p.model, voice: settings.voice, level })
       : new OpenAIRealtime({ key: keys.openai });
   }
 
@@ -70,19 +71,22 @@ export class Brain {
     let geminiAuthFailed = false;
     for (const p of order) {
       if (p.kind === 'gemini' && geminiAuthFailed) continue;
-      for (const lite of p.kind === 'gemini' ? [false, true] : [false]) {
-        const prov = this.makeProvider(p, lite);
+      // Mulai dari tingkat pengaturan yang terakhir berhasil, supaya bangun lebih cepat.
+      const start = this.levels[p.id] || 0;
+      for (const level of p.kind === 'gemini' ? [0, 1, 2].filter((l) => l >= start) : [0]) {
+        const prov = this.makeProvider(p, level);
         this.wire(prov, p);
         try {
           await prov.connect({ system: buildPersona(prov.name), tools: TOOL_DEFS });
           this.provider = prov;
           this.current = p;
+          this.levels[p.id] = level;
           memory.clearExhausted(p.id);
           return prov;
         } catch (e) {
           prov.close();
           lastErr = e;
-          console.warn('[Gaby] gagal', p.id, lite ? '(lite)' : '', e.kind, e.message);
+          console.warn('[Gaby] gagal', p.id, `(tingkat ${level})`, e.kind, e.message);
           if (e.kind === 'quota') {
             memory.markExhausted(p.id);
             this.h.notice(`Kuota ${p.kind === 'openai' ? 'OpenAI' : p.model} habis, pindah ke cadangan…`, 'warn');

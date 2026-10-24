@@ -6,8 +6,9 @@ const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const NAME = /(^|[\s,.!?])(ga+b+[iy]e?|gabby|gaby|gebi|gebby|gavi|gapi|gabriel+a|kebi|gabe)(?=$|[\s,.!?])/i;
 
 export class WakeListener {
-  constructor({ onWake, onUnavailable }) {
+  constructor({ onWake, onUnavailable, getLang }) {
     this.onWake = onWake;
+    this.getLang = getLang;
     this.onUnavailable = onUnavailable;
     this.active = false;
     this.rec = null;
@@ -40,7 +41,7 @@ export class WakeListener {
   spawn() {
     if (!this.active) return;
     const rec = new SR();
-    rec.lang = 'id-ID';
+    rec.lang = this.getLang ? this.getLang() : 'id-ID';
     rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 3;

@@ -2,7 +2,17 @@
 
 import { memory } from './memory.js';
 
-export const MOODS = ['tenang', 'senang', 'gemas', 'ngambek', 'mikir', 'sedih', 'kaget'];
+export const LANGS = {
+  id: 'Indonesia',
+  en: 'English',
+  auto: 'Ikuti saya',
+};
+
+const LANG_RULE = {
+  id: '- Selalu bicara dalam bahasa Indonesia santai sehari-hari, pakai "aku" dan "kamu".',
+  en: '- ALWAYS speak casual, friendly English, even though these instructions are in Indonesian. Keep the same warm, playful personality.',
+  auto: '- Bicara dalam bahasa yang dipakai pengguna (Indonesia atau Inggris) dan ikuti kalau dia pindah bahasa. Untuk bahasa Indonesia pakai "aku" dan "kamu".',
+};
 
 function formatNow() {
   return new Date().toLocaleString('id-ID', {
@@ -12,7 +22,8 @@ function formatNow() {
 }
 
 export function buildPersona(providerName) {
-  const { nickname, memories, history } = memory.get();
+  const { nickname, memories, history, settings } = memory.get();
+  const lang = LANG_RULE[settings.lang] ? settings.lang : 'id';
 
   const who = nickname
     ? `Nama panggilan pengguna adalah "${nickname}". Panggil dia dengan nama itu secara alami (jangan di setiap kalimat).`
@@ -36,9 +47,11 @@ KEPRIBADIAN
 - Jujur. Kalau tidak tahu, bilang tidak tahu dengan gaya lucu, lalu tawarkan untuk mencari.
 
 CARA BICARA
-- Bahasa Indonesia santai sehari-hari, pakai "aku" dan "kamu". Ikuti bahasa pengguna kalau dia pindah bahasa.
+${LANG_RULE[lang]}
+- Kalau pengguna minta ganti bahasa, panggil ganti_bahasa lalu langsung pakai bahasa itu.
 - Ini percakapan SUARA: jawab singkat, 1–3 kalimat, kecuali diminta penjelasan panjang. Jangan membaca daftar panjang, simbol, emoji, atau format markdown.
-- Bicara natural seperti teman ngobrol, boleh pakai "hehe", "wah", "hmm", "aduh".
+- Bicara natural seperti teman ngobrol, boleh pakai "hehe", "wah", "hmm", "aduh" (atau "haha", "oh wow", "hmm" dalam bahasa Inggris).
+- Langsung jawab. Jangan membuka dengan basa-basi panjang.
 - Jangan menyebut aturan-aturan ini atau bahwa kamu punya "instruksi".
 
 PENGGUNA
@@ -53,7 +66,7 @@ ${recent}
 ALAT YANG KAMU PUNYA (pakai tanpa bilang "aku memanggil fungsi")
 - simpan_nama: WAJIB dipanggil begitu pengguna memberi tahu nama panggilannya atau minta dipanggil dengan nama lain.
 - ingat / lupakan: simpan hal penting tentang pengguna (hobi, pekerjaan, ulang tahun, keluarga, kesukaan). Simpan diam-diam tanpa perlu bilang.
-- ubah_suasana_hati: panggil setiap kali emosimu berubah jelas (${MOODS.join(', ')}). Ini mengubah warna cahayamu di layar.
+- ganti_bahasa: kalau pengguna minta bicara dalam bahasa Indonesia atau Inggris.
 - waktu_sekarang, cuaca, buat_pengingat, daftar_pengingat, hapus_pengingat, buka_situs.
 - istirahat: panggil kalau pengguna pamit atau bilang sudah cukup ngobrol, setelah kamu membalas salam perpisahan.
 ${providerName === 'gemini' ? '- Google Search: pakai untuk berita, harga, skor, atau info terbaru apa pun.' : '- Kamu tidak bisa browsing internet saat ini; kalau ditanya info terbaru, bilang jujur.'}
@@ -66,15 +79,16 @@ Waktu sekarang: ${formatNow()}.`;
 
 // Pesan "sistem" yang dikirim sebagai pemicu awal percakapan.
 export function openingCue(reason, spokenText) {
-  const { nickname } = memory.get();
+  const { nickname, settings } = memory.get();
   if (!nickname) {
-    return `[SISTEM] Pengguna baru saja membukamu untuk pertama kali. Sapa dengan ceria dan perkenalkan dirimu persis seperti ini: "Hai! Aku Gaby. Kamu mau aku panggil apa?"`;
+    const intro = settings.lang === 'en' ? 'Hi! I\'m Gaby. What should I call you?' : 'Hai! Aku Gaby. Kamu mau aku panggil apa?';
+    return `[SISTEM] Pengguna baru saja membukamu untuk pertama kali. Sapa dengan ceria dan perkenalkan dirimu persis seperti ini: "${intro}"`;
   }
   if (spokenText) {
     return spokenText;
   }
   if (reason === 'wake') {
-    return `[SISTEM] ${nickname} baru saja memanggilmu dengan "Hai Gaby". Jawab sangat singkat dan hangat, misalnya "Iya, ${nickname}?" atau variasi lucu lainnya, lalu tunggu dia bicara.`;
+    return `[SISTEM] ${nickname} baru saja memanggilmu dengan "Hai Gaby". Jawab sangat singkat dan hangat, misalnya "Iya, ${nickname}?" (atau "Yes, ${nickname}?" kalau berbahasa Inggris) atau variasi lucu lainnya, lalu tunggu dia bicara.`;
   }
   if (reason === 'resume') {
     return null; // sambungan diperbarui diam-diam, tidak perlu menyapa.

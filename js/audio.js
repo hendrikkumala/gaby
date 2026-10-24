@@ -24,7 +24,7 @@ class Capture extends AudioWorkletProcessor {
       this.pos += step;
     }
     this.pos -= ch.length;
-    const chunk = Math.round(this.target / 10); // potongan 100 ms
+    const chunk = Math.round(this.target / 20); // potongan 50 ms (lebih cepat sampai ke Gemini)
     if (this.out.length >= chunk) {
       const pcm = new Int16Array(this.out.length);
       for (let i = 0; i < this.out.length; i++) {
@@ -71,6 +71,29 @@ export class AudioEngine {
     this.antiEcho = false;
     this.sources = new Set();
     this.nextTime = 0;
+    this.onBargeIn = null;    // dipanggil saat kamu memotong Gaby
+    this.echoBase = 0.01;
+    this.loudMs = 0;
+  }
+
+  // Deteksi kamu memotong: suara mic jauh lebih keras dari sisa gema suara Gaby.
+  checkBargeIn(level) {
+    if (!this.isSpeaking() || this.antiEcho || this.muted || !this.sending) {
+      this.loudMs = 0;
+      this.echoBase = 0.01;
+      return;
+    }
+    const threshold = Math.max(0.035, this.echoBase * 3);
+    if (level > threshold) {
+      this.loudMs += 50;
+      if (this.loudMs >= 200) {
+        this.loudMs = 0;
+        this.onBargeIn && this.onBargeIn();
+      }
+    } else {
+      this.loudMs = 0;
+      this.echoBase = this.echoBase * 0.9 + level * 0.1;
+    }
   }
 
   // Harus dipanggil dari ketukan pengguna (aturan browser, terutama iPhone).
@@ -109,6 +132,7 @@ export class AudioEngine {
       this.node = new AudioWorkletNode(this.ctx, 'gaby-capture');
       this.node.port.onmessage = (e) => {
         this.micLevel = this.muted ? 0 : e.data.level;
+        this.checkBargeIn(this.micLevel);
         if (!this.sending || this.muted || !this.onChunk) return;
         if (this.antiEcho && this.isSpeaking()) return;
         this.onChunk(e.data.pcm);
