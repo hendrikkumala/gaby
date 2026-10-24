@@ -8,7 +8,7 @@ const DEFAULTS = {
   history: [],       // [{ who: 'user' | 'gaby', text, at }]
   reminders: [],     // [{ id, text, due, done }]
   pinOk: false,
-  keys: { gemini: '', openai: '' },
+  keys: { gemini: '', openai: '', pollinations: '' },
   settings: {
     mode: null,      // 'wake' | 'always' | 'tap' (null = pilih otomatis)
     voice: 'Aoede',
@@ -16,6 +16,7 @@ const DEFAULTS = {
     model: 'auto',   // nama model Gemini, atau 'auto'
     vadMode: 'local', // 'local' = perangkat menentukan selesai bicara, 'server' = Gemini
     diag: false,     // tampilkan panel diagnosa
+    imageEngine: 'free', // 'free' (Pollinations) | 'google' (berbayar, bisa edit foto)
     captions: true,
     antiEcho: false,
   },

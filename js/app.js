@@ -13,7 +13,7 @@ import { GEMINI_VOICES, listLiveModels, isSlowModel } from './gemini.js';
 import { LocalVad } from './vad.js';
 import { Camera } from './camera.js';
 import { gallery } from './gallery.js';
-import { generateImage } from './imagegen.js';
+import { generateImage, generateFree } from './imagegen.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -213,6 +213,7 @@ const ui = {
   calendarToast,
   camera: (aksi, kamera) => cameraTool(aksi, kamera),
   makeImage: (prompt, useCam) => makeImage(prompt, useCam),
+  imageAction: (aksi) => imageAction(aksi),
   setMood,
   refreshSettings: () => fillSettings(),
   setLang(lang) {
@@ -678,6 +679,8 @@ function fillSettings() {
   $('set-voice').value = st.settings.voice;
   if (document.activeElement !== $('set-gemini')) $('set-gemini').value = st.keys.gemini;
   if (document.activeElement !== $('set-openai')) $('set-openai').value = st.keys.openai;
+  if (document.activeElement !== $('set-poll')) $('set-poll').value = st.keys.pollinations || '';
+  document.querySelectorAll('input[name="imgengine"]').forEach((r) => { r.checked = r.value === (st.settings.imageEngine || 'free'); });
 }
 
 async function fillModels() {
@@ -774,6 +777,10 @@ document.querySelectorAll('input[name="vad"]').forEach((r) => r.addEventListener
   memory.setSetting('vadMode', r.value);
   restartSession();
 }));
+document.querySelectorAll('input[name="imgengine"]').forEach((r) => r.addEventListener('change', () => {
+  memory.setSetting('imageEngine', r.value);
+  toast(r.value === 'google' ? 'Mesin gambar: Google (berbayar)' : 'Mesin gambar: Gratis');
+}));
 $('set-diag').addEventListener('change', (e) => { memory.setSetting('diag', e.target.checked); renderDiag(); });
 
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });
@@ -801,11 +808,12 @@ $('set-del-openai').addEventListener('click', () => deleteKey('openai', 'OpenAI'
 $('set-save-keys').addEventListener('click', async () => {
   const gemini = $('set-gemini').value.trim();
   const openai = $('set-openai').value.trim();
+  const pollinations = $('set-poll').value.trim();
   if (gemini && gemini !== memory.get().keys.gemini) {
     const err = await checkGeminiKey(gemini);
     if (err) { toast(err, 'err'); return; }
   }
-  memory.setKeys({ gemini, openai });
+  memory.setKeys({ gemini, openai, pollinations });
   for (const id of Object.keys(memory.get().exhausted)) memory.clearExhausted(id);
   brain.models = null;
   toast('Key tersimpan ✓');
@@ -910,22 +918,45 @@ $('cam-screen').addEventListener('click', () => openCamera('layar', undefined, t
 
 // ---------- Gambar buatan Gaby ----------
 
+let pendingImage = null;   // gambar yang sedang tampil, belum disimpan
+let previewUrl = null;
+
+const imgSrc = (it) => (it.blob ? URL.createObjectURL(it.blob) : it.url);
+
 async function makeImage(prompt, useCam) {
-  const key = memory.get().keys.gemini;
-  if (!key) return { error: 'Butuh API key Gemini untuk membuat gambar' };
+  const st = memory.get();
   const photo = useCam ? camera.frame(1024, 0.85) : null;
   if (useCam && !photo) return { error: 'Kamera belum menyala. Minta pengguna menyalakan kamera dulu.' };
   painting++;
   visual.painting = true;
-  const note = toast('🎨 Gaby sedang menggambar…', 'info', 60000);
+  const note = toast('🎨 Gaby sedang menggambar…', 'info', 90000);
+  let out = null;
+  let engine = st.settings.imageEngine === 'google' ? 'google' : 'gratis';
+  let switched = '';
   try {
-    const out = await generateImage(key, prompt, photo);
-    const item = await gallery.add(out.blob, prompt);
-    showViewer(item);
-    brain.sendImage(out.base64, out.blob.type); // supaya Gaby bisa melihat hasilnya
-    return { ok: true, catatan: 'Gambar sudah tampil di layar pengguna. Komentari hasilnya singkat dan ceria.' };
+    if (engine === 'google') {
+      try {
+        if (!st.keys.gemini) throw Object.assign(new Error('Belum ada key Gemini'), { kind: 'key' });
+        out = await generateImage(st.keys.gemini, prompt, photo);
+      } catch (e) {
+        if (e.kind === 'ditolak') throw e;
+        // Billing belum aktif / kuota habis: tetap buatkan gambar dengan mesin gratis.
+        switched = e.pesan || e.message;
+        toast(`🎨 Google: ${switched} Pakai mesin gratis…`, 'warn', 8000);
+        engine = 'gratis';
+      }
+    }
+    if (!out) out = await generateFree(prompt, st.keys.pollinations);
+    pendingImage = { blob: out.blob, url: out.url || null, prompt, useCam, engine };
+    showPreview();
+    if (out.base64) brain.sendImage(out.base64, out.blob ? out.blob.type : 'image/png'); // supaya Gaby bisa melihat hasilnya
+    const notes = ['Gambar sudah tampil di layar. Komentari singkat, lalu tanya mau disimpan, diulang, atau dibuang.'];
+    if (engine === 'gratis' && useCam) notes.push('Ini gambar ulang yang mirip dari deskripsi, bukan edit foto asli.');
+    if (switched) notes.push(`Mesin Google gagal (${switched}), jadi memakai mesin gratis.`);
+    if (!out.base64) notes.push('Kamu tidak bisa melihat hasil gambarnya, jadi jangan mendeskripsikannya secara detail.');
+    return { ok: true, mesin: engine, catatan: notes.join(' ') };
   } catch (e) {
-    toast(`🎨 ${e.pesan || e.message}`, e.kind === 'billing' ? 'warn' : 'err', 12000);
+    toast(`🎨 ${e.pesan || e.message}`, 'err', 12000);
     return { error: e.pesan || e.message, jenis: e.kind || 'lain' };
   } finally {
     note.remove();
@@ -935,6 +966,48 @@ async function makeImage(prompt, useCam) {
   }
 }
 
+function showPreview() {
+  if (!pendingImage) return;
+  if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+  previewUrl = imgSrc(pendingImage);
+  $('preview-img').src = previewUrl;
+  $('preview-tag').textContent = pendingImage.engine === 'google' ? 'GOOGLE' : 'GRATIS';
+  $('preview').hidden = false;
+  $('preview').classList.remove('show');
+  requestAnimationFrame(() => $('preview').classList.add('show'));
+}
+
+function hidePreview() {
+  $('preview').hidden = true;
+  $('preview').classList.remove('show');
+}
+
+async function imageAction(aksi) {
+  if (!pendingImage) return { error: 'Tidak ada gambar yang sedang tampil' };
+  if (aksi === 'simpan') {
+    await gallery.add(pendingImage.blob, pendingImage.prompt, pendingImage.blob ? null : pendingImage.url);
+    pendingImage = null;
+    hidePreview();
+    toast('💾 Tersimpan di galeri (kanan bawah)');
+    return { ok: true };
+  }
+  if (aksi === 'buang') {
+    pendingImage = null;
+    hidePreview();
+    return { ok: true };
+  }
+  if (aksi === 'ulang') {
+    const { prompt, useCam } = pendingImage;
+    hidePreview();
+    return makeImage(prompt, useCam);
+  }
+  return { error: 'Aksi tidak dikenal' };
+}
+
+$('preview-save').addEventListener('click', () => imageAction('simpan'));
+$('preview-discard').addEventListener('click', () => imageAction('buang'));
+$('preview-redo').addEventListener('click', () => imageAction('ulang'));
+
 let viewerUrl = null;
 let viewerItem = null;
 
@@ -942,19 +1015,20 @@ async function showViewer(item) {
   const list = await gallery.list();
   if (!list.length) { toast('Belum ada gambar. Coba bilang "Gaby, gambarin kucing astronot".'); return; }
   viewerItem = list.find((x) => x.id === item?.id) || list[0];
-  if (viewerUrl) URL.revokeObjectURL(viewerUrl);
-  viewerUrl = URL.createObjectURL(viewerItem.blob);
+  if (viewerUrl && viewerUrl.startsWith('blob:')) URL.revokeObjectURL(viewerUrl);
+  viewerUrl = imgSrc(viewerItem);
   $('viewer-img').src = viewerUrl;
   $('viewer-cap').textContent = viewerItem.prompt || '';
-  const ext = (viewerItem.blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  const ext = ((viewerItem.blob && viewerItem.blob.type.split('/')[1]) || 'jpg').replace('jpeg', 'jpg');
   $('viewer-save').href = viewerUrl;
+  $('viewer-save').target = viewerItem.blob ? '' : '_blank'; // gambar dari alamat luar: buka di tab baru
   $('viewer-save').download = `gaby-${viewerItem.id}.${ext}`;
   const strip = $('viewer-strip');
-  strip.querySelectorAll('img').forEach((im) => URL.revokeObjectURL(im.src));
+  strip.querySelectorAll('img').forEach((im) => im.src.startsWith('blob:') && URL.revokeObjectURL(im.src));
   strip.innerHTML = '';
   for (const it of list) {
     const im = document.createElement('img');
-    im.src = URL.createObjectURL(it.blob);
+    im.src = imgSrc(it);
     im.className = it.id === viewerItem.id ? 'on' : '';
     im.onclick = () => showViewer(it);
     strip.appendChild(im);
@@ -974,6 +1048,11 @@ $('viewer-del').addEventListener('click', async () => {
 });
 $('viewer-share').addEventListener('click', async () => {
   if (!viewerItem) return;
+  if (!viewerItem.blob) {
+    if (navigator.share) navigator.share({ url: viewerItem.url, title: 'Gambar dari Gaby' }).catch(() => {});
+    else window.open(viewerItem.url, '_blank', 'noopener');
+    return;
+  }
   const file = new File([viewerItem.blob], $('viewer-save').download, { type: viewerItem.blob.type });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     navigator.share({ files: [file], title: 'Gambar dari Gaby' }).catch(() => {});

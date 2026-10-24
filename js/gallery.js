@@ -23,9 +23,9 @@ function tx(mode, fn) {
 }
 
 export const gallery = {
-  // item: { id, blob, prompt, at }
-  async add(blob, prompt) {
-    const item = { id: `${Date.now()}`, blob, prompt, at: Date.now() };
+  // item: { id, blob, url, prompt, at } — blob boleh kosong kalau hanya alamat gambar yang tersedia
+  async add(blob, prompt, url = null) {
+    const item = { id: `${Date.now()}`, blob, url, prompt, at: Date.now() };
     await tx('readwrite', (s) => s.put(item));
     const all = await this.list();
     for (const old of all.slice(MAX)) await tx('readwrite', (s) => s.delete(old.id));

@@ -72,3 +72,55 @@ export async function generateImage(key, prompt, photo) {
   }
   throw Object.assign(new Error(last?.pesan || 'Model gambar tidak tersedia'), last || { kind: 'lain' });
 }
+
+// ---------- Mesin gratis (Pollinations) ----------
+// Tidak butuh billing. Kalau layanan meminta key, pengguna bisa mengisi key gratis
+// dari pollinations.ai di Pengaturan.
+
+function loadImage(url, timeoutMs = 90000) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const timer = setTimeout(() => { img.src = ''; reject(new Error('timeout')); }, timeoutMs);
+    img.onload = () => { clearTimeout(timer); resolve(img); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error('ditolak')); };
+    img.src = url;
+  });
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1]);
+    r.onerror = () => resolve(null);
+    r.readAsDataURL(blob);
+  });
+}
+
+export async function generateFree(prompt, key = '') {
+  const seed = Math.floor(Math.random() * 1e9);
+  const q = new URLSearchParams({ width: '1024', height: '1024', nologo: 'true', seed: String(seed) });
+  if (key) q.set('key', key);
+  const p = encodeURIComponent(prompt);
+  const urls = [`https://image.pollinations.ai/prompt/${p}?${q}`];
+  if (key) urls.push(`https://gen.pollinations.ai/image/${p}?${q}`);
+
+  for (const url of urls) {
+    try {
+      await loadImage(url);
+    } catch {
+      continue;
+    }
+    // Gambar sudah tampil. Coba ambil datanya (butuh izin CORS) supaya bisa
+    // disimpan utuh di galeri & dilihat Gaby; kalau tidak bisa, simpan alamatnya saja.
+    let blob = null;
+    try {
+      const res = await fetch(url);
+      if (res.ok) blob = await res.blob();
+    } catch {}
+    return { url, blob, base64: blob ? await blobToBase64(blob) : null, model: 'pollinations' };
+  }
+  const err = new Error(key
+    ? 'Layanan gambar gratis sedang menolak atau sibuk. Coba lagi sebentar lagi.'
+    : 'Layanan gambar gratis menolak. Mungkin sekarang perlu key gratis dari pollinations.ai (isi di Pengaturan).');
+  throw Object.assign(err, { kind: key ? 'sibuk' : 'butuh_key', pesan: err.message });
+}

@@ -66,6 +66,19 @@
   <!-- Notifikasi kecil -->
   <div id="toasts" class="toasts"></div>
 
+  <!-- Gambar baru: tampil seperti hologram, pilih simpan / ulang / buang -->
+  <div id="preview" class="preview" hidden>
+    <div class="preview-frame">
+      <span id="preview-tag" class="preview-tag">GRATIS</span>
+      <img id="preview-img" alt="Gambar buatan Gaby">
+    </div>
+    <div class="preview-actions">
+      <button id="preview-save" class="btn primary">💾 Simpan</button>
+      <button id="preview-redo" class="btn">🔁 Ulang</button>
+      <button id="preview-discard" class="btn">✕ Buang</button>
+    </div>
+  </div>
+
   <!-- Galeri / penampil gambar -->
   <div id="viewer" class="overlay" hidden>
     <div class="viewer glass">
@@ -178,6 +191,11 @@
         <h4 class="sub">Siapa yang menentukan kamu selesai bicara</h4>
         <label class="radio"><input type="radio" name="vad" value="local"> <span><b>Gaby</b> — langsung menjawab setelah kamu diam sebentar (lebih cepat)</span></label>
         <label class="radio"><input type="radio" name="vad" value="server"> <span><b>Gemini</b> — server Google yang menebak (pakai jika Gaby sering menyela)</span></label>
+        <h4 class="sub">Mesin gambar</h4>
+        <label class="radio"><input type="radio" name="imgengine" value="free"> <span><b>Gratis</b> — buat gambar baru (kualitas lumayan, kadang lambat)</span></label>
+        <label class="radio"><input type="radio" name="imgengine" value="google"> <span><b>Google</b> — kualitas terbaik & bisa edit foto asli. Butuh billing (±Rp300–1.000/gambar); kalau gagal otomatis pakai yang gratis</span></label>
+        <div class="row"><span>Key Pollinations <i>(opsional, gratis)</i></span>
+          <input id="set-poll" class="field small" type="password" placeholder="Hanya jika diminta" autocomplete="off" spellcheck="false"></div>
         <label class="check"><input type="checkbox" id="set-diag"> Tampilkan panel diagnosa (angka kecepatan)</label>
         <p class="hint">Urutan cadangan otomatis: <span id="set-chain">–</span></p>
         <p class="hint">Rata-rata waktu respons: <b id="set-latency">belum ada data</b></p>

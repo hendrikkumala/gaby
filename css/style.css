@@ -460,3 +460,58 @@ html, body {
   .row { flex-wrap: wrap; }
   .field.small { width: 100%; }
 }
+
+/* ---------- Pratinjau gambar (hologram) ---------- */
+.preview {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%) scale(.6);
+  width: min(78vw, 420px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 8;
+  opacity: 0;
+  transition: transform .5s cubic-bezier(.2, 1.4, .4, 1), opacity .4s;
+}
+.preview[hidden] { display: none; }
+.preview.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.preview-frame {
+  position: relative;
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(127, 227, 255, .7);
+  box-shadow: 0 0 40px rgba(95, 212, 255, .45), inset 0 0 20px rgba(95, 212, 255, .3);
+  background: #000;
+}
+.preview-frame img { width: 100%; display: block; aspect-ratio: 1; object-fit: cover; }
+.preview-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(transparent 0 3px, rgba(95, 212, 255, .07) 3px 4px),
+    linear-gradient(transparent 40%, rgba(127, 227, 255, .25) 50%, transparent 60%);
+  background-size: 100% 100%, 100% 300%;
+  animation: holo 3s linear infinite;
+  pointer-events: none;
+}
+@keyframes holo { from { background-position: 0 0, 0 100%; } to { background-position: 0 0, 0 -200%; } }
+.preview-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  background: rgba(0, 0, 0, .55);
+  color: #bfe9ff;
+}
+.preview-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.preview-actions .btn.primary { width: auto; margin-top: 0; }

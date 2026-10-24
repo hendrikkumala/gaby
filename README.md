@@ -24,7 +24,9 @@ Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyen
 - 📷 **Kamera**: "Gaby, lihat ini" — Gaby melihat dan mengomentari benda yang kamu tunjukkan.
   Di laptop juga bisa **bagikan layar**.
 - 🎨 **Gambar**: "Gaby, tambahkan anjing tidur di bantal ini" atau "gambarin kucing astronot".
-  Hasil tersimpan di galeri (tombol kanan bawah). *Butuh billing Google; tanpa billing Gaby akan memberi tahu.*
+  Gambar tampil di layar; pilih **Simpan**, **Ulang**, atau **Buang** (bisa lewat suara).
+  Mesin bawaan **Gratis** (Pollinations). Mesin **Google** (Pengaturan) lebih bagus dan bisa mengedit foto asli,
+  tapi butuh billing; kalau gagal, otomatis pakai yang gratis.
 - Membuka situs (YouTube, Maps, dll.)
 - Bilang "udah dulu ya Gaby" supaya dia tidur lagi
 

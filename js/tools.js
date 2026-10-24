@@ -113,14 +113,23 @@ export const TOOL_DEFS = [
   {
     name: 'buat_gambar',
     background: 'idle',
-    description: 'Buat gambar baru, atau edit foto dari kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Butuh 5–15 detik; sambil menunggu, bilang singkat bahwa kamu sedang menggambar.',
+    description: 'Buat gambar baru, atau gambar berdasarkan benda di kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Butuh 5–20 detik; sambil menunggu, bilang singkat bahwa kamu sedang menggambar. Gambar tampil di layar dan pengguna memilih simpan, ulang, atau buang.',
     parameters: {
       type: 'object',
       properties: {
-        perintah: { type: 'string', description: 'Deskripsi gambar yang detail, dalam bahasa Inggris' },
+        perintah: { type: 'string', description: 'Deskripsi gambar yang detail dalam bahasa Inggris. Kalau pakai_kamera, SELALU deskripsikan juga benda di kamera secara rinci (bentuk, warna, bahan, latar), karena mesin gratis menggambar ulang dari deskripsi.' },
         pakai_kamera: { type: 'boolean', description: 'true untuk mengedit gambar dari kamera saat ini' },
       },
       required: ['perintah'],
+    },
+  },
+  {
+    name: 'gambar_aksi',
+    description: 'Tindakan untuk gambar yang sedang tampil: simpan ke galeri, ulang (gambar lagi dengan perintah sama), atau buang.',
+    parameters: {
+      type: 'object',
+      properties: { aksi: { type: 'string', enum: ['simpan', 'ulang', 'buang'] } },
+      required: ['aksi'],
     },
   },
   {
@@ -258,6 +267,9 @@ export async function runTool(name, args, ui) {
 
       case 'buat_gambar':
         return await ui.makeImage(String(args.perintah || ''), !!args.pakai_kamera);
+
+      case 'gambar_aksi':
+        return await ui.imageAction(args.aksi);
 
       case 'istirahat':
         ui.sleepAfterSpeech();
