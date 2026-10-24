@@ -322,7 +322,42 @@ html, body {
 .pin-pad button.ghost { border: none; background: none; font-family: inherit; font-size: 15px; color: var(--ink-dim); }
 
 /* Settings */
-.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.panel.wide { padding-top: 0; }
+.panel-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -24px;
+  padding: 20px 24px 10px;
+  background: rgba(8, 20, 34, 0.96);
+  border-bottom: 1px solid var(--line);
+}
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button {
+  flex: none;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(95, 212, 255, .06);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tabs button:hover, .tabs button.on { border-color: var(--accent); background: rgba(95, 212, 255, .18); }
+.group { scroll-margin-top: 120px; }
+.scroll-fade {
+  position: sticky;
+  bottom: -28px;
+  height: 36px;
+  margin: -36px -24px 0;
+  background: linear-gradient(rgba(8, 20, 34, 0), rgba(8, 20, 34, .95));
+  pointer-events: none;
+}
 .panel-head h2 { font-family: "Orbitron", sans-serif; font-size: 18px; letter-spacing: .15em; margin: 0; }
 .group { border-top: 1px solid var(--line); padding: 16px 0 6px; }
 .group h3 { margin: 0 0 10px; font-size: 14px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }

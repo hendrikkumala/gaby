@@ -76,12 +76,21 @@
   <!-- Pengaturan -->
   <div id="settings" class="overlay" hidden>
     <div class="panel glass wide">
-      <div class="panel-head">
-        <h2>Pengaturan</h2>
-        <button id="settings-close" class="icon-btn" aria-label="Tutup">✕</button>
+      <div class="panel-top">
+        <div class="panel-head">
+          <h2>Pengaturan</h2>
+          <button id="settings-close" class="icon-btn" aria-label="Tutup">✕</button>
+        </div>
+        <nav class="tabs" id="settings-tabs">
+          <button data-go="grp-otak">🧠 Otak &amp; Key</button>
+          <button data-go="grp-kamu">👤 Kamu</button>
+          <button data-go="grp-panggil">🎙️ Panggilan</button>
+          <button data-go="grp-bahasa">🌐 Bahasa</button>
+          <button data-go="grp-suara">🎨 Suara &amp; Ekspresi</button>
+        </nav>
       </div>
 
-      <div class="group">
+      <div class="group" id="grp-kamu">
         <h3>Tentang kamu</h3>
         <div class="row"><span>Nama panggilan</span><b id="set-nick">–</b></div>
         <div class="row"><span>Hal yang Gaby ingat</span><b id="set-mem-count">0</b></div>
@@ -92,7 +101,7 @@
         </div>
       </div>
 
-      <div class="group">
+      <div class="group" id="grp-panggil">
         <h3>Cara memanggil Gaby</h3>
         <label class="radio"><input type="radio" name="mode" value="wake"> <span><b>"Hai Gaby"</b> — hemat kuota, Gaby tidur kalau tidak diajak bicara</span></label>
         <label class="radio"><input type="radio" name="mode" value="always"> <span><b>Selalu dengar</b> — langsung ngobrol tanpa kata panggilan (lebih boros kuota)</span></label>
@@ -100,14 +109,14 @@
         <p class="hint" id="wake-support"></p>
       </div>
 
-      <div class="group">
+      <div class="group" id="grp-bahasa">
         <h3>Bahasa Gaby</h3>
         <label class="radio"><input type="radio" name="lang" value="id"> <span><b>Indonesia</b></span></label>
         <label class="radio"><input type="radio" name="lang" value="en"> <span><b>English</b> — panggil dengan "Hey Gaby"</span></label>
         <label class="radio"><input type="radio" name="lang" value="auto"> <span><b>Ikuti saya</b> — Gaby menjawab dengan bahasa yang kamu pakai</span></label>
       </div>
 
-      <div class="group">
+      <div class="group" id="grp-suara">
         <h3>Suara &amp; tampilan</h3>
         <div class="row"><span>Suara Gaby (Gemini)</span>
           <select id="set-voice" class="field small"></select></div>
@@ -117,7 +126,7 @@
         <label class="check"><input type="checkbox" id="set-echo"> Mode anti-gema (pakai jika Gaby mendengar suaranya sendiri; kamu tidak bisa memotong Gaby)</label>
       </div>
 
-      <div class="group">
+      <div class="group" id="grp-otak">
         <h3>Otak Gaby</h3>
         <div class="row"><span>API key Gemini</span>
           <input id="set-gemini" class="field small" type="password" placeholder="Tempel API key di sini" autocomplete="off" spellcheck="false"></div>
@@ -132,6 +141,7 @@
         </div>
       </div>
 
+      <div class="scroll-fade"></div>
       <p class="hint center">Gabriella v<span id="set-version"></span> · data tersimpan hanya di perangkat ini</p>
     </div>
   </div>

@@ -598,6 +598,10 @@ function applySettings() {
 }
 
 $('btn-settings').addEventListener('click', openSettings);
+document.querySelectorAll('#settings-tabs button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('#settings-tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  $(b.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
 $('settings-close').addEventListener('click', () => { $('settings').hidden = true; });
 $('settings').addEventListener('click', (e) => { if (e.target === $('settings')) $('settings').hidden = true; });
 
