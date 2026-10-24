@@ -13,7 +13,7 @@ import { GEMINI_VOICES, listLiveModels } from './gemini.js';
 
 const $ = (id) => document.getElementById(id);
 const IDLE_MS = 20000;          // Gaby tidur lagi setelah 20 detik tanpa obrolan (mode "Hai Gaby")
-const MOOD_EMOJI = { tenang: '💙', senang: '😄', gemas: '🥰', ngambek: '😤', mikir: '🤔', sedih: '🥺', kaget: '😲' };
+const MOOD_EMOJI = { tenang: '💙', senang: '😄', gemas: '🥰', ngambek: '😤', marah: '😡', mikir: '🤔', sedih: '🥺', kaget: '😲' };
 
 const audio = new AudioEngine();
 const visual = new Visual($('stage'), audio);
@@ -85,7 +85,7 @@ function setMood(m) {
   visual.setMood(m);
   document.documentElement.style.setProperty('--mood', `rgb(${MOOD_COLORS[m].join(',')})`);
   clearTimeout(moodTimer);
-  if (m !== 'tenang') moodTimer = setTimeout(() => setMood('tenang'), 30000);
+  if (m !== 'tenang') moodTimer = setTimeout(() => setMood('tenang'), 20000);
 }
 
 let lastChip = '';
@@ -579,6 +579,18 @@ document.querySelectorAll('input[name="lang"]').forEach((r) => r.addEventListene
   toast(`Bahasa Gaby: ${LANGS[r.value]}`);
   restartSession();
 }));
+
+for (const m of Object.keys(MOOD_COLORS)) {
+  const b = document.createElement('button');
+  b.className = 'btn emo';
+  b.textContent = MOOD_EMOJI[m];
+  b.title = m;
+  b.onclick = () => {
+    $('settings').hidden = true;
+    setMood(m);
+  };
+  $('set-emotes').appendChild(b);
+}
 
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });
 $('set-echo').addEventListener('change', (e) => { memory.setSetting('antiEcho', e.target.checked); applySettings(); });
