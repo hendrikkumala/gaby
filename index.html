@@ -41,6 +41,9 @@
     <div class="brand-name">GABRIELLA</div>
   </div>
 
+  <!-- Panel diagnosa -->
+  <pre id="diag" class="diag" hidden></pre>
+
   <!-- Notifikasi kecil -->
   <div id="toasts" class="toasts"></div>
 
@@ -132,6 +135,13 @@
           <input id="set-gemini" class="field small" type="password" placeholder="Tempel API key di sini" autocomplete="off" spellcheck="false"></div>
         <div class="row"><span>API key OpenAI <i>(opsional, berbayar)</i></span>
           <input id="set-openai" class="field small" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false"></div>
+        <div class="row"><span>Model Gemini</span>
+          <select id="set-model" class="field small"><option value="auto">Otomatis (tercepat)</option></select></div>
+        <p class="hint">Model bertanda 🐢 "berpikir" dulu sebelum bicara, jadi lebih lambat.</p>
+        <h4 class="sub">Siapa yang menentukan kamu selesai bicara</h4>
+        <label class="radio"><input type="radio" name="vad" value="local"> <span><b>Gaby</b> — langsung menjawab setelah kamu diam sebentar (lebih cepat)</span></label>
+        <label class="radio"><input type="radio" name="vad" value="server"> <span><b>Gemini</b> — server Google yang menebak (pakai jika Gaby sering menyela)</span></label>
+        <label class="check"><input type="checkbox" id="set-diag"> Tampilkan panel diagnosa (angka kecepatan)</label>
         <p class="hint">Urutan cadangan otomatis: <span id="set-chain">–</span></p>
         <p class="hint">Rata-rata waktu respons: <b id="set-latency">belum ada data</b></p>
         <div class="btn-row">

@@ -152,6 +152,26 @@ html, body {
   text-shadow: 0 0 18px rgba(127, 227, 255, .35);
 }
 
+/* ---------- Panel diagnosa ---------- */
+.diag {
+  position: fixed;
+  left: 12px;
+  bottom: calc(12px + var(--safe-bottom));
+  margin: 0;
+  max-width: min(330px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(2, 8, 16, 0.82);
+  border: 1px solid var(--line);
+  color: #bfe9ff;
+  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+  z-index: 6;
+}
+.diag[hidden] { display: none; }
+.sub { margin: 14px 0 4px; font-size: 15px; color: var(--ink); }
+
 /* ---------- Toasts ---------- */
 .toasts {
   position: fixed;

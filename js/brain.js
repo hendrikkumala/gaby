@@ -3,7 +3,7 @@
 import { memory } from './memory.js';
 import { buildPersona } from './persona.js';
 import { TOOL_DEFS } from './tools.js';
-import { GeminiLive, listLiveModels, FALLBACK_MODELS } from './gemini.js';
+import { GeminiLive, listLiveModels, FALLBACK_MODELS, LEVEL_COUNT } from './gemini.js';
 import { OpenAIRealtime } from './openai.js';
 
 const EXHAUST_PAUSE = 60 * 60 * 1000; // coba lagi penyedia yang habis kuota setelah 1 jam
@@ -14,7 +14,7 @@ export class Brain {
     this.provider = null;
     this.models = null;
     // Tingkat pengaturan Gemini yang berhasil per model, diingat supaya bangun lebih cepat.
-    try { this.levels = JSON.parse(localStorage.getItem('gaby.levels') || '{}'); } catch { this.levels = {}; }
+    try { this.levels = JSON.parse(localStorage.getItem('gaby.levels2') || '{}'); } catch { this.levels = {}; }
   }
 
   async discover(force = false) {
@@ -37,7 +37,11 @@ export class Brain {
     this.authFailed = false;
     if (keys.gemini) {
       try {
-        for (const m of await this.discover()) list.push({ id: `gemini:${m}`, kind: 'gemini', model: m });
+        const models = [...(await this.discover())];
+        // Model pilihan pengguna dicoba paling dulu; sisanya tetap jadi cadangan.
+        const pick = memory.get().settings.model;
+        if (pick && pick !== 'auto' && models.includes(pick)) models.unshift(...models.splice(models.indexOf(pick), 1));
+        for (const m of models) list.push({ id: `gemini:${m}`, kind: 'gemini', model: m });
       } catch {
         this.authFailed = true; // key Gemini ditolak; tetap coba OpenAI kalau ada
       }
@@ -53,7 +57,7 @@ export class Brain {
   makeProvider(p, level) {
     const { keys, settings } = memory.get();
     return p.kind === 'gemini'
-      ? new GeminiLive({ key: keys.gemini, model: p.model, voice: settings.voice, level })
+      ? new GeminiLive({ key: keys.gemini, model: p.model, voice: settings.voice, level, localVad: settings.vadMode !== 'server' })
       : new OpenAIRealtime({ key: keys.openai });
   }
 
@@ -74,7 +78,7 @@ export class Brain {
       if (p.kind === 'gemini' && geminiAuthFailed) continue;
       // Mulai dari tingkat pengaturan yang terakhir berhasil, supaya bangun lebih cepat.
       const start = this.levels[p.id] || 0;
-      for (const level of p.kind === 'gemini' ? [0, 1, 2, 3].filter((l) => l >= start) : [0]) {
+      for (const level of p.kind === 'gemini' ? [...Array(LEVEL_COUNT).keys()].filter((l) => l >= start) : [0]) {
         const prov = this.makeProvider(p, level);
         this.wire(prov, p);
         try {
@@ -83,7 +87,7 @@ export class Brain {
           this.current = p;
           if (this.levels[p.id] !== level) {
             this.levels[p.id] = level;
-            try { localStorage.setItem('gaby.levels', JSON.stringify(this.levels)); } catch {}
+            try { localStorage.setItem('gaby.levels2', JSON.stringify(this.levels)); } catch {}
           }
           memory.clearExhausted(p.id);
           return prov;
@@ -129,6 +133,19 @@ export class Brain {
 
   get inputRate() {
     return this.provider ? this.provider.inputRate : 16000;
+  }
+
+  // true = perangkat yang menentukan kapan kamu mulai/selesai bicara.
+  get manual() {
+    return !!(this.provider && this.provider.manual);
+  }
+
+  activityStart() {
+    if (this.provider && this.provider.activityStart) this.provider.activityStart();
+  }
+
+  activityEnd() {
+    if (this.provider && this.provider.activityEnd) this.provider.activityEnd();
   }
 
   get connected() {

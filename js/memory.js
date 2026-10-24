@@ -13,6 +13,9 @@ const DEFAULTS = {
     mode: null,      // 'wake' | 'always' | 'tap' (null = pilih otomatis)
     voice: 'Aoede',
     lang: 'id',      // 'id' | 'en' | 'auto'
+    model: 'auto',   // nama model Gemini, atau 'auto'
+    vadMode: 'local', // 'local' = perangkat menentukan selesai bicara, 'server' = Gemini
+    diag: false,     // tampilkan panel diagnosa
     captions: true,
     antiEcho: false,
   },

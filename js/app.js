@@ -9,7 +9,8 @@ import { Visual, MOOD_COLORS } from './visual.js';
 import { Brain } from './brain.js';
 import { WakeListener } from './wake.js';
 import { runTool } from './tools.js';
-import { GEMINI_VOICES, listLiveModels } from './gemini.js';
+import { GEMINI_VOICES, listLiveModels, isSlowModel } from './gemini.js';
+import { LocalVad } from './vad.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -35,6 +36,62 @@ let duckTimer = null;
 let userSpokeAt = 0;            // kapan kamu terakhir bicara (untuk mengukur waktu respons)
 let awaitingReply = false;
 const latencies = [];
+const vad = new LocalVad();
+let preroll = [];               // 300 ms suara terakhir sebelum kamu terdeteksi bicara
+const diag = { end: 0, text: 0, audio: 0, state: '' };
+
+// Catat waktu respons per model, supaya bisa dibandingkan di Pengaturan.
+function recordLatency(ms) {
+  latencies.push(ms);
+  if (latencies.length > 10) latencies.shift();
+  const model = brain.current && (brain.current.model || 'openai');
+  if (!model) return;
+  try {
+    const all = JSON.parse(localStorage.getItem('gaby.lat') || '{}');
+    all[model] = [...(all[model] || []), ms].slice(-10);
+    localStorage.setItem('gaby.lat', JSON.stringify(all));
+  } catch {}
+}
+
+function modelLatency(model) {
+  try {
+    const list = JSON.parse(localStorage.getItem('gaby.lat') || '{}')[model] || [];
+    return list.length ? list.reduce((a, b) => a + b, 0) / list.length / 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+// Suara mic masuk tiap 50 ms. Mode manual: perangkat menentukan kapan kamu bicara.
+function handleMic(pcm, level) {
+  if (!brain.manual) {
+    brain.sendAudio(pcm);
+    return;
+  }
+  const ev = vad.update(level, audio.isSpeaking(), audio.echoBase);
+  if (ev === 'start') {
+    if (audio.isSpeaking()) audio.duck(true);
+    brain.activityStart();
+    for (const p of preroll) brain.sendAudio(p);
+    preroll = [];
+    diag.state = 'bicara';
+    touch();
+  }
+  if (vad.active || ev === 'end') brain.sendAudio(pcm);
+  else {
+    preroll.push(pcm);
+    if (preroll.length > 6) preroll.shift();
+  }
+  if (ev === 'end') {
+    brain.activityEnd();
+    audio.duck(false);
+    userSpokeAt = diag.end = Date.now();
+    diag.text = diag.audio = 0;
+    diag.state = 'menunggu jawaban';
+    awaitingReply = true;
+    touch();
+  }
+}
 let gabyTurnText = '';
 
 // ---------- Tampilan kecil ----------
@@ -173,8 +230,9 @@ const brain = new Brain({
   onAudio(buf, rate) {
     if (awaitingReply) {
       awaitingReply = false;
-      latencies.push(Date.now() - userSpokeAt);
-      if (latencies.length > 10) latencies.shift();
+      diag.audio = Date.now();
+      diag.state = 'Gaby menjawab';
+      recordLatency(Date.now() - userSpokeAt);
     }
     audio.play(buf, rate);
     lastAudioAt = Date.now();
@@ -187,7 +245,8 @@ const brain = new Brain({
     finishCaption('gaby');
   },
   onUserText(t) {
-    if (!audio.isSpeaking()) {
+    if (!diag.text && diag.end) diag.text = Date.now();
+    if (!brain.manual && !audio.isSpeaking()) {
       userSpokeAt = Date.now();
       awaitingReply = true;
     }
@@ -245,6 +304,7 @@ function currentMode() {
 // Mungkin kamu memotong Gaby: kecilkan suaranya dulu. Kalau Gemini memastikan kamu bicara,
 // suara dihentikan (onInterrupted); kalau ternyata cuma gema, volume kembali normal.
 audio.onBargeIn = () => {
+  if (brain.manual) return; // mode manual: ditangani handleMic
   audio.duck(true);
   clearTimeout(duckTimer);
   duckTimer = setTimeout(() => audio.duck(false), 1300);
@@ -282,7 +342,9 @@ async function activate(reason, spoken = '') {
   if (phase !== 'connecting') { brain.close(); return; }
 
   try {
-    audio.onChunk = (pcm) => brain.sendAudio(pcm);
+    vad.reset();
+    preroll = [];
+    audio.onChunk = handleMic;
     await audio.startMic(brain.inputRate);
   } catch {
     toast('Mikrofon tidak bisa dipakai. Izinkan akses mikrofon di pengaturan browser.', 'err', 9000);
@@ -321,6 +383,7 @@ function goSleep(silent = false) {
   const wasActive = phase === 'active';
   brain.close();
   audio.onChunk = null;
+  vad.reset();
   audio.releaseMic();
   finishCaption('user');
   finishCaption('gaby');
@@ -387,7 +450,29 @@ setInterval(() => {
   }
   if (phase !== 'locked') checkReminders();
   render();
+  renderDiag();
 }, 250);
+
+function renderDiag() {
+  const on = memory.get().settings.diag;
+  $('diag').hidden = !on;
+  if (!on) return;
+  const sec = (a, b) => (a && b && b >= a ? `${((b - a) / 1000).toFixed(1)} dtk` : '–');
+  const cur = brain.current;
+  const model = phase === 'active' && cur ? (cur.model || 'OpenAI') : '(Gaby tidur)';
+  const lvl = cur ? brain.levels[cur.id] : null;
+  const bars = Math.min(10, Math.round(audio.micLevel * 200));
+  const avg = latencies.length ? (latencies.reduce((a, b) => a + b, 0) / latencies.length / 1000).toFixed(1) + ' dtk' : '–';
+  $('diag').textContent = [
+    `Model : ${model}${lvl != null && phase === 'active' ? ` (tingkat ${lvl})` : ''}`,
+    `Deteksi: ${brain.manual ? 'Gaby (perangkat)' : 'Gemini (server)'}`,
+    `Mic   : ${'▮'.repeat(bars)}${'▯'.repeat(10 - bars)} ${vad.active ? '🎙️ kamu bicara' : ''}`,
+    `Status: ${phase === 'active' ? diag.state || 'mendengarkan' : phase}`,
+    `Diam → teks muncul : ${sec(diag.end, diag.text)}`,
+    `Diam → Gaby bicara : ${sec(diag.end, diag.audio)}`,
+    `Rata-rata respons  : ${avg}`,
+  ].join('\n');
+}
 
 // ---------- Interaksi ----------
 
@@ -404,6 +489,10 @@ $('stage').addEventListener('click', (e) => {
 function toggleMic() {
   micMuted = !micMuted;
   audio.muted = micMuted;
+  if (micMuted && vad.active) {
+    vad.reset();
+    brain.activityEnd();
+  }
   if (phase === 'sleep') {
     if (micMuted) wake.stop();
     else if (currentMode() === 'wake') wake.start();
@@ -568,6 +657,8 @@ function fillSettings() {
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });
   document.querySelectorAll('input[name="lang"]').forEach((r) => { r.checked = r.value === (st.settings.lang || 'id'); });
+  document.querySelectorAll('input[name="vad"]').forEach((r) => { r.checked = r.value === (st.settings.vadMode || 'local'); });
+  $('set-diag').checked = !!st.settings.diag;
   const wakeOk = WakeListener.supported && !wakeBroken;
   document.querySelector('input[name="mode"][value="wake"]').disabled = !wakeOk;
   $('wake-support').textContent = wakeOk
@@ -582,7 +673,27 @@ function fillSettings() {
   if (document.activeElement !== $('set-openai')) $('set-openai').value = st.keys.openai;
 }
 
+async function fillModels() {
+  const sel = $('set-model');
+  let models = [];
+  try { models = await brain.discover(); } catch {}
+  const pick = memory.get().settings.model || 'auto';
+  sel.innerHTML = '';
+  for (const m of ['auto', ...models]) {
+    const o = document.createElement('option');
+    o.value = m;
+    if (m === 'auto') o.textContent = 'Otomatis (tercepat)';
+    else {
+      const lat = modelLatency(m);
+      o.textContent = `${isSlowModel(m) ? '🐢 ' : ''}${m}${lat ? ` · ${lat.toFixed(1)} dtk` : ''}`;
+    }
+    sel.appendChild(o);
+  }
+  sel.value = models.includes(pick) ? pick : 'auto';
+}
+
 async function fillChain() {
+  fillModels();
   try {
     const order = brain.describeChain(await brain.chain());
     const active = brain.connected && brain.current ? (brain.current.model || 'OpenAI') : null;
@@ -645,6 +756,18 @@ for (const m of Object.keys(MOOD_COLORS)) {
   };
   $('set-emotes').appendChild(b);
 }
+
+$('set-model').addEventListener('change', (e) => {
+  memory.setSetting('model', e.target.value);
+  toast(e.target.value === 'auto' ? 'Model: otomatis' : `Model: ${e.target.value}`);
+  restartSession();
+  setTimeout(fillChain, 2500);
+});
+document.querySelectorAll('input[name="vad"]').forEach((r) => r.addEventListener('change', () => {
+  memory.setSetting('vadMode', r.value);
+  restartSession();
+}));
+$('set-diag').addEventListener('change', (e) => { memory.setSetting('diag', e.target.checked); renderDiag(); });
 
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });
 $('set-echo').addEventListener('change', (e) => { memory.setSetting('antiEcho', e.target.checked); applySettings(); });

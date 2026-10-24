@@ -41,9 +41,29 @@ export async function listLiveModels(key) {
     .filter((m) => (m.supportedGenerationMethods || []).includes('bidiGenerateContent'))
     .map((m) => m.name.replace(/^models\//, ''))
     .filter((n) => !/tts|image|embedding/.test(n));
-  const score = (n) => (/native-audio/.test(n) ? 0 : /live/.test(n) ? 1 : 2) + (/exp/.test(n) ? 0.5 : 0);
+  // Model "thinking" berpikir dulu sebelum bicara (lambat), jadi ditaruh paling belakang.
+  const score = (n) => (/native-audio/.test(n) ? 0 : /live/.test(n) ? 1 : 2)
+    + (/exp/.test(n) ? 0.5 : 0)
+    + (/thinking|dialog/.test(n) ? 5 : 0);
   return names.sort((a, b) => score(a) - score(b));
 }
+
+export const isSlowModel = (n) => /thinking|dialog/.test(n);
+
+// Tingkat pengaturan, dari tercepat ke paling sederhana. Dicoba berurutan
+// kalau model menolak pengaturan tertentu.
+//   thinkingOff = langsung bicara tanpa berpikir dulu
+//   background  = simpan ingatan tanpa membuat Gaby berhenti bicara
+//   manual      = Gaby (perangkat) yang menentukan kapan kamu selesai bicara
+//   extras      = Google Search + sesi panjang
+const LEVELS = [
+  { thinkingOff: true, background: true, manual: true, extras: true },
+  { background: true, manual: true, extras: true },
+  { manual: true, extras: true },
+  { extras: true },
+  {},
+];
+export const LEVEL_COUNT = LEVELS.length;
 
 function toGeminiSchema(s) {
   const out = { type: String(s.type).toUpperCase() };
@@ -58,13 +78,14 @@ function toGeminiSchema(s) {
 }
 
 export class GeminiLive {
-  constructor({ key, model, voice, level = 0 }) {
+  constructor({ key, model, voice, level = 0, localVad = true }) {
     this.key = key;
     this.model = model;
     this.voice = voice;
-    // Tingkat pengaturan: 0 = lengkap & tercepat, makin tinggi makin sederhana.
-    // Dipakai bergantian kalau model menolak pengaturan tertentu.
     this.level = level;
+    this.features = LEVELS[level] || {};
+    // Kalau true, perangkat yang memberi tahu Gemini kapan kamu mulai & selesai bicara.
+    this.manual = !!(this.features.manual && localVad);
     this.silentTools = new Set();
     this.name = 'gemini';
     this.label = `Gemini (${model})`;
@@ -104,7 +125,7 @@ export class GeminiLive {
           const d = { name: t.name, description: t.description };
           if (t.parameters && Object.keys(t.parameters.properties || {}).length) d.parameters = toGeminiSchema(t.parameters);
           // Alat "latar belakang" (misal simpan ingatan) tidak membuat Gaby berhenti bicara.
-          if (t.background && this.level <= 1) {
+          if (t.background && this.features.background) {
             d.behavior = 'NON_BLOCKING';
             this.silentTools.add(t.name);
           }
@@ -121,20 +142,17 @@ export class GeminiLive {
           inputAudioTranscription: {},
           outputAudioTranscription: {},
         };
-        if (this.level === 0) {
-          // Langsung bicara tanpa "berpikir" dulu: jauh lebih cepat.
+        if (this.features.thinkingOff) {
           setup.generationConfig.thinkingConfig = { thinkingBudget: 0 };
         }
-        if (this.level < 3) {
-          // Cepat menjawab saat kamu selesai bicara, tapi tidak mudah tertipu gema suara Gaby sendiri.
+        if (this.manual) {
+          setup.realtimeInputConfig = { automaticActivityDetection: { disabled: true } };
+        } else if (this.features.extras) {
           setup.realtimeInputConfig = {
-            automaticActivityDetection: {
-              startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
-              endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
-              prefixPaddingMs: 200,
-              silenceDurationMs: 600,
-            },
+            automaticActivityDetection: { endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH', silenceDurationMs: 500 },
           };
+        }
+        if (this.features.extras) {
           setup.tools.push({ googleSearch: {} });
           setup.contextWindowCompression = { slidingWindow: {} };
         }
@@ -216,6 +234,15 @@ export class GeminiLive {
 
   sendText(text) {
     this.send({ clientContent: { turns: [{ role: 'user', parts: [{ text }] }], turnComplete: true } });
+  }
+
+  // Dipakai saat perangkat yang mendeteksi bicara (mode manual).
+  activityStart() {
+    if (this.ready) this.send({ realtimeInput: { activityStart: {} } });
+  }
+
+  activityEnd() {
+    if (this.ready) this.send({ realtimeInput: { activityEnd: {} } });
   }
 
   close() {

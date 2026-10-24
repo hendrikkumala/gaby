@@ -136,7 +136,7 @@ export class AudioEngine {
         this.checkBargeIn(this.micLevel);
         if (!this.sending || this.muted || !this.onChunk) return;
         if (this.antiEcho && this.isSpeaking()) return;
-        this.onChunk(e.data.pcm);
+        this.onChunk(e.data.pcm, this.micLevel);
       };
       this.source.connect(this.node);
       // Node harus tersambung ke tujuan agar tetap diproses; volumenya nol.
