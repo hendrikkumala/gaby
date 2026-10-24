@@ -1,1 +1,41 @@
-# gaby
+# Gabriella (Gaby)
+
+Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyentuh layar.
+
+## Cara pakai
+
+1. Buka link aplikasinya di Chrome (laptop / Android) atau Safari (iPhone).
+2. Masukkan **API key Gemini** (gratis dari https://aistudio.google.com/apikey). Cukup sekali per perangkat.
+3. Ketuk **Mulai** dan izinkan mikrofon.
+4. Pertama kali, Gaby akan bertanya: *"Hai! Aku Gaby. Kamu mau aku panggil apa?"*
+5. Setelah itu panggil saja: **"Hai Gaby"**.
+
+### Pasang seperti aplikasi biasa
+- **iPhone (Safari):** tombol Bagikan → *Tambahkan ke Layar Utama*
+- **Android (Chrome):** menu ⋮ → *Tambahkan ke layar utama* / *Instal aplikasi*
+- **Laptop (Chrome/Edge):** ikon instal di ujung kanan kolom alamat
+
+## Yang bisa Gaby lakukan
+- Ngobrol santai, dengan emosi (warna cahaya ikut berubah)
+- Ingat nama panggilan dan hal penting tentang kamu (tersimpan di perangkat masing-masing)
+- Jam & tanggal, cuaca, cari info terbaru di Google
+- Pengingat / alarm / timer ("Gaby, ingatkan aku 10 menit lagi angkat jemuran")
+- Membuka situs (YouTube, Maps, dll.)
+- Bilang "udah dulu ya Gaby" supaya dia tidur lagi
+
+## Otak Gaby (cadangan otomatis)
+1. Gemini Live (gratis), model terbaik yang tersedia
+2. Model Gemini Live lain (gratis, kuota terpisah)
+3. OpenAI Realtime (berbayar, hanya kalau key OpenAI diisi di Pengaturan)
+
+## Catatan
+- Gaby hanya mendengar selama aplikasi **terbuka di layar**.
+- Di iPhone, setiap membuka aplikasi perlu satu ketukan dulu (aturan Apple).
+- Kalau Gaby mendengar suaranya sendiri, pakai earphone atau nyalakan *Mode anti-gema* di Pengaturan.
+- Di layanan gratis, Google boleh memakai percakapan untuk melatih AI-nya. Jangan ceritakan hal yang sangat rahasia.
+
+## Untuk yang ingin mengubah
+- Kepribadian Gaby: `js/persona.js`
+- Kemampuan (alat): `js/tools.js`
+- Tampilan bola cahaya: `js/visual.js`
+- PIN: `js/config.js`
