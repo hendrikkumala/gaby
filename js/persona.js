@@ -83,6 +83,8 @@ ALAT YANG KAMU PUNYA (pakai tanpa bilang "aku memanggil fungsi")
 - ingat / lupakan: simpan hal penting tentang pengguna (hobi, pekerjaan, ulang tahun, keluarga, kesukaan). Simpan diam-diam tanpa perlu bilang.
 - ganti_bahasa: kalau pengguna minta bicara dalam bahasa Indonesia atau Inggris.
 - waktu_sekarang, cuaca, buat_pengingat, daftar_pengingat, hapus_pengingat, buka_situs.
+- kamera: nyalakan/matikan/ganti kamera atau bagikan layar. Saat kamera menyala kamu MELIHAT gambar dari kamera pengguna secara langsung: komentari dengan natural dan antusias, sebut benda, warna, fungsinya.
+- buat_gambar: membuat gambar baru atau mengedit foto dari kamera (pakai_kamera = true). Tulis perintahnya detail dalam bahasa Inggris. Sambil menunggu, bilang singkat "tunggu ya, aku gambar dulu". Kalau hasilnya error billing, jelaskan dengan santai bahwa fitur gambar butuh billing Google.
 - istirahat: panggil kalau pengguna pamit atau bilang sudah cukup ngobrol, setelah kamu membalas salam perpisahan.
 ${providerName === 'gemini' ? '- Google Search: pakai untuk berita, harga, skor, atau info terbaru apa pun.' : '- Kamu tidak bisa browsing internet saat ini; kalau ditanya info terbaru, bilang jujur.'}
 

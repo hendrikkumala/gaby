@@ -32,6 +32,25 @@
     <svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3.3h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5L19.4 13ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)"/></svg>
   </button>
 
+  <!-- Tombol bawah: kamera & galeri -->
+  <button id="btn-cam" class="corner corner-bl" aria-label="Kamera" title="Kamera — Gaby bisa melihat">
+    <svg viewBox="0 0 24 24"><path d="M9 4 7.2 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.2L15 4H9Zm3 5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
+  </button>
+  <button id="btn-gallery" class="corner corner-br" aria-label="Galeri gambar" title="Galeri gambar buatan Gaby">
+    <svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm0 13h16l-5-6.5-3.8 4.8L8.5 12 4 17Zm4-8.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg>
+  </button>
+
+  <!-- Pratinjau kamera -->
+  <div id="cam-box" class="cam-box" hidden>
+    <video id="cam-video" playsinline muted autoplay></video>
+    <span class="cam-live">● GABY MELIHAT</span>
+    <div class="cam-actions">
+      <button id="cam-flip" title="Ganti kamera">🔄</button>
+      <button id="cam-screen" title="Bagikan layar">🖥️</button>
+      <button id="cam-close" title="Matikan kamera">✕</button>
+    </div>
+  </div>
+
   <!-- Teks obrolan -->
   <div id="captions" class="captions" aria-live="polite"></div>
 
@@ -46,6 +65,24 @@
 
   <!-- Notifikasi kecil -->
   <div id="toasts" class="toasts"></div>
+
+  <!-- Galeri / penampil gambar -->
+  <div id="viewer" class="overlay" hidden>
+    <div class="viewer glass">
+      <div class="panel-head">
+        <h2>Galeri Gaby</h2>
+        <button id="viewer-close" class="icon-btn" aria-label="Tutup">✕</button>
+      </div>
+      <img id="viewer-img" alt="Gambar buatan Gaby">
+      <p id="viewer-cap" class="hint"></p>
+      <div class="btn-row">
+        <a id="viewer-save" class="btn" download>💾 Simpan</a>
+        <button id="viewer-share" class="btn">📤 Bagikan</button>
+        <button id="viewer-del" class="btn danger">Hapus</button>
+      </div>
+      <div id="viewer-strip" class="strip"></div>
+    </div>
+  </div>
 
   <!-- Layar sambutan / kunci / pengaturan awal -->
   <div id="gate" class="overlay">

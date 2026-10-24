@@ -11,6 +11,9 @@ import { WakeListener } from './wake.js';
 import { runTool } from './tools.js';
 import { GEMINI_VOICES, listLiveModels, isSlowModel } from './gemini.js';
 import { LocalVad } from './vad.js';
+import { Camera } from './camera.js';
+import { gallery } from './gallery.js';
+import { generateImage } from './imagegen.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -208,6 +211,8 @@ const ui = {
   toast,
   linkToast,
   calendarToast,
+  camera: (aksi, kamera) => cameraTool(aksi, kamera),
+  makeImage: (prompt, useCam) => makeImage(prompt, useCam),
   setMood,
   refreshSettings: () => fillSettings(),
   setLang(lang) {
@@ -381,6 +386,7 @@ function connectFailed(e) {
 
 function goSleep(silent = false) {
   const wasActive = phase === 'active';
+  closeCamera();
   brain.close();
   audio.onChunk = null;
   vad.reset();
@@ -444,7 +450,8 @@ setInterval(() => {
     const quietFor = Date.now() - lastAudioAt;
     if (sleepRequestedAt && Date.now() - sleepRequestedAt > 2500 && !audio.isSpeaking() && quietFor > 1500) {
       goSleep();
-    } else if (currentMode() !== 'always' && !thinking && Date.now() - lastActivity > IDLE_MS) {
+    } else if (currentMode() !== 'always' && !thinking && !painting
+      && Date.now() - lastActivity > (camera.active ? IDLE_MS * 2.5 : IDLE_MS)) {
       goSleep();
     }
   }
@@ -820,6 +827,159 @@ $('set-forget').addEventListener('click', () => {
   fillSettings();
   toast('Ingatan Gaby di perangkat ini sudah dihapus.');
   restartSession();
+});
+
+// ---------- Kamera: Gaby bisa melihat ----------
+
+const camera = new Camera($('cam-video'));
+let painting = 0;
+$('cam-screen').hidden = !Camera.canShareScreen;
+
+// Kirim sekitar 1 gambar per detik selama kamera menyala dan Gaby bangun.
+setInterval(() => {
+  if (!camera.active || phase !== 'active' || !brain.connected) return;
+  const f = camera.frame();
+  if (f) brain.sendImage(f);
+}, 1000);
+
+camera.onEnded = () => closeCamera();
+
+async function openCamera(kind = 'kamera', facing, announce = false) {
+  if (phase === 'sleep') await activate('tap');
+  if (phase !== 'active') return { error: 'Gaby belum tersambung' };
+  if (!brain.canSee) {
+    toast('Kamera hanya bisa dipakai saat otak Gaby memakai Gemini.', 'warn');
+    return { error: 'Otak cadangan saat ini tidak bisa melihat kamera' };
+  }
+  try {
+    if (kind === 'layar') await camera.startScreen();
+    else await camera.start(facing);
+  } catch (e) {
+    const denied = /NotAllowed|Permission|denied/i.test(`${e.name} ${e.message}`);
+    // Browser kadang hanya mengizinkan kamera/layar setelah ketukan pengguna.
+    const el = toast(denied ? 'Izin kamera/layar ditolak atau perlu ketukan.' : 'Kamera tidak bisa dibuka.', 'warn', 15000);
+    const b = document.createElement('a');
+    b.href = '#';
+    b.textContent = kind === 'layar' ? 'Bagikan layar' : 'Nyalakan kamera';
+    b.onclick = (ev) => { ev.preventDefault(); el.remove(); openCamera(kind, facing, true); };
+    el.appendChild(b);
+    return { error: 'Kamera belum menyala. Minta pengguna mengetuk tombol di layar.' };
+  }
+  $('cam-box').hidden = false;
+  $('btn-cam').classList.add('on');
+  visual.scanning = true;
+  touch();
+  const f = camera.frame();
+  if (f) brain.sendImage(f);
+  if (announce) {
+    setTimeout(() => {
+      if (camera.active && phase === 'active') {
+        brain.sendText(`[SISTEM] Pengguna baru saja ${camera.source === 'layar' ? 'membagikan layarnya' : 'menyalakan kamera'}. Komentari singkat apa yang kamu lihat.`);
+      }
+    }, 1200);
+  }
+  return { ok: true, sumber: camera.source, catatan: 'Sekarang kamu bisa melihat gambar dari kamera/layar pengguna.' };
+}
+
+function closeCamera() {
+  if (!camera.active && $('cam-box').hidden) return;
+  camera.stop();
+  $('cam-box').hidden = true;
+  $('btn-cam').classList.remove('on');
+  visual.scanning = false;
+}
+
+async function cameraTool(aksi, kamera) {
+  if (aksi === 'matikan') { closeCamera(); return { ok: true }; }
+  if (aksi === 'ganti') {
+    if (!camera.active) return openCamera('kamera');
+    await camera.flip().catch(() => {});
+    return { ok: true, kamera: camera.facing === 'user' ? 'depan' : 'belakang' };
+  }
+  if (aksi === 'layar') {
+    if (!Camera.canShareScreen) return { error: 'Bagikan layar hanya bisa di komputer' };
+    return openCamera('layar');
+  }
+  return openCamera('kamera', kamera === 'depan' ? 'user' : kamera === 'belakang' ? 'environment' : undefined);
+}
+
+$('btn-cam').addEventListener('click', () => (camera.active ? closeCamera() : openCamera('kamera', undefined, true)));
+$('cam-close').addEventListener('click', closeCamera);
+$('cam-flip').addEventListener('click', () => camera.flip().catch(() => toast('Tidak bisa ganti kamera', 'warn')));
+$('cam-screen').addEventListener('click', () => openCamera('layar', undefined, true));
+
+// ---------- Gambar buatan Gaby ----------
+
+async function makeImage(prompt, useCam) {
+  const key = memory.get().keys.gemini;
+  if (!key) return { error: 'Butuh API key Gemini untuk membuat gambar' };
+  const photo = useCam ? camera.frame(1024, 0.85) : null;
+  if (useCam && !photo) return { error: 'Kamera belum menyala. Minta pengguna menyalakan kamera dulu.' };
+  painting++;
+  visual.painting = true;
+  const note = toast('🎨 Gaby sedang menggambar…', 'info', 60000);
+  try {
+    const out = await generateImage(key, prompt, photo);
+    const item = await gallery.add(out.blob, prompt);
+    showViewer(item);
+    brain.sendImage(out.base64, out.blob.type); // supaya Gaby bisa melihat hasilnya
+    return { ok: true, catatan: 'Gambar sudah tampil di layar pengguna. Komentari hasilnya singkat dan ceria.' };
+  } catch (e) {
+    toast(`🎨 ${e.pesan || e.message}`, e.kind === 'billing' ? 'warn' : 'err', 12000);
+    return { error: e.pesan || e.message, jenis: e.kind || 'lain' };
+  } finally {
+    note.remove();
+    painting--;
+    visual.painting = painting > 0;
+    touch();
+  }
+}
+
+let viewerUrl = null;
+let viewerItem = null;
+
+async function showViewer(item) {
+  const list = await gallery.list();
+  if (!list.length) { toast('Belum ada gambar. Coba bilang "Gaby, gambarin kucing astronot".'); return; }
+  viewerItem = list.find((x) => x.id === item?.id) || list[0];
+  if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+  viewerUrl = URL.createObjectURL(viewerItem.blob);
+  $('viewer-img').src = viewerUrl;
+  $('viewer-cap').textContent = viewerItem.prompt || '';
+  const ext = (viewerItem.blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+  $('viewer-save').href = viewerUrl;
+  $('viewer-save').download = `gaby-${viewerItem.id}.${ext}`;
+  const strip = $('viewer-strip');
+  strip.querySelectorAll('img').forEach((im) => URL.revokeObjectURL(im.src));
+  strip.innerHTML = '';
+  for (const it of list) {
+    const im = document.createElement('img');
+    im.src = URL.createObjectURL(it.blob);
+    im.className = it.id === viewerItem.id ? 'on' : '';
+    im.onclick = () => showViewer(it);
+    strip.appendChild(im);
+  }
+  $('viewer').hidden = false;
+}
+
+$('btn-gallery').addEventListener('click', () => showViewer());
+$('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
+$('viewer').addEventListener('click', (e) => { if (e.target === $('viewer')) $('viewer').hidden = true; });
+$('viewer-del').addEventListener('click', async () => {
+  if (!viewerItem || !confirm('Hapus gambar ini dari galeri?')) return;
+  await gallery.remove(viewerItem.id);
+  const left = await gallery.list();
+  if (left.length) showViewer(left[0]);
+  else $('viewer').hidden = true;
+});
+$('viewer-share').addEventListener('click', async () => {
+  if (!viewerItem) return;
+  const file = new File([viewerItem.blob], $('viewer-save').download, { type: viewerItem.blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: 'Gambar dari Gaby' }).catch(() => {});
+  } else {
+    toast('Bagikan tidak didukung di browser ini. Pakai tombol Simpan.', 'warn');
+  }
 });
 
 // ---------- Mulai ----------

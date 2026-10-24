@@ -156,6 +156,14 @@ export class Brain {
     if (this.provider) this.provider.sendAudio(pcm);
   }
 
+  sendImage(b64, mimeType) {
+    if (this.provider && this.provider.sendImage) this.provider.sendImage(b64, mimeType);
+  }
+
+  get canSee() {
+    return !!(this.provider && this.provider.sendImage);
+  }
+
   sendText(text) {
     if (this.provider) this.provider.sendText(text);
   }

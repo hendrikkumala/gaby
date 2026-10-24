@@ -21,6 +21,10 @@ Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyen
 - Jam & tanggal, cuaca, cari info terbaru di Google
 - Pengingat / alarm / timer ("Gaby, ingatkan aku 10 menit lagi angkat jemuran").
   Ketuk tombol **Tambahkan ke Kalender** supaya tetap berbunyi walau Gaby ditutup.
+- 📷 **Kamera**: "Gaby, lihat ini" — Gaby melihat dan mengomentari benda yang kamu tunjukkan.
+  Di laptop juga bisa **bagikan layar**.
+- 🎨 **Gambar**: "Gaby, tambahkan anjing tidur di bantal ini" atau "gambarin kucing astronot".
+  Hasil tersimpan di galeri (tombol kanan bawah). *Butuh billing Google; tanpa billing Gaby akan memberi tahu.*
 - Membuka situs (YouTube, Maps, dll.)
 - Bilang "udah dulu ya Gaby" supaya dia tidur lagi
 

@@ -485,6 +485,11 @@ export class Visual {
     // Partikel data, hujan data, gelombang kejut
     drawEmotes(ctx, this.emotes, c, R, col);
 
+    // Kamera menyala: garis pindai + bingkai sudut
+    if (this.scanning) drawScan(ctx, c, R, t, col);
+    // Sedang menggambar: busur pelangi berputar
+    if (this.painting) drawPainting(ctx, c, R, t);
+
     // Menyambung: busur berputar cepat
     if (this.state === 'connecting') {
       const s = t * 5;
@@ -754,6 +759,52 @@ function drawEmotes(ctx, emotes, c, R, col) {
       ctx.lineTo(x, y);
       ctx.stroke();
     }
+  }
+  ctx.restore();
+}
+
+function drawScan(ctx, c, R, t, col) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.globalCompositeOperation = 'lighter';
+  // Garis pindai naik-turun di dalam bola
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 0.95, 0, TAU);
+  ctx.clip();
+  const y = Math.sin(t * 1.8) * R * 0.9;
+  const g = ctx.createLinearGradient(0, y - R * 0.12, 0, y + 2);
+  g.addColorStop(0, rgba(col, 0));
+  g.addColorStop(1, rgba(mix(col, [255, 255, 255], 0.5), 0.55));
+  ctx.fillStyle = g;
+  ctx.fillRect(-R, y - R * 0.12, R * 2, R * 0.12 + 2);
+  ctx.restore();
+  // Bingkai sudut seperti bidikan kamera
+  const s = R * 1.32, k = R * 0.22;
+  ctx.strokeStyle = rgba(mix(col, [255, 255, 255], 0.3), 0.75);
+  ctx.lineWidth = 2.5;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+    ctx.beginPath();
+    ctx.moveTo(sx * s, sy * (s - k));
+    ctx.lineTo(sx * s, sy * s);
+    ctx.lineTo(sx * (s - k), sy * s);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawPainting(ctx, c, R, t) {
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineWidth = 4;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 6; i++) {
+    const a = t * 2.4 + (i * TAU) / 6;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 1.17, a, a + 0.5);
+    ctx.strokeStyle = `hsla(${(i * 60 + t * 120) % 360}, 95%, 65%, 0.85)`;
+    ctx.stroke();
   }
   ctx.restore();
 }

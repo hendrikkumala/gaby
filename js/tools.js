@@ -99,6 +99,31 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'kamera',
+    description: 'Nyalakan, matikan, atau ganti kamera (depan/belakang), atau bagikan layar komputer, supaya Gaby bisa melihat. Pakai saat pengguna bilang "lihat ini", "buka kamera", dsb.',
+    parameters: {
+      type: 'object',
+      properties: {
+        aksi: { type: 'string', enum: ['nyalakan', 'matikan', 'ganti', 'layar'] },
+        kamera: { type: 'string', enum: ['depan', 'belakang'], description: 'Opsional, untuk aksi nyalakan' },
+      },
+      required: ['aksi'],
+    },
+  },
+  {
+    name: 'buat_gambar',
+    background: 'idle',
+    description: 'Buat gambar baru, atau edit foto dari kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Butuh 5–15 detik; sambil menunggu, bilang singkat bahwa kamu sedang menggambar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        perintah: { type: 'string', description: 'Deskripsi gambar yang detail, dalam bahasa Inggris' },
+        pakai_kamera: { type: 'boolean', description: 'true untuk mengedit gambar dari kamera saat ini' },
+      },
+      required: ['perintah'],
+    },
+  },
+  {
     name: 'istirahat',
     description: 'Gaby kembali tidur / berhenti mendengarkan setelah selesai bicara. Panggil saat pengguna pamit.',
     parameters: { type: 'object', properties: {} },
@@ -227,6 +252,12 @@ export async function runTool(name, args, ui) {
         ui.linkToast(url, args.label || 'Buka');
         return { ok: true, catatan: 'Tombol ditampilkan di layar; pengguna perlu mengetuknya.' };
       }
+
+      case 'kamera':
+        return await ui.camera(args.aksi, args.kamera);
+
+      case 'buat_gambar':
+        return await ui.makeImage(String(args.perintah || ''), !!args.pakai_kamera);
 
       case 'istirahat':
         ui.sleepAfterSpeech();

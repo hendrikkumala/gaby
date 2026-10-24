@@ -86,7 +86,7 @@ export class GeminiLive {
     this.features = LEVELS[level] || {};
     // Kalau true, perangkat yang memberi tahu Gemini kapan kamu mulai & selesai bicara.
     this.manual = !!(this.features.manual && localVad);
-    this.silentTools = new Set();
+    this.toolScheduling = new Map(); // alat latar → kapan hasilnya disampaikan
     this.name = 'gemini';
     this.label = `Gemini (${model})`;
     this.inputRate = 16000;
@@ -127,7 +127,7 @@ export class GeminiLive {
           // Alat "latar belakang" (misal simpan ingatan) tidak membuat Gaby berhenti bicara.
           if (t.background && this.features.background) {
             d.behavior = 'NON_BLOCKING';
-            this.silentTools.add(t.name);
+            this.toolScheduling.set(t.name, t.background === 'idle' ? 'WHEN_IDLE' : 'SILENT');
           }
           return d;
         });
@@ -217,7 +217,7 @@ export class GeminiLive {
     for (const call of calls) {
       const result = await this.onToolCall(call.name, call.args || {});
       const response = { result };
-      if (this.silentTools.has(call.name)) response.scheduling = 'SILENT';
+      if (this.toolScheduling.has(call.name)) response.scheduling = this.toolScheduling.get(call.name);
       responses.push({ id: call.id, name: call.name, response });
     }
     this.send({ toolResponse: { functionResponses: responses } });
@@ -234,6 +234,11 @@ export class GeminiLive {
 
   sendText(text) {
     this.send({ clientContent: { turns: [{ role: 'user', parts: [{ text }] }], turnComplete: true } });
+  }
+
+  // Satu gambar dari kamera/layar (Gemini menerima sekitar 1 gambar per detik).
+  sendImage(b64, mimeType = 'image/jpeg') {
+    if (this.ready) this.send({ realtimeInput: { video: { data: b64, mimeType } } });
   }
 
   // Dipakai saat perangkat yang mendeteksi bicara (mode manual).
