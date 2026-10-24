@@ -202,8 +202,11 @@ export async function runTool(name, args, ui) {
         if (!due) return { error: 'Waktunya belum jelas. Tanyakan berapa menit lagi atau jam berapa.' };
         const r = memory.addReminder(args.pesan, due);
         ui.requestNotify();
-        ui.toast(`⏰ Pengingat: ${r.text} — ${fmtTime(due)}`);
-        return { ok: true, id: r.id, waktu: fmtTime(due), catatan: 'Pengingat hanya berbunyi selama aplikasi Gaby terbuka.' };
+        ui.calendarToast(r, fmtTime(due));
+        return {
+          ok: true, id: r.id, waktu: fmtTime(due),
+          catatan: 'Bilang singkat ke pengguna: ketuk tombol Kalender di layar supaya tetap diingatkan walau Gaby ditutup.',
+        };
       }
 
       case 'daftar_pengingat': {

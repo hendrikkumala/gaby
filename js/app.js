@@ -10,6 +10,7 @@ import { Brain } from './brain.js';
 import { WakeListener } from './wake.js';
 import { runTool } from './tools.js';
 import { GEMINI_VOICES, listLiveModels } from './gemini.js';
+import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
 const IDLE_MS = 20000;          // Gaby tidur lagi setelah 20 detik tanpa obrolan (mode "Hai Gaby")
@@ -53,6 +54,36 @@ function linkToast(url, label) {
   a.textContent = label + ' ↗';
   a.onclick = () => el.remove();
   el.appendChild(a);
+}
+
+// Pengingat dengan tombol "Tambahkan ke Kalender".
+function calendarToast(r, when) {
+  const el = toast(`⏰ ${r.text} — ${when}`, 'info', 90000);
+  el.classList.add('stack');
+  const row = document.createElement('div');
+  row.className = 'toast-actions';
+  const apple = isApple();
+  const links = [
+    { label: apple ? '📅 Tambahkan ke Kalender' : '📅 Kalender iPhone / .ics', href: icsUrl(r.id, r.text, r.due), ics: true },
+    { label: apple ? 'Google Calendar' : '📅 Tambahkan ke Google Calendar', href: googleCalendarUrl(r.text, r.due) },
+  ];
+  if (!apple) links.reverse();
+  links.forEach((l, i) => {
+    const a = document.createElement('a');
+    a.href = l.href;
+    a.textContent = l.label;
+    a.className = i === 0 ? 'act primary' : 'act';
+    if (l.ics && !apple) a.download = 'pengingat-gaby.ics';
+    else if (!l.ics) { a.target = '_blank'; a.rel = 'noopener'; }
+    a.onclick = () => setTimeout(() => el.remove(), 300);
+    row.appendChild(a);
+  });
+  const close = document.createElement('button');
+  close.className = 'act ghost';
+  close.textContent = 'Nanti saja';
+  close.onclick = () => el.remove();
+  row.appendChild(close);
+  el.appendChild(row);
 }
 
 const caps = { user: null, gaby: null };
@@ -116,6 +147,7 @@ function render() {
 const ui = {
   toast,
   linkToast,
+  calendarToast,
   setMood,
   refreshSettings: () => fillSettings(),
   setLang(lang) {

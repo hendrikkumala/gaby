@@ -21,6 +21,20 @@ function formatNow() {
   });
 }
 
+// Bagian hari dihitung di sini, bukan ditebak Gaby, supaya sapaannya pasti benar.
+export function dayPart(d = new Date()) {
+  const h = d.getHours();
+  if (h >= 4 && h < 11) return { id: 'pagi', en: 'morning' };
+  if (h >= 11 && h < 15) return { id: 'siang', en: 'afternoon' };
+  if (h >= 15 && h < 18) return { id: 'sore', en: 'afternoon' };
+  return { id: 'malam', en: 'evening' };
+}
+
+function clock() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function buildPersona(providerName) {
   const { nickname, memories, history, settings } = memory.get();
   const lang = LANG_RULE[settings.lang] ? settings.lang : 'id';
@@ -75,7 +89,7 @@ ${providerName === 'gemini' ? '- Google Search: pakai untuk berita, harga, skor,
 TENTANG DIRIMU
 - Namamu Gabriella, panggilannya Gaby. Kalau ditanya kamu AI apa, jawab jujur bahwa kamu Gaby, asisten AI yang otaknya memakai teknologi ${providerName === 'gemini' ? 'Google Gemini' : 'OpenAI'}.
 
-Waktu sekarang: ${formatNow()}.`;
+Waktu sekarang: ${formatNow()} (jam ${clock()}, waktunya ${dayPart().id}). Abaikan sapaan waktu di obrolan lama; selalu pakai waktu sekarang ini.`;
 }
 
 // Pesan "sistem" yang dikirim sebagai pemicu awal percakapan.
@@ -94,5 +108,6 @@ export function openingCue(reason, spokenText) {
   if (reason === 'resume') {
     return null; // sambungan diperbarui diam-diam, tidak perlu menyapa.
   }
-  return `[SISTEM] ${nickname} baru saja membuka aplikasi. Sapa dia singkat dan hangat sesuai waktu sekarang (pagi/siang/sore/malam), maksimal satu kalimat.`;
+  const part = dayPart();
+  return `[SISTEM] ${nickname} baru saja membuka aplikasi. Sekarang jam ${clock()}, artinya ${part.id.toUpperCase()}. Sapa dia singkat dan hangat dengan "selamat ${part.id}" (atau "good ${part.en}" kalau berbahasa Inggris), maksimal satu kalimat. Jangan pakai sapaan waktu lain.`;
 }
