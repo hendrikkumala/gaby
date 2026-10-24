@@ -466,7 +466,7 @@ function renderDiag() {
   $('diag').textContent = [
     `Model : ${model}${lvl != null && phase === 'active' ? ` (tingkat ${lvl})` : ''}`,
     `Deteksi: ${brain.manual ? 'Gaby (perangkat)' : 'Gemini (server)'}`,
-    `Mic   : ${'▮'.repeat(bars)}${'▯'.repeat(10 - bars)} ${vad.active ? '🎙️ kamu bicara' : ''}`,
+    `Mic   : [${'#'.repeat(bars)}${'-'.repeat(10 - bars)}] ${vad.active ? 'kamu bicara' : ''}`,
     `Status: ${phase === 'active' ? diag.state || 'mendengarkan' : phase}`,
     `Diam → teks muncul : ${sec(diag.end, diag.text)}`,
     `Diam → Gaby bicara : ${sec(diag.end, diag.audio)}`,
