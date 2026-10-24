@@ -448,8 +448,9 @@ async function checkGeminiKey(key) {
 $('key-save').addEventListener('click', async () => {
   const key = $('key-input').value.trim();
   $('key-error').textContent = '';
-  if (!/^AIza[\w-]{20,}$/.test(key)) {
-    $('key-error').textContent = 'Key Gemini biasanya diawali "AIza…". Coba salin lagi.';
+  // Format key Google bisa berubah (AIza…, AQ.…), jadi cukup cek panjang; Google yang menilai valid atau tidak.
+  if (key.length < 20 || /\s/.test(key)) {
+    $('key-error').textContent = 'Key-nya sepertinya belum lengkap. Coba salin lagi.';
     return;
   }
   $('key-save').disabled = true;
