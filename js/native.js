@@ -84,3 +84,32 @@ async function doSync(reminders, nickname) {
   }
   saveMap(map);
 }
+
+// ---------- Pemberitahuan update APK ----------
+
+const RELEASE_API = 'https://api.github.com/repos/hendrikkumala/gaby/releases/tags/apk-terbaru';
+export const APK_URL = 'https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk';
+
+// Versi APK yang terpasang (nomor perakitan), misal { version: '1.0.5', build: 5 }.
+export async function installedApk() {
+  if (!isNativeApp) return null;
+  try {
+    const info = await call('App', 'getInfo');
+    return { version: info.version, build: parseInt(info.build, 10) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+// Bandingkan dengan APK terbaru di GitHub Releases ("Gaby APK (perakitan #N)").
+// Mengembalikan { installed, latest } kalau ada yang lebih baru, selain itu null.
+export async function checkApkUpdate() {
+  const installed = await installedApk();
+  if (!installed) return null;
+  const res = await fetch(RELEASE_API, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!res.ok) return null;
+  const rel = await res.json();
+  const latest = parseInt(((rel.name || '').match(/#(\d+)/) || [])[1], 10);
+  if (!latest || latest <= installed.build) return null;
+  return { installed, latest: { build: latest, version: `1.0.${latest}` } };
+}

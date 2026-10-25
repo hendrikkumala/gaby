@@ -7,7 +7,7 @@ import { getPosition, describePosition, shortPlace, geocode, route, googleDirect
 import { summarizeSession, tidyProfile } from './journal.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
-import { isNativeApp, nativeOpen, syncNativeReminders } from './native.js';
+import { isNativeApp, nativeOpen, syncNativeReminders, installedApk, checkApkUpdate, APK_URL } from './native.js';
 import { openingCue, LANGS } from './persona.js';
 import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
@@ -462,6 +462,8 @@ async function activate(reason, spoken = '') {
     brain.sendText(cue);
     if (daily) daily.commit();
   }
+  // Cek update APK setelah sapaan selesai, supaya tidak memotong Gaby.
+  if (isNativeApp && reason !== 'resume') setTimeout(() => maybeCheckApkUpdate(), 8000);
 }
 
 function connectFailed(e) {
@@ -542,6 +544,48 @@ function fireReminder(r) {
     });
   }
 }
+
+// ---------- Update APK ----------
+// Di APK, Gaby mengecek sekali sehari apakah ada APK lebih baru di GitHub Releases.
+// Isi Gaby sudah terbarui otomatis; ini hanya untuk cangkang Android yang jarang berubah.
+
+const UPDATE_KEY = 'gaby.apkUpdateCheck';
+
+async function maybeCheckApkUpdate({ force = false } = {}) {
+  if (!isNativeApp) return null;
+  const today = new Date().toLocaleDateString('sv-SE');
+  try {
+    if (!force && localStorage.getItem(UPDATE_KEY) === today) return null;
+    localStorage.setItem(UPDATE_KEY, today);
+  } catch {}
+  let upd = null;
+  try { upd = await checkApkUpdate(); } catch {}
+  if (upd) showUpdateCard(upd);
+  else if (force) toast('Aplikasi Gaby sudah versi terbaru ✓');
+  return upd;
+}
+
+function showUpdateCard(upd) {
+  document.querySelectorAll('.toast.update').forEach((t) => t.remove());
+  const el = toast(`📦 Update aplikasi Gaby tersedia: ${upd.installed.version} → ${upd.latest.version}`, 'info update stack', 120000);
+  const row = document.createElement('div');
+  row.className = 'toast-actions';
+  const go = document.createElement('button');
+  go.className = 'act primary';
+  go.textContent = '⬇️ Perbarui sekarang';
+  go.onclick = () => { el.remove(); nativeOpen(APK_URL); };
+  const later = document.createElement('button');
+  later.className = 'act ghost';
+  later.textContent = 'Nanti';
+  later.onclick = () => el.remove();
+  row.append(go, later);
+  el.appendChild(row);
+  if (phase === 'active') {
+    brain.sendText(`[SISTEM] Ada update aplikasi Gaby (${upd.installed.version} → ${upd.latest.version}). Beri tahu ${memory.get().nickname || 'pengguna'} singkat dalam satu kalimat bahwa tombol Perbarui sudah tampil di layar.`);
+  }
+}
+
+$('set-check-update').addEventListener('click', () => maybeCheckApkUpdate({ force: true }));
 
 // ---------- Notifikasi Android (APK) ----------
 
@@ -851,6 +895,8 @@ function fillSettings() {
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
   $('set-music').value = st.settings.musicApp || 'ytmusic';
+  $('set-apk').hidden = !isNativeApp;
+  if (isNativeApp) installedApk().then((a) => { if (a) $('set-apk-version').textContent = a.version; });
   if (!$('memories').hidden) renderMemories();
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });

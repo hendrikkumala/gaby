@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
+    "@capacitor/app": "^6.0.3",
     "@capacitor/app-launcher": "^6.0.4",
     "@capacitor/cli": "^6.2.2",
     "@capacitor/core": "^6.2.2",
