@@ -1,7 +1,7 @@
 {
   "name": "gaby-android",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Cangkang aplikasi Android untuk Gaby (Capacitor)",
   "scripts": {
     "copy-web": "node scripts/copy-web.mjs",

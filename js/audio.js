@@ -238,18 +238,22 @@ export class AudioEngine {
   }
 
   // Bunyi "ting" kecil (dibuat langsung, tanpa file suara).
+  // Nada pengingat lebih keras dan diulang dua kali supaya jelas terdengar.
   chime(kind = 'wake') {
     if (!this.ctx) return;
-    const notes = kind === 'wake' ? [880, 1320] : kind === 'sleep' ? [990, 660] : [1046, 1318, 1568, 1318, 1568];
+    const alarm = [1046, 1318, 1568, 1318, 1568];
+    const notes = kind === 'wake' ? [880, 1320] : kind === 'sleep' ? [990, 660] : [...alarm, 0, 0, ...alarm];
+    const peak = kind === 'alarm' ? 0.3 : 0.12;
     const t0 = this.ctx.currentTime + 0.02;
     notes.forEach((f, i) => {
+      if (!f) return;
       const o = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       o.type = 'sine';
       o.frequency.value = f;
       const t = t0 + i * 0.11;
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.12, t + 0.015);
+      g.gain.linearRampToValueAtTime(peak, t + 0.015);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
       o.connect(g).connect(this.ctx.destination);
       o.start(t);

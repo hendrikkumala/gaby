@@ -8,6 +8,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(GabyAlarmPlugin.class);
         super.onCreate(savedInstanceState);
         WebSettings settings = getBridge().getWebView().getSettings();
         // Suara Gaby boleh langsung jalan lagi saat kembali dari aplikasi lain, tanpa ketukan.

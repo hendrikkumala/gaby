@@ -19,7 +19,10 @@ Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyen
 - Ngobrol santai, dengan emosi (warna cahaya ikut berubah)
 - Ingat nama panggilan dan hal penting tentang kamu (tersimpan di perangkat masing-masing)
 - Jam & tanggal, cuaca, cari info terbaru di Google
-- Pengingat / alarm / timer ("Gaby, ingatkan aku 10 menit lagi angkat jemuran").
+- Pengingat / timer ("Gaby, ingatkan aku 10 menit lagi angkat jemuran"). Di aplikasi Android berbunyi dengan nada notifikasi HP, juga saat HP terkunci (cek Pengaturan → Fitur → Pengingat sekali).
+- ⏰ **Alarm sungguhan** ("Gaby, pasang alarm jam 5 pagi", "bangunkan aku tiap hari kerja jam 6"):
+  Android (aplikasi) langsung dipasang di aplikasi **Jam** HP; iPhone lewat tombol + Pintasan **"Gaby Alarm"**
+  (buat sekali, langkahnya ada di Pengaturan → Fitur); perangkat lain dijadikan pengingat.
   Ketuk tombol **Tambahkan ke Kalender** supaya tetap berbunyi walau Gaby ditutup.
 - 📷 **Kamera**: "Gaby, lihat ini" — Gaby melihat dan mengomentari benda yang kamu tunjukkan.
   Di laptop juga bisa **bagikan layar**.

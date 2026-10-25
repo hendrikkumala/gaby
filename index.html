@@ -235,6 +235,30 @@
           <div class="btn-row"><button id="set-check-update" class="btn">📦 Cek update aplikasi</button></div>
         </div>
         <div class="btn-row"><button id="set-open-todo" class="btn">📝 Lihat catatan</button></div>
+        <div id="set-remind-android" hidden>
+          <h4 class="sub">Pengingat &amp; alarm di HP ini</h4>
+          <p class="hint" id="set-remind-status">Memeriksa…</p>
+          <div class="btn-row">
+            <button class="btn" data-phone="notif">🔔 Notifikasi Gaby</button>
+            <button class="btn" data-phone="battery">🔋 Izinkan di latar belakang</button>
+            <button class="btn" data-phone="exact" id="set-phone-exact" hidden>⏱️ Izinkan tepat waktu</button>
+          </div>
+          <p class="hint">Di <b>🔔 Notifikasi Gaby</b>, pastikan "Pengingat Gaby" boleh berbunyi &amp; tampil di layar kunci; nadanya bisa diganti di situ.
+            HP Oppo/Realme/Xiaomi: buka juga <b>Pengaturan HP → Baterai → Gaby</b> → izinkan aktivitas latar belakang / "Tanpa batasan".</p>
+        </div>
+        <details id="set-remind-ios" class="steps-box" hidden>
+          <summary><b>⏰ Alarm iPhone</b> — buat Pintasan "Gaby Alarm" (sekali saja)</summary>
+          <p class="hint">Supaya Gaby bisa memasang alarm di aplikasi Jam iPhone:</p>
+          <ol class="steps">
+            <li>Ketuk tombol <b>Buka Pintasan</b> di bawah (atau buka aplikasi <b>Pintasan / Shortcuts</b> → <b>+</b>).</li>
+            <li>Ketuk <b>Tambah Tindakan</b>, cari <b>alarm</b>, pilih <b>Buat Alarm</b> (<i>Create Alarm</i>).</li>
+            <li>Ketuk tulisan biru jamnya (misal "7.00"), pilih <b>Input Pintasan</b> (<i>Shortcut Input</i>).</li>
+            <li>Ketuk nama pintasan di bagian atas → <b>Ganti Nama</b> → tulis persis: <b>Gaby Alarm</b>.</li>
+            <li>Ketuk <b>Selesai</b>. Saat pertama dipakai, pilih <b>Izinkan Selalu</b> kalau iPhone bertanya.</li>
+          </ol>
+          <div class="btn-row"><a class="btn" href="shortcuts://create-shortcut">➕ Buka Pintasan</a></div>
+          <p class="hint">Setelah itu cukup bilang "Gaby, pasang alarm jam 5 pagi", lalu ketuk tombol <b>Pasang alarm</b> yang muncul.</p>
+        </details>
       </div>
 
       <div class="group" id="grp-suara">

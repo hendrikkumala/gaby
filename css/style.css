@@ -343,6 +343,11 @@ html, body {
 .hint { color: var(--ink-dim); font-size: 15px; margin: 10px 0 0; line-height: 1.4; }
 .hint.center { text-align: center; margin-top: 20px; }
 .hint a { color: var(--accent); }
+.steps-box { margin-top: 14px; }
+.steps-box > summary { cursor: pointer; font-size: 15px; padding: 6px 0; }
+.steps { margin: 8px 0 0; padding-left: 22px; color: var(--ink-dim); font-size: 15px; line-height: 1.45; }
+.steps li { margin: 4px 0; }
+.steps b { color: var(--ink); }
 .error { color: var(--danger); min-height: 1.2em; margin: 10px 0 0; font-weight: 600; }
 
 .field {

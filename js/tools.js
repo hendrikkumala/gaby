@@ -65,7 +65,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'buat_pengingat',
-    description: 'Pasang pengingat / alarm / timer (ada WAKTU: "jam 3", "10 menit lagi", "besok jam 9"). Otomatis juga masuk daftar catatan/to-do; kalau pesannya sama dengan catatan yang sudah ada, catatan itu yang diberi pengingat. Isi menit_lagi untuk "X menit lagi", atau jam (format 24 jam "HH:MM", opsional tanggal "YYYY-MM-DD").',
+    description: 'Pasang pengingat / timer untuk tugas (ada WAKTU: "ingatkan jam 3 call Joni", "10 menit lagi angkat jemuran", "besok jam 9 meeting"). Untuk alarm bangun / jam weker pakai pasang_alarm. Otomatis juga masuk daftar catatan/to-do; kalau pesannya sama dengan catatan yang sudah ada, catatan itu yang diberi pengingat. Isi menit_lagi untuk "X menit lagi", atau jam (format 24 jam "HH:MM", opsional tanggal "YYYY-MM-DD").',
     parameters: {
       type: 'object',
       properties: {
@@ -75,6 +75,23 @@ export const TOOL_DEFS = [
         tanggal: { type: 'string', description: 'Tanggal, format YYYY-MM-DD. Kosongkan untuk hari ini/besok terdekat.' },
       },
       required: ['pesan'],
+    },
+  },
+  {
+    name: 'pasang_alarm',
+    description: 'Pasang ALARM sungguhan di aplikasi Jam HP (berdering terus sampai dimatikan, walau HP senyap/terkunci): "pasang alarm jam 5", "bangunkan aku jam 4.30", "alarm tiap hari kerja jam 6". Alarm hanya punya jam (berlaku kejadian terdekat jam itu), bukan tanggal; untuk tanggal tertentu yang jauh pakai buat_pengingat.',
+    parameters: {
+      type: 'object',
+      properties: {
+        jam: { type: 'string', description: 'Jam alarm, format 24 jam HH:MM (misal "05:00", "16:30")' },
+        label: { type: 'string', description: 'Nama alarm singkat, misal "Bangun pagi". Boleh kosong.' },
+        ulang: {
+          type: 'array',
+          items: { type: 'string', enum: ['senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu', 'minggu'] },
+          description: 'Hari berulang, misal tiap hari kerja = ["senin","selasa","rabu","kamis","jumat"]. Kosongkan untuk sekali saja.',
+        },
+      },
+      required: ['jam'],
     },
   },
   {
@@ -277,6 +294,8 @@ function computeDue({ menit_lagi, jam, tanggal }) {
   return null;
 }
 
+const DAYS = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+
 const fmtTime = (t) => new Date(t).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 // Jalankan alat. `ui` berisi fungsi tampilan dari app.js.
@@ -326,9 +345,20 @@ export async function runTool(name, args, ui) {
         return {
           ok: true, id: r.id, waktu: fmtTime(due),
           catatan: ui.isNativeApp
-            ? 'Notifikasi HP sudah dipasang; tetap berbunyi walau Gaby ditutup.'
+            ? 'Notifikasi HP sudah dipasang; tetap berbunyi walau Gaby ditutup atau HP terkunci.' + await ui.reminderWarning()
             : 'Bilang singkat ke pengguna: ketuk tombol Kalender di layar supaya tetap diingatkan walau Gaby ditutup.',
         };
+      }
+
+      case 'pasang_alarm': {
+        const m = /^(\d{1,2})[:.](\d{2})$/.exec(String(args.jam || '').trim());
+        if (!m || +m[1] > 23 || +m[2] > 59) return { error: 'Jamnya belum jelas. Tanyakan jam berapa alarmnya.' };
+        const days = (Array.isArray(args.ulang) ? args.ulang : []).map((d) => String(d).toLowerCase()).filter((d) => DAYS.includes(d));
+        return await ui.setAlarm({
+          hour: +m[1], minute: +m[2],
+          label: String(args.label || '').trim().slice(0, 40) || 'Alarm Gaby',
+          days: [...new Set(days)],
+        });
       }
 
       case 'daftar_pengingat': {

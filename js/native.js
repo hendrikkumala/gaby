@@ -22,7 +22,8 @@ export async function nativeOpen(url) {
 
 // ---------- Notifikasi pengingat asli ----------
 
-const KEY = 'gaby.nativeReminders'; // { reminderId: notificationId }
+const KEY = 'gaby.nativeReminders'; // { reminderId: { n: notificationId, due } }
+const CHANNEL = 'gaby-pengingat';
 
 function loadMap() {
   try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; }
@@ -30,6 +31,8 @@ function loadMap() {
 function saveMap(m) {
   try { localStorage.setItem(KEY, JSON.stringify(m)); } catch {}
 }
+// Data lama menyimpan angkanya saja.
+const nidOf = (v) => (typeof v === 'object' && v ? v.n : v);
 
 // ID notifikasi harus angka; dibuat dari ID pengingat.
 function numericId(id) {
@@ -39,9 +42,35 @@ function numericId(id) {
 }
 
 let permissionAsked = false;
+let channelReady = false;
+
+// Saluran "Pengingat Gaby": prioritas tinggi (muncul & berbunyi di layar kunci, bergetar)
+// dengan nada notifikasi bawaan HP. Nadanya bisa diganti di Pengaturan Android.
+async function ensureChannel() {
+  if (channelReady) return;
+  channelReady = true;
+  try {
+    await call('LocalNotifications', 'createChannel', {
+      id: CHANNEL,
+      name: 'Pengingat Gaby',
+      description: 'Bunyi pengingat yang kamu minta ke Gaby',
+      importance: 5,
+      visibility: 1,
+      vibration: true,
+      lights: true,
+      lightColor: '#8A7CFF',
+    });
+  } catch {}
+}
+
+// Apakah pengingat ini sudah dijadwalkan sebagai notifikasi HP (yang akan berbunyi sendiri)?
+export function nativeReminderScheduled(id) {
+  return isNativeApp && !!loadMap()[id];
+}
 
 // Samakan notifikasi terjadwal di HP dengan daftar pengingat Gaby:
-// pengingat baru dijadwalkan, yang selesai/dihapus dibatalkan.
+// pengingat baru dijadwalkan; yang dihapus atau diselesaikan SEBELUM waktunya dibatalkan.
+// Pengingat yang sudah tiba waktunya dibiarkan, supaya notifikasinya tetap berbunyi.
 // Dijalankan antre supaya dua panggilan bersamaan tidak menjadwalkan dua kali.
 let queue = Promise.resolve();
 export function syncNativeReminders(reminders, nickname) {
@@ -52,37 +81,82 @@ export function syncNativeReminders(reminders, nickname) {
 
 async function doSync(reminders, nickname) {
   const map = loadMap();
-  const pending = reminders.filter((r) => !r.done && r.due > Date.now());
-  const keep = new Set(pending.map((r) => r.id));
+  const now = Date.now();
+  const byId = new Map(reminders.map((r) => [r.id, r]));
 
-  const cancel = Object.entries(map).filter(([rid]) => !keep.has(rid));
+  const cancel = [];
+  for (const [rid, v] of Object.entries(map)) {
+    const r = byId.get(rid);
+    const due = r ? r.due : (v && v.due) || 0;
+    if (due && due <= now) {
+      // Sudah waktunya: jangan dibatalkan. Hapus dari daftar setelah sehari.
+      if (now - due > 86400000) delete map[rid];
+      continue;
+    }
+    if (!r || r.done) cancel.push(rid);
+  }
   if (cancel.length) {
-    try { await call('LocalNotifications', 'cancel', { notifications: cancel.map(([, nid]) => ({ id: nid })) }); } catch {}
-    for (const [rid] of cancel) delete map[rid];
+    try { await call('LocalNotifications', 'cancel', { notifications: cancel.map((rid) => ({ id: nidOf(map[rid]) })) }); } catch {}
+    for (const rid of cancel) delete map[rid];
   }
 
-  const fresh = pending.filter((r) => !map[r.id]);
+  const fresh = reminders.filter((r) => !r.done && r.due > now && !map[r.id]);
   if (fresh.length) {
     try {
       if (!permissionAsked) {
         permissionAsked = true;
         await call('LocalNotifications', 'requestPermissions');
       }
+      await ensureChannel();
       await call('LocalNotifications', 'schedule', {
         notifications: fresh.map((r) => ({
           id: numericId(r.id),
           title: 'Gaby mengingatkan',
           body: nickname ? `${nickname}, waktunya: ${r.text}` : r.text,
           schedule: { at: new Date(r.due).toISOString(), allowWhileIdle: true },
+          channelId: CHANNEL,
           smallIcon: 'ic_stat_gaby',
         })),
       });
-      for (const r of fresh) map[r.id] = numericId(r.id);
+      for (const r of fresh) map[r.id] = { n: numericId(r.id), due: r.due };
     } catch (e) {
       console.warn('[Gaby] notifikasi gagal dijadwalkan:', e && e.message);
     }
   }
   saveMap(map);
+}
+
+// ---------- Alarm di aplikasi Jam & pengaturan HP ----------
+// Butuh APK versi baru (plugin GabyAlarm). Di APK lama fungsi ini mengembalikan false.
+
+export const nativeAlarmAvailable = () =>
+  isNativeApp && typeof cap.isPluginAvailable === 'function' && cap.isPluginAvailable('GabyAlarm');
+
+// days: 1=Minggu, 2=Senin, ... 7=Sabtu (format Android).
+export async function setNativeAlarm({ hour, minute, message, days = [] }) {
+  if (!nativeAlarmAvailable()) return { ok: false, reason: 'old_apk' };
+  try {
+    await call('GabyAlarm', 'setAlarm', { hour, minute, message, days, skipUi: true });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: 'no_clock', message: e && e.message };
+  }
+}
+
+export async function reminderHealth() {
+  if (!nativeAlarmAvailable()) return null;
+  try { return await call('GabyAlarm', 'status'); } catch { return null; }
+}
+
+export function openPhoneSetting(which) {
+  if (!nativeAlarmAvailable()) return Promise.resolve(false);
+  const method = {
+    notif: 'openNotificationSettings',
+    battery: 'requestBatteryExemption',
+    exact: 'openExactAlarmSettings',
+    app: 'openAppSettings',
+  }[which] || 'openAppSettings';
+  return call('GabyAlarm', method).then(() => true, () => false);
 }
 
 // ---------- Pemberitahuan update APK ----------

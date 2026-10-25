@@ -7,7 +7,10 @@ import { getPosition, describePosition, shortPlace, geocode, route, googleDirect
 import { summarizeSession, tidyProfile } from './journal.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
-import { isNativeApp, nativeOpen, syncNativeReminders, installedApk, checkApkUpdate, APK_URL } from './native.js';
+import {
+  isNativeApp, nativeOpen, syncNativeReminders, nativeReminderScheduled, installedApk, checkApkUpdate, APK_URL,
+  nativeAlarmAvailable, setNativeAlarm, reminderHealth, openPhoneSetting,
+} from './native.js';
 import { openingCue, LANGS } from './persona.js';
 import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
@@ -208,6 +211,113 @@ function calendarToast(r, when) {
   el.appendChild(row);
 }
 
+// ---------- Alarm di aplikasi Jam ----------
+// Android (APK): langsung dipasang di aplikasi Jam. iPhone: tombol yang menjalankan
+// Pintasan "Gaby Alarm" (dibuat sekali oleh pengguna). Perangkat lain: jadi pengingat biasa.
+
+const ALARM_SHORTCUT = 'Gaby Alarm';
+const DAY_NAMES = ['minggu', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu'];
+const pad2 = (n) => String(n).padStart(2, '0');
+
+function nextOccurrence(hour, minute) {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+
+function describeDays(days) {
+  if (!days.length) return '';
+  if (days.length === 7) return 'setiap hari';
+  const work = ['senin', 'selasa', 'rabu', 'kamis', 'jumat'];
+  if (days.length === 5 && work.every((d) => days.includes(d))) return 'setiap hari kerja';
+  return 'setiap ' + days.join(', ');
+}
+
+async function setAlarm({ hour, minute, label, days }) {
+  const time = `${pad2(hour)}:${pad2(minute)}`;
+  const when = new Date(nextOccurrence(hour, minute)).toLocaleDateString('id-ID', { weekday: 'long' });
+  const repeat = describeDays(days);
+  const info = { jam: time, berlaku: repeat || `sekali, ${when}` };
+
+  if (isNativeApp) {
+    const res = await setNativeAlarm({ hour, minute, message: label, days: days.map((d) => DAY_NAMES.indexOf(d) + 1) });
+    if (res.ok) {
+      toast(`⏰ Alarm ${time}${repeat ? ` (${repeat})` : ''} dipasang di aplikasi Jam`, 'info', 8000);
+      return { ok: true, ...info, cara: 'aplikasi Jam HP', catatan: 'Alarm sudah terpasang di aplikasi Jam HP; berdering walau Gaby ditutup. Konfirmasi singkat.' };
+    }
+    const fb = alarmAsReminder(hour, minute, label);
+    return {
+      ok: true, ...info, cara: 'pengingat notifikasi',
+      catatan: res.reason === 'old_apk'
+        ? 'Aplikasi Gaby di HP ini masih versi lama, jadi alarmnya dipasang sebagai pengingat notifikasi dulu. Minta pengguna memperbarui aplikasi (Pengaturan → Fitur → Cek update) supaya alarm bisa masuk aplikasi Jam.'
+        : 'Aplikasi Jam tidak bisa dibuka, jadi dipasang sebagai pengingat notifikasi.',
+      ...fb,
+    };
+  }
+
+  if (isApple()) {
+    alarmToast(time, repeat);
+    return {
+      ok: true, ...info, cara: 'tombol Pintasan iPhone',
+      catatan: `Minta pengguna mengetuk tombol "Pasang alarm" di layar; Pintasan "${ALARM_SHORTCUT}" memasangnya di aplikasi Jam.`
+        + ' Kalau belum pernah membuat Pintasan itu, ada tombol "Cara membuatnya" (sekali saja, kira-kira 2 menit).'
+        + (repeat ? ` Alarm berulang (${repeat}) perlu diatur sendiri di aplikasi Jam: buka alarmnya → Ulangi.` : ''),
+    };
+  }
+
+  const fb = alarmAsReminder(hour, minute, label);
+  return {
+    ok: true, ...info, cara: 'pengingat',
+    catatan: 'Perangkat ini tidak bisa memasang alarm di aplikasi Jam, jadi dipasang sebagai pengingat (berbunyi kalau Gaby terbuka) plus tombol Kalender. Untuk alarm sungguhan, pakai aplikasi Gaby di Android atau iPhone.',
+    ...fb,
+  };
+}
+
+// Cadangan: jadikan pengingat biasa di jam yang sama.
+function alarmAsReminder(hour, minute, label) {
+  const due = nextOccurrence(hour, minute);
+  const r = memory.addReminder(label, due, null);
+  ui.requestNotify();
+  calendarToast(r, new Date(due).toLocaleString('id-ID', { weekday: 'long', hour: '2-digit', minute: '2-digit' }));
+  return { id_pengingat: r.id };
+}
+
+function alarmToast(time, repeat) {
+  document.querySelectorAll('.toast.alarm').forEach((t) => t.remove());
+  const el = toast(`⏰ Alarm ${time}${repeat ? ` (${repeat})` : ''}`, 'info alarm stack', 90000);
+  const row = document.createElement('div');
+  row.className = 'toast-actions';
+  const go = document.createElement('a');
+  go.className = 'act primary';
+  go.href = `shortcuts://run-shortcut?name=${encodeURIComponent(ALARM_SHORTCUT)}&input=text&text=${encodeURIComponent(time)}`;
+  go.textContent = `⏰ Pasang alarm ${time}`;
+  go.onclick = () => setTimeout(() => el.remove(), 300);
+  const help = document.createElement('button');
+  help.className = 'act';
+  help.textContent = 'Cara membuatnya';
+  help.onclick = () => { el.remove(); $('set-remind-ios').open = true; openSettings('set-remind-ios'); };
+  const close = document.createElement('button');
+  close.className = 'act ghost';
+  close.textContent = 'Nanti saja';
+  close.onclick = () => el.remove();
+  row.append(go, help, close);
+  el.appendChild(row);
+}
+
+// Ada yang membuat pengingat tidak bisa berbunyi di HP ini? (untuk dikabarkan Gaby)
+async function reminderWarning() {
+  const h = await reminderHealth();
+  if (!h) return '';
+  const issues = [];
+  if (!h.notifications) issues.push('notifikasi Gaby dimatikan');
+  if (!h.exactAlarm) issues.push('izin alarm tepat waktu belum diberikan');
+  if (!h.batteryUnrestricted) issues.push('Gaby masih dibatasi penghemat baterai');
+  return issues.length
+    ? ` Tapi ${issues.join(' dan ')}, jadi pengingat bisa tidak berbunyi saat HP terkunci. Minta pengguna membuka Pengaturan → Fitur → bagian Pengingat untuk membereskannya (cukup sekali).`
+    : '';
+}
+
 const caps = { user: null, gaby: null };
 
 function caption(who, text) {
@@ -284,6 +394,8 @@ const ui = {
   showRoute: (tujuan, mode, dari) => showRoute(tujuan, mode, dari),
   mapAction: (aksi) => mapAction(aksi),
   todoAction: (aksi, items) => todoAction(aksi, items),
+  setAlarm: (opts) => setAlarm(opts),
+  reminderWarning: () => reminderWarning(),
   playMusic: (q) => playMusic(q),
   openApp: (args) => openApp(args),
   refreshTodos: () => { if (!$('todocard').hidden) renderTodos(); fillSettings(); },
@@ -458,6 +570,8 @@ async function activate(reason, spoken = '') {
     daily = await Promise.race([dailyP, new Promise((r) => setTimeout(() => r(null), 4000))]);
     cue = openingCue(reason, spoken, daily ? daily.text : '');
   }
+  const missedCue = takeMissedCue();
+  if (missedCue) cue = cue ? `${cue}\n${missedCue}` : missedCue;
   if (cue) {
     brain.sendText(cue);
     if (daily) daily.commit();
@@ -521,8 +635,18 @@ function checkReminders() {
   }
 }
 
+// Pengingat yang tiba saat Gaby di latar belakang / HP terkunci. Bunyinya dari notifikasi HP
+// (APK); Gaby menyampaikannya begitu dibuka lagi, bukan bicara sendiri di belakang.
+const missed = [];
+
 function fireReminder(r) {
-  audio.chime('alarm');
+  if (document.visibilityState !== 'visible' && (isNativeApp || isPhone())) {
+    missed.push(r);
+    return;
+  }
+  // Di APK, notifikasi HP sudah berbunyi dengan nada HP sendiri; Gaby tidak menambah nada.
+  const phoneRings = nativeReminderScheduled(r.id);
+  if (!phoneRings) audio.chime('alarm');
   toast(`⏰ ${r.text}`, 'warn', 20000);
   if (!isNativeApp && 'Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
     try { new Notification('Gaby mengingatkan', { body: r.text, icon: 'icons/icon-192.png' }); } catch {}
@@ -532,9 +656,14 @@ function fireReminder(r) {
   const linked = r.todoId && memory.get().todos.find((t) => t.id === r.todoId && !t.done);
   const cue = `[SISTEM] Waktunya pengingat: "${r.text}"${late}. Sampaikan ke ${nick} sekarang dengan gayamu.`
     + (linked ? ' Ini juga ada di daftar catatan; kalau sudah dikerjakan, dia bisa bilang "sudah" dan kamu tandai selesai.' : '');
+  // Nada dulu sampai selesai, baru Gaby bicara, supaya bunyinya tidak tertutup suara Gaby.
+  setTimeout(() => speakReminder(r, cue, nick), phoneRings ? 2500 : 1700);
+}
+
+function speakReminder(r, cue, nick) {
   if (phase === 'active') brain.sendText(cue);
   else if (phase === 'sleep') {
-    pendingCue = cue;
+    pendingCue = pendingCue ? `${pendingCue}\n${cue}` : cue;
     activate('reminder').then(() => {
       if (phase !== 'active' && 'speechSynthesis' in window) {
         const u = new SpeechSynthesisUtterance(`${nick}, waktunya: ${r.text}`);
@@ -542,7 +671,18 @@ function fireReminder(r) {
         speechSynthesis.speak(u);
       }
     });
+  } else {
+    missed.push(r); // layar "ketuk untuk lanjut": disampaikan setelah diketuk
   }
+}
+
+function takeMissedCue() {
+  if (!missed.length) return '';
+  const list = missed.splice(0);
+  for (const r of list) toast(`⏰ ${r.text}`, 'warn', 20000);
+  const nick = memory.get().nickname || 'pengguna';
+  const items = list.map((r) => `"${r.text}" (jam ${new Date(r.due).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})`).join(', ');
+  return `[SISTEM] Selama Gaby di latar belakang, pengingat ini sudah tiba waktunya${isNativeApp ? ' (notifikasi HP sudah berbunyi)' : ''}: ${items}. Sampaikan singkat ke ${nick} dengan gayamu, lalu tanya apakah sudah dikerjakan.`;
 }
 
 // ---------- Update APK ----------
@@ -586,6 +726,34 @@ function showUpdateCard(upd) {
 }
 
 $('set-check-update').addEventListener('click', () => maybeCheckApkUpdate({ force: true }));
+
+// Pengaturan → Fitur → Pengingat: apakah HP ini siap membunyikan pengingat saat terkunci?
+async function fillReminderHealth() {
+  $('set-remind-android').hidden = !isNativeApp;
+  $('set-remind-ios').hidden = isNativeApp || !isApple();
+  if (!isNativeApp) return;
+  const h = await reminderHealth();
+  const status = $('set-remind-status');
+  document.querySelectorAll('[data-phone]').forEach((b) => { b.hidden = !nativeAlarmAvailable(); });
+  if (!h) {
+    status.textContent = 'Perbarui aplikasi Gaby (tombol Cek update di atas) untuk alarm di aplikasi Jam dan cek otomatis ini.';
+    return;
+  }
+  const mark = (ok, yes, no) => `${ok ? '✅' : '⚠️'} ${ok ? yes : no}`;
+  status.textContent = [
+    mark(h.notifications, 'Notifikasi aktif', 'Notifikasi Gaby mati'),
+    mark(h.exactAlarm, 'Tepat waktu', 'Belum tepat waktu'),
+    mark(h.batteryUnrestricted, 'Boleh jalan di latar belakang', 'Dibatasi penghemat baterai'),
+  ].join(' · ');
+  $('set-phone-exact').hidden = h.exactAlarm;
+}
+
+document.querySelectorAll('[data-phone]').forEach((b) => b.addEventListener('click', async () => {
+  await openPhoneSetting(b.dataset.phone);
+  // Saat kembali dari pengaturan HP, perbarui statusnya.
+  const again = () => { if (document.visibilityState === 'visible') { fillReminderHealth(); document.removeEventListener('visibilitychange', again); } };
+  document.addEventListener('visibilitychange', again);
+}));
 
 // ---------- Notifikasi Android (APK) ----------
 
@@ -768,6 +936,11 @@ document.addEventListener('visibilitychange', async () => {
     activate('return');
     return;
   }
+  if (phase === 'sleep' && missed.length) {
+    pendingCue = takeMissedCue();
+    activate('reminder');
+    return;
+  }
   if (phase === 'sleep' && currentMode() === 'wake' && !micMuted) wake.start();
 });
 
@@ -880,10 +1053,11 @@ $('tap-start').addEventListener('click', async () => {
 
 // ---------- Pengaturan ----------
 
-function openSettings() {
+function openSettings(group) {
   fillSettings();
   fillChain();
   $('settings').hidden = false;
+  if (group) setTimeout(() => $(group).scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
 function fillSettings() {
@@ -897,6 +1071,7 @@ function fillSettings() {
   $('set-music').value = st.settings.musicApp || 'ytmusic';
   $('set-apk').hidden = !isNativeApp;
   if (isNativeApp) installedApk().then((a) => { if (a) $('set-apk-version').textContent = a.version; });
+  fillReminderHealth();
   if (!$('memories').hidden) renderMemories();
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });
@@ -958,7 +1133,7 @@ function applySettings() {
   audio.antiEcho = st.antiEcho;
 }
 
-$('btn-settings').addEventListener('click', openSettings);
+$('btn-settings').addEventListener('click', () => openSettings());
 document.querySelectorAll('#settings-tabs button').forEach((b) => b.addEventListener('click', () => {
   document.querySelectorAll('#settings-tabs button').forEach((x) => x.classList.toggle('on', x === b));
   $(b.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' });
