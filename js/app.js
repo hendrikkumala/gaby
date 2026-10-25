@@ -255,6 +255,13 @@ const ui = {
   camera: (aksi, kamera) => cameraTool(aksi, kamera),
   makeImage: (prompt, useCam) => makeImage(prompt, useCam),
   imageAction: (aksi) => imageAction(aksi),
+  gallery: async (aksi) => {
+    if (aksi === 'tutup') { $('viewer').hidden = true; return { ok: true }; }
+    const count = (await gallery.list()).length;
+    if (!count) return { ok: false, catatan: 'Galeri masih kosong.' };
+    await showViewer();
+    return { ok: true, jumlah_gambar: count };
+  },
   showPlaces: (query, pos, area) => showPlaces(query, pos, area),
   showRoute: (tujuan, mode) => showRoute(tujuan, mode),
   mapAction: (aksi) => mapAction(aksi),

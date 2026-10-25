@@ -165,10 +165,19 @@ export const TOOL_DEFS = [
   },
   {
     name: 'gambar_aksi',
-    description: 'Tindakan untuk gambar yang sedang tampil: simpan ke galeri, ulang (gambar lagi dengan perintah sama), atau buang.',
+    description: 'Tindakan untuk kartu gambar yang sedang tampil: simpan ke galeri (kartu tertutup), ulang (gambar lagi dengan perintah sama), atau buang/tutup (kartu tertutup tanpa disimpan).',
     parameters: {
       type: 'object',
-      properties: { aksi: { type: 'string', enum: ['simpan', 'ulang', 'buang'] } },
+      properties: { aksi: { type: 'string', enum: ['simpan', 'ulang', 'buang', 'tutup'] } },
+      required: ['aksi'],
+    },
+  },
+  {
+    name: 'galeri',
+    description: 'Buka atau tutup galeri gambar yang sudah disimpan ("buka galeri", "lihat gambar-gambarku", "tutup galeri").',
+    parameters: {
+      type: 'object',
+      properties: { aksi: { type: 'string', enum: ['buka', 'tutup'] } },
       required: ['aksi'],
     },
   },
@@ -324,7 +333,10 @@ export async function runTool(name, args, ui) {
       }
 
       case 'gambar_aksi':
-        return await ui.imageAction(args.aksi);
+        return await ui.imageAction(args.aksi === 'tutup' ? 'buang' : args.aksi);
+
+      case 'galeri':
+        return await ui.gallery(args.aksi === 'tutup' ? 'tutup' : 'buka');
 
       case 'istirahat':
         ui.sleepAfterSpeech();
