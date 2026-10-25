@@ -72,8 +72,15 @@ export class AudioEngine {
     this.sources = new Set();
     this.nextTime = 0;
     this.onBargeIn = null;    // dipanggil saat kamu memotong Gaby
+    this.lastChunkAt = 0;     // kapan suara mikrofon terakhir mengalir (penjaga mikrofon)
     this.echoBase = 0.01;
     this.loudMs = 0;
+  }
+
+  // Mikrofon masih hidup & suaranya mengalir?
+  micHealthy() {
+    const live = this.stream && this.stream.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted);
+    return !!(live && this.ctx && this.ctx.state === 'running' && Date.now() - this.lastChunkAt < 2500);
   }
 
   // Deteksi kamu memotong: suara mic jauh lebih keras dari sisa gema suara Gaby.
@@ -127,7 +134,7 @@ export class AudioEngine {
     await this.unlock();
     // Pakai ulang mikrofon yang masih hidup (tanpa minta izin lagi); minta baru hanya kalau
     // sudah diputus, misalnya diambil alih aplikasi lain.
-    const live = this.stream && this.stream.active && this.stream.getAudioTracks().some((t) => t.readyState === 'live');
+    const live = this.stream && this.stream.active && this.stream.getAudioTracks().some((t) => t.readyState === 'live' && !t.muted);
     if (!live) {
       if (this.stream) this.releaseMic();
       this.stream = await navigator.mediaDevices.getUserMedia({
@@ -136,6 +143,7 @@ export class AudioEngine {
       this.source = this.ctx.createMediaStreamSource(this.stream);
       this.node = new AudioWorkletNode(this.ctx, 'gaby-capture');
       this.node.port.onmessage = (e) => {
+        this.lastChunkAt = Date.now();
         this.micLevel = this.muted ? 0 : e.data.level;
         this.checkBargeIn(this.micLevel);
         if (!this.sending || this.muted || !this.onChunk) return;
@@ -150,6 +158,7 @@ export class AudioEngine {
     }
     this.node.port.postMessage({ rate });
     this.sending = true;
+    this.lastChunkAt = Date.now(); // beri waktu mikrofon mulai mengalir
   }
 
   pauseMic() {

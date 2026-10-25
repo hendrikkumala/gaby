@@ -181,6 +181,9 @@ export class Visual {
   }
 
   frame(now) {
+    // Penjaga ukuran: iPhone tidak selalu mengirim sinyal saat ukuran layar berubah
+    // (misalnya setelah menutup jendela web), jadi dicek setiap gambar.
+    if (this.canvas.clientWidth !== this.w || this.canvas.clientHeight !== this.h) this.resize();
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.t += dt;

@@ -329,6 +329,7 @@ const brain = new Brain({
   },
   onTurnComplete() {
     gabyTurnText = '';
+    if (diag.state === 'Gaby menjawab') diag.state = 'mendengarkan';
     finishCaption('gaby');
     touch();
   },
@@ -528,8 +529,31 @@ function fireReminder(r) {
 
 // ---------- Putaran utama ----------
 
+// Penjaga mikrofon: iPhone bisa memutus mikrofon diam-diam (misalnya aplikasi/web lain
+// memutar audio) tanpa memberi sinyal apa pun. Kalau suara berhenti mengalir, coba
+// nyalakan lagi; kalau HP menolak tanpa ketukan, minta pengguna mengetuk sekali.
+let recovering = false;
+async function watchMic() {
+  if (recovering || phase !== 'active' || micMuted || !audio.stream || audio.micHealthy()) return;
+  recovering = true;
+  try {
+    try { await audio.ctx.resume(); } catch {}
+    try { await audio.startMic(brain.inputRate); } catch {}
+    await new Promise((r) => setTimeout(r, 900));
+    if (phase === 'active' && !audio.micHealthy()) {
+      console.warn('[Gaby] mikrofon terputus, minta ketukan');
+      goSleep(true, { keepSession: true });
+      returnPending = true;
+      showResume();
+    }
+  } finally {
+    recovering = false;
+  }
+}
+
 setInterval(() => {
   if (phase === 'active') {
+    watchMic();
     if (audio.isSpeaking()) touch();
     const quietFor = Date.now() - lastAudioAt;
     if (sleepRequestedAt && Date.now() - sleepRequestedAt > 2500 && !audio.isSpeaking() && quietFor > 1500) {
