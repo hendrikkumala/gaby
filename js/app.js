@@ -905,7 +905,7 @@ async function showRoute(tujuan, mode = 'mobil') {
     from: pos,
     to: dest,
     line: r ? r.line : null,
-    title: `${shortPlace(place).split(',').slice(-1)[0].trim() || 'Kamu'} → ${dest.nama.split(',')[0]}`,
+    title: `${place.kota || 'Kamu'} → ${dest.nama.split(', ').slice(0, 2).join(', ')}`,
     info: info + (r ? ' · tanpa data macet' : ''),
     actions,
   }).catch(() => linkToast(googleDirections(pos, dest, mode), 'Google Maps'));
@@ -916,7 +916,8 @@ async function showRoute(tujuan, mode = 'mobil') {
     moda: mode,
     jarak_km: km,
     waktu_tempuh: r ? r.waktu : 'tidak diketahui',
-    catatan: r ? 'Perkiraan tanpa macet. Peta sudah tampil; sebutkan jarak & waktunya singkat.' : 'Rute tidak tersedia, hanya jarak garis lurus.',
+    catatan: (r ? 'Perkiraan tanpa macet. Peta sudah tampil; sebutkan jarak & waktunya singkat.' : 'Rute tidak tersedia, hanya jarak garis lurus.')
+      + ' Cek nama tujuan di atas; kalau ternyata bukan tempat yang dimaksud pengguna, bilang dan minta nama yang lebih spesifik. Jangan menyebut jalan tol kecuali yakin.',
   };
 }
 

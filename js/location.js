@@ -55,16 +55,34 @@ export function shortPlace(place) {
   return [place.jalan, place.kelurahan, place.kecamatan, place.kota].filter(Boolean).join(', ') || place.alamat || 'lokasi kamu';
 }
 
-// Nama tempat → titik. Hasil yang dekat dengan pengguna diutamakan.
+const BIG_PLACE = /^(city|town|municipality|county|state|province|region|country|administrative)$/;
+
+function cleanName(r) {
+  return r.display_name.split(',').map((s) => s.trim()).filter((s) => s && s !== 'Indonesia').slice(0, 3).join(', ');
+}
+
+// Nama tempat → titik.
+// - Nama kota/daerah ("Surabaya") → kota besar dengan nama itu, bukan jalan/tempat kecil
+//   yang kebetulan bernama sama di dekat pengguna.
+// - Tempat spesifik ("Tunjungan Plaza", "toko X") → yang paling dekat dengan pengguna.
 export async function geocode(query, near) {
-  const q = new URLSearchParams({ format: 'jsonv2', q: query, limit: '1', 'accept-language': 'id' });
-  if (near) {
-    const d = 1.5; // sekitar 150 km
-    q.set('viewbox', `${near.lon - d},${near.lat + d},${near.lon + d},${near.lat - d}`);
+  const base = { format: 'jsonv2', q: query, limit: '6', 'accept-language': 'id' };
+  const global = await getJson(`${NOMINATIM}/search?${new URLSearchParams(base)}`);
+  const big = global
+    .filter((r) => BIG_PLACE.test(r.addresstype || r.type || '') || (r.importance || 0) >= 0.5)
+    .sort((a, b) => (b.importance || 0) - (a.importance || 0));
+  let pick = big[0];
+  if (!pick && near) {
+    const d = 1.5; // sekitar 150 km di sekitar pengguna
+    const local = await getJson(`${NOMINATIM}/search?${new URLSearchParams({
+      ...base, viewbox: `${near.lon - d},${near.lat + d},${near.lon + d},${near.lat - d}`, bounded: '1',
+    })}`).catch(() => []);
+    const dist = (r) => (r.lat - near.lat) ** 2 + (r.lon - near.lon) ** 2;
+    pick = [...local, ...global].sort((a, b) => dist(a) - dist(b))[0];
   }
-  const list = await getJson(`${NOMINATIM}/search?${q}`);
-  if (!list.length) throw new Error(`Tempat "${query}" tidak ditemukan`);
-  return { lat: +list[0].lat, lon: +list[0].lon, nama: list[0].display_name.split(',').slice(0, 3).join(',') };
+  pick = pick || global[0];
+  if (!pick) throw new Error(`Tempat "${query}" tidak ditemukan`);
+  return { lat: +pick.lat, lon: +pick.lon, nama: cleanName(pick) };
 }
 
 export function formatDuration(sec) {

@@ -553,6 +553,8 @@ html, body {
   box-shadow: 0 0 12px var(--c);
 }
 .leaflet-container { background: #0b1622; font: 11px/1.4 system-ui, sans-serif; }
+/* Peta terang OpenStreetMap dibalik jadi gelap kebiruan */
+.map-view .leaflet-tile-pane { filter: invert(1) hue-rotate(185deg) brightness(.82) contrast(.92) saturate(.55); }
 
 /* ---------- Ingatan Gaby ---------- */
 .mem-panel { max-height: 100%; }

@@ -2,7 +2,8 @@
 
 const LEAFLET_JS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
 const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
-const TILES = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+// Peta OpenStreetMap standar (gratis, tanpa key); digelapkan lewat CSS agar serasi dengan Gaby.
+const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
 let loading = null;
 let map = null;
@@ -52,7 +53,7 @@ export async function showMapCard(opts) {
 
   if (!map) {
     map = L.map('map-view', { zoomControl: false, attributionControl: true });
-    L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap © CARTO' }).addTo(map);
+    L.tileLayer(TILES, { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
   }
   if (layer) layer.remove();
   layer = L.layerGroup().addTo(map);
