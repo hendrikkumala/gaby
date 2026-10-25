@@ -125,7 +125,11 @@ export class AudioEngine {
 
   async startMic(rate) {
     await this.unlock();
-    if (!this.stream || !this.stream.active) {
+    // Pakai ulang mikrofon yang masih hidup (tanpa minta izin lagi); minta baru hanya kalau
+    // sudah diputus, misalnya diambil alih aplikasi lain.
+    const live = this.stream && this.stream.active && this.stream.getAudioTracks().some((t) => t.readyState === 'live');
+    if (!live) {
+      if (this.stream) this.releaseMic();
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
       });

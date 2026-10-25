@@ -469,7 +469,10 @@ function goSleep(silent = false, { keepSession = false } = {}) {
   brain.close();
   audio.onChunk = null;
   vad.reset();
-  audio.releaseMic();
+  // iPhone menanyakan izin mikrofon lagi setiap kali mikrofon diminta ulang. Jadi saat
+  // pindah aplikasi sebentar, mikrofon tidak dilepas, hanya berhenti dikirim.
+  if (keepSession && isApple()) audio.pauseMic();
+  else audio.releaseMic();
   finishCaption('user');
   finishCaption('gaby');
   sleepRequestedAt = 0;
