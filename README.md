@@ -27,6 +27,12 @@ Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyen
   Gambar tampil di layar; pilih **Simpan**, **Ulang**, atau **Buang** (bisa lewat suara).
   Mesin bawaan **Gratis** (Pollinations). Mesin **Google** (Pengaturan) lebih bagus dan bisa mengedit foto asli,
   tapi butuh billing; kalau gagal, otomatis pakai yang gratis.
+- 📍 **Lokasi & peta**: "toko mochi enak dekat sini di mana?" atau "tunjukin jalan ke Surabaya".
+  Kartu peta menampilkan rute, jarak, dan perkiraan waktu (🚗/🏍️/🚶, tanpa data macet) + tombol **Buka di Google Maps**.
+  Di iPhone, izin lokasi diatur lewat Pengaturan → Privasi → Layanan Lokasi → **Situs Web Safari**.
+- 📔 **Catatan harian & profil**: setiap Gaby tidur, obrolan diringkas otomatis; fakta tentang kamu dikelompokkan
+  (diri, keluarga, kerja, kesukaan, kebiasaan, tanggal penting, rencana). Lihat, cari, ubah, atau hapus di
+  Pengaturan → **📚 Buka Ingatan Gaby**. Semua tersimpan di perangkat, tanpa login.
 - Membuka situs (YouTube, Maps, dll.)
 - Bilang "udah dulu ya Gaby" supaya dia tidur lagi
 

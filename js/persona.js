@@ -1,6 +1,6 @@
 // Kepribadian Gaby. Ubah teks di sini kalau ingin sifat Gaby berbeda.
 
-import { memory } from './memory.js';
+import { memory, CATEGORIES } from './memory.js';
 
 export const LANGS = {
   id: 'Indonesia',
@@ -36,16 +36,26 @@ function clock() {
 }
 
 export function buildPersona(providerName) {
-  const { nickname, memories, history, settings } = memory.get();
+  const { nickname, profile, journal, history, settings } = memory.get();
   const lang = LANG_RULE[settings.lang] ? settings.lang : 'id';
 
   const who = nickname
     ? `Nama panggilan pengguna adalah "${nickname}". Panggil dia dengan nama itu secara alami (jangan di setiap kalimat).`
     : `Kamu BELUM tahu nama panggilan pengguna. Ini pertemuan pertama kalian.`;
 
-  const mem = memories.length
-    ? memories.map((m) => `- ${m.text}`).join('\n')
-    : '- (belum ada)';
+  // Profil dikelompokkan per kategori supaya mudah dipahami Gaby.
+  const groups = Object.entries(CATEGORIES)
+    .map(([cat, label]) => {
+      const items = profile.filter((m) => m.cat === cat);
+      return items.length ? `${label}:\n${items.map((m) => `- ${m.text}`).join('\n')}` : '';
+    })
+    .filter(Boolean);
+  const mem = groups.length ? groups.join('\n') : '- (belum ada)';
+
+  // Catatan harian terbaru (obrolan hari-hari sebelumnya).
+  const diary = journal.slice(-12)
+    .map((j) => `- ${j.date}: ${j.text}`)
+    .join('\n') || '- (belum ada)';
 
   const recent = history.slice(-12)
     .map((h) => `${h.who === 'user' ? (nickname || 'Pengguna') : 'Gaby'}: ${h.text}`)
@@ -75,12 +85,16 @@ ${who}
 YANG KAMU INGAT TENTANG PENGGUNA
 ${mem}
 
+CATATAN HARIAN (ringkasan obrolan hari-hari sebelumnya)
+${diary}
+
 OBROLAN TERAKHIR (untuk konteks)
 ${recent}
 
 ALAT YANG KAMU PUNYA (pakai tanpa bilang "aku memanggil fungsi")
 - simpan_nama: WAJIB dipanggil begitu pengguna memberi tahu nama panggilannya atau minta dipanggil dengan nama lain.
-- ingat / lupakan: simpan hal penting tentang pengguna (hobi, pekerjaan, ulang tahun, keluarga, kesukaan). Simpan diam-diam tanpa perlu bilang.
+- ingat / lupakan: simpan hal penting tentang pengguna dengan kategorinya. Kalau ada yang berubah (pindah kerja, ganti hobi), isi "menggantikan". Simpan diam-diam tanpa perlu bilang.
+- lokasi_saya: tahu posisi pengguna. cari_tempat: tempat di sekitar pengguna (lalu pakai Google Search dengan nama daerahnya). rute: jarak & waktu tempuh ke tujuan, peta tampil di layar. Sebutkan jarak dan waktunya lewat suara, dan ingatkan waktunya belum termasuk macet bila perjalanan jauh.
 - ganti_bahasa: kalau pengguna minta bicara dalam bahasa Indonesia atau Inggris.
 - waktu_sekarang, cuaca, buat_pengingat, daftar_pengingat, hapus_pengingat, buka_situs.
 - kamera: nyalakan/matikan/ganti kamera atau bagikan layar. Saat kamera menyala kamu MELIHAT gambar dari kamera pengguna secara langsung: komentari dengan natural dan antusias, sebut benda, warna, fungsinya.
@@ -112,5 +126,23 @@ export function openingCue(reason, spokenText) {
     return null; // sambungan diperbarui diam-diam, tidak perlu menyapa.
   }
   const part = dayPart();
-  return `[SISTEM] ${nickname} baru saja membuka aplikasi. Sekarang jam ${clock()}, artinya ${part.id.toUpperCase()}. Sapa dia singkat dan hangat dengan "selamat ${part.id}" (atau "good ${part.en}" kalau berbahasa Inggris), maksimal satu kalimat. Jangan pakai sapaan waktu lain.`;
+  const greet = `[SISTEM] ${nickname} baru saja membuka aplikasi. Sekarang jam ${clock()}, artinya ${part.id.toUpperCase()}. Sapa dia singkat dan hangat dengan "selamat ${part.id}" (atau "good ${part.en}" kalau berbahasa Inggris). Jangan pakai sapaan waktu lain.`;
+  return greet + proactiveHint();
+}
+
+// Sekali sehari (pembukaan pertama), Gaby boleh menyinggung hal penting: rencana,
+// tanggal penting yang dekat, atau pengingat hari ini.
+function proactiveHint() {
+  const day = new Date().toLocaleDateString('sv-SE');
+  let last = '';
+  try { last = localStorage.getItem('gaby.proactive') || ''; } catch {}
+  if (last === day) return ' Maksimal satu kalimat.';
+  try { localStorage.setItem('gaby.proactive', day); } catch {}
+  const { reminders } = memory.get();
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const todays = reminders
+    .filter((r) => !r.done && r.due > Date.now() && r.due <= end.getTime())
+    .map((r) => `"${r.text}" jam ${new Date(r.due).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`);
+  return ` Ini pembukaan pertama hari ini: setelah menyapa, boleh singgung SATU hal yang paling relevan secara natural, misalnya rencana dari catatan harian ("jadi ke Surabaya?"), tanggal penting dalam 7 hari ke depan dari profil, atau pengingat hari ini${todays.length ? ` (${todays.join(', ')})` : ''}. Kalau tidak ada yang relevan, cukup menyapa. Maksimal dua kalimat.`;
 }

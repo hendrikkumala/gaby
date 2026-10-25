@@ -1,6 +1,7 @@
 // Kemampuan Gaby: nama, ingatan, emosi, waktu, cuaca, pengingat, buka situs.
 
-import { memory } from './memory.js';
+import { memory, CATEGORIES } from './memory.js';
+import { getPosition, describePosition, shortPlace } from './location.js';
 import { LANGS } from './persona.js';
 
 // Definisi alat dalam format umum (JSON Schema sederhana).
@@ -18,11 +19,15 @@ export const TOOL_DEFS = [
   {
     name: 'ingat',
     background: true,
-    description: 'Simpan satu fakta penting tentang pengguna untuk diingat selamanya (hobi, pekerjaan, kesukaan, ulang tahun, keluarga, rencana).',
+    description: 'Simpan satu fakta penting tentang pengguna untuk diingat lama (diri, keluarga, pekerjaan, kesukaan, kebiasaan, tanggal penting, rencana). Kalau fakta lama berubah, isi menggantikan.',
     parameters: {
       type: 'object',
-      properties: { fakta: { type: 'string', description: 'Fakta singkat, misal "suka kopi hitam tanpa gula"' } },
-      required: ['fakta'],
+      properties: {
+        fakta: { type: 'string', description: 'Fakta singkat, misal "suka kopi hitam tanpa gula"' },
+        kategori: { type: 'string', enum: Object.keys(CATEGORIES) },
+        menggantikan: { type: 'string', description: 'Kata kunci fakta lama yang sudah tidak berlaku (opsional), misal "kerja di"' },
+      },
+      required: ['fakta', 'kategori'],
     },
   },
   {
@@ -124,6 +129,32 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'lokasi_saya',
+    description: 'Dapatkan lokasi pengguna saat ini (alamat, kelurahan, kota). Pakai saat pengguna bertanya "di mana aku", tempat terdekat, atau butuh konteks lokasi.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'cari_tempat',
+    description: 'Cari tempat di sekitar pengguna (misal "toko mochi", "bengkel", "apotek 24 jam"). Menampilkan peta lokasi pengguna dan tombol Google Maps. Setelah itu pakai Google Search dengan nama daerah yang dikembalikan untuk menyebut beberapa rekomendasi.',
+    parameters: {
+      type: 'object',
+      properties: { kata_kunci: { type: 'string', description: 'Jenis tempat yang dicari' } },
+      required: ['kata_kunci'],
+    },
+  },
+  {
+    name: 'rute',
+    description: 'Tunjukkan rute dari lokasi pengguna ke suatu tujuan, dengan jarak dan perkiraan waktu tempuh, dan tampilkan peta di layar.',
+    parameters: {
+      type: 'object',
+      properties: {
+        tujuan: { type: 'string', description: 'Nama tempat/kota tujuan, misal "Surabaya" atau "Tunjungan Plaza Surabaya"' },
+        moda: { type: 'string', enum: ['mobil', 'motor', 'jalan'], description: 'Kendaraan, bawaan mobil' },
+      },
+      required: ['tujuan'],
+    },
+  },
+  {
     name: 'gambar_aksi',
     description: 'Tindakan untuk gambar yang sedang tampil: simpan ke galeri, ulang (gambar lagi dengan perintah sama), atau buang.',
     parameters: {
@@ -147,17 +178,6 @@ const WEATHER_CODES = {
   82: 'hujan lokal lebat', 95: 'badai petir', 96: 'badai petir dengan hujan es', 99: 'badai petir hebat',
 };
 
-function getPosition() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) return reject(new Error('lokasi tidak didukung'));
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve({ lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => reject(new Error('izin lokasi ditolak')),
-      { timeout: 8000, maximumAge: 600000 },
-    );
-  });
-}
-
 async function weather(city) {
   let lat, lon, place;
   if (city) {
@@ -167,8 +187,10 @@ async function weather(city) {
     place = [g.results[0].name, g.results[0].country].filter(Boolean).join(', ');
   } else {
     try {
-      ({ lat, lon } = await getPosition());
-      place = 'lokasi kamu sekarang';
+      const pos = await getPosition();
+      ({ lat, lon } = pos);
+      const p = await describePosition(pos);
+      place = [p.kecamatan || p.kelurahan, p.kota].filter(Boolean).join(', ') || 'lokasi kamu sekarang';
     } catch (e) {
       return { error: `Tidak bisa mengambil lokasi (${e.message}). Tanyakan nama kotanya.` };
     }
@@ -211,7 +233,7 @@ export async function runTool(name, args, ui) {
         return { ok: true, nama: memory.get().nickname };
 
       case 'ingat':
-        memory.remember(args.fakta);
+        memory.remember(args.fakta, args.kategori, args.menggantikan);
         ui.refreshSettings();
         return { ok: true };
 
@@ -267,6 +289,28 @@ export async function runTool(name, args, ui) {
 
       case 'buat_gambar':
         return await ui.makeImage(String(args.perintah || ''), !!args.pakai_kamera);
+
+      case 'lokasi_saya': {
+        const pos = await getPosition();
+        const place = await describePosition(pos);
+        return { lokasi: shortPlace(place), kota: place.kota, provinsi: place.provinsi, akurasi_meter: pos.acc };
+      }
+
+      case 'cari_tempat': {
+        const pos = await getPosition();
+        const place = await describePosition(pos);
+        const area = [place.kelurahan || place.kecamatan, place.kota].filter(Boolean).join(', ');
+        ui.showPlaces(String(args.kata_kunci || ''), pos, area);
+        return {
+          daerah_pengguna: area || shortPlace(place),
+          catatan: `Peta & tombol Google Maps sudah tampil. Sekarang cari dengan Google Search: "${args.kata_kunci} enak dekat ${area}" lalu sebut 2–3 rekomendasi singkat beserta perkiraan jaraknya.`,
+        };
+      }
+
+      case 'rute': {
+        const mode = ['mobil', 'motor', 'jalan'].includes(args.moda) ? args.moda : 'mobil';
+        return await ui.showRoute(String(args.tujuan || ''), mode);
+      }
 
       case 'gambar_aksi':
         return await ui.imageAction(args.aksi);

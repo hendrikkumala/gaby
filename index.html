@@ -79,6 +79,36 @@
     </div>
   </div>
 
+  <!-- Kartu peta: rute / tempat sekitar -->
+  <div id="mapcard" class="mapcard" hidden>
+    <div class="mapcard-head">
+      <b id="map-title"></b>
+      <button id="map-close" class="icon-btn" aria-label="Tutup peta">✕</button>
+    </div>
+    <div id="map-view" class="map-view"></div>
+    <p id="map-info" class="map-info"></p>
+    <div id="map-actions" class="btn-row map-actions"></div>
+  </div>
+
+  <!-- Ingatan Gaby -->
+  <div id="memories" class="overlay" hidden>
+    <div class="panel glass wide mem-panel">
+      <div class="panel-top">
+        <div class="panel-head">
+          <h2>Ingatan Gaby</h2>
+          <button id="mem-close" class="icon-btn" aria-label="Tutup">✕</button>
+        </div>
+        <input id="mem-search" class="field" type="search" placeholder="🔍 Cari ingatan…" autocomplete="off">
+        <nav class="tabs" id="mem-chips"></nav>
+      </div>
+      <div id="mem-body"></div>
+      <div class="btn-row mem-foot">
+        <button id="mem-tidy" class="btn">🧹 Rapikan sekarang</button>
+        <button id="set-forget" class="btn danger">Hapus semua ingatan</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Galeri / penampil gambar -->
   <div id="viewer" class="overlay" hidden>
     <div class="viewer glass">
@@ -147,10 +177,10 @@
         <h3>Tentang kamu</h3>
         <div class="row"><span>Nama panggilan</span><b id="set-nick">–</b></div>
         <div class="row"><span>Hal yang Gaby ingat</span><b id="set-mem-count">0</b></div>
-        <details class="mem-list"><summary>Lihat ingatan</summary><ul id="set-mem-list"></ul></details>
+        <div class="row"><span>Catatan harian</span><b id="set-journal-count">0</b></div>
         <div class="btn-row">
+          <button id="set-open-mem" class="btn primary">📚 Buka Ingatan Gaby</button>
           <button id="set-rename" class="btn">Ganti nama panggilan</button>
-          <button id="set-forget" class="btn danger">Hapus semua ingatan</button>
         </div>
       </div>
 

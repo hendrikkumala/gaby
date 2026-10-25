@@ -515,3 +515,79 @@ html, body {
 }
 .preview-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .preview-actions .btn.primary { width: auto; margin-top: 0; }
+
+/* ---------- Kartu peta ---------- */
+.mapcard {
+  position: fixed;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%) scale(.7);
+  width: min(92vw, 460px);
+  padding: 12px;
+  border-radius: 20px;
+  background: rgba(6, 16, 28, .9);
+  border: 1px solid rgba(127, 227, 255, .6);
+  box-shadow: 0 0 40px rgba(95, 212, 255, .35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9;
+  opacity: 0;
+  transition: transform .45s cubic-bezier(.2, 1.4, .4, 1), opacity .35s;
+}
+.mapcard[hidden] { display: none; }
+.mapcard.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.mapcard-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.mapcard-head b { font-size: 16px; line-height: 1.25; }
+.map-view { height: min(48vh, 320px); border-radius: 14px; overflow: hidden; background: #0b1622; }
+.map-info { margin: 10px 2px 4px; font-size: 18px; font-weight: 700; color: var(--gold); }
+.map-actions { margin-top: 6px; }
+.map-actions .btn { padding: 8px 12px; font-size: 14px; text-decoration: none; }
+.map-actions .btn.primary { width: auto; margin-top: 0; }
+.map-actions .btn.on { border-color: var(--accent); background: rgba(95, 212, 255, .22); }
+.map-dot span {
+  display: block;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--c);
+  border: 3px solid #fff;
+  box-shadow: 0 0 12px var(--c);
+}
+.leaflet-container { background: #0b1622; font: 11px/1.4 system-ui, sans-serif; }
+
+/* ---------- Ingatan Gaby ---------- */
+.mem-panel { max-height: 100%; }
+.mem-panel .field[type=search] { margin-bottom: 10px; }
+.mem-group { border-top: 1px solid var(--line); }
+.mem-group > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 2px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+}
+.mem-group > summary::-webkit-details-marker { display: none; }
+.mem-group > summary::after { content: '▸'; color: var(--ink-dim); transition: transform .2s; }
+.mem-group[open] > summary::after { transform: rotate(90deg); }
+.mem-group .count { color: var(--ink-dim); font-weight: 600; margin-left: 6px; }
+.mem-sub { margin-left: 8px; }
+.mem-sub > summary { padding: 8px 2px; font-size: 15px; }
+.mem-row { display: flex; gap: 8px; align-items: flex-start; padding: 7px 2px 7px 6px; border-radius: 10px; }
+.mem-row:hover { background: rgba(95, 212, 255, .05); }
+.mem-text { flex: 1; line-height: 1.35; -webkit-user-select: text; user-select: text; }
+.mem-date { color: var(--accent); font-size: 13px; font-weight: 700; display: block; }
+.mem-row button {
+  flex: none;
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.mem-row textarea { flex: 1; min-height: 60px; font: inherit; }
+.mem-row select { margin-top: 6px; }
+.mem-edit { flex: 1; display: flex; flex-direction: column; }
+.mem-empty { color: var(--ink-dim); padding: 20px 4px; text-align: center; }
+.mem-foot { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 10px; }
+mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px; }

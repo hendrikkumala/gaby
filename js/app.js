@@ -1,7 +1,10 @@
 // Pengendali utama Gaby: menyatukan tampilan, suara, otak AI, dan ingatan.
 
 import { VERSION, PIN_HASH, PIN_LENGTH } from './config.js';
-import { memory } from './memory.js';
+import { memory, CATEGORIES } from './memory.js';
+import { showMapCard, hideMapCard } from './map.js';
+import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
+import { summarizeSession, tidyProfile } from './journal.js';
 import { openingCue, LANGS } from './persona.js';
 import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
@@ -214,6 +217,8 @@ const ui = {
   camera: (aksi, kamera) => cameraTool(aksi, kamera),
   makeImage: (prompt, useCam) => makeImage(prompt, useCam),
   imageAction: (aksi) => imageAction(aksi),
+  showPlaces: (query, pos, area) => showPlaces(query, pos, area),
+  showRoute: (tujuan, mode) => showRoute(tujuan, mode),
   setMood,
   refreshSettings: () => fillSettings(),
   setLang(lang) {
@@ -337,7 +342,10 @@ async function activate(reason, spoken = '') {
   wake.stop();
   phase = 'connecting';
   render();
-  if (reason !== 'resume') audio.chime('wake');
+  if (reason !== 'resume') {
+    audio.chime('wake');
+    sessionStart = Date.now();
+  }
 
   try {
     await brain.connect();
@@ -387,6 +395,7 @@ function connectFailed(e) {
 
 function goSleep(silent = false) {
   const wasActive = phase === 'active';
+  if (wasActive) writeJournal();
   closeCamera();
   brain.close();
   audio.onChunk = null;
@@ -520,6 +529,7 @@ async function keepAwake() {
 document.addEventListener('visibilitychange', async () => {
   if (phase === 'locked') return;
   if (document.visibilityState === 'hidden') {
+    if (phase === 'active') writeJournal();
     wake.stop();
     return;
   }
@@ -654,14 +664,9 @@ function openSettings() {
 function fillSettings() {
   const st = memory.get();
   $('set-nick').textContent = st.nickname || 'belum ada';
-  $('set-mem-count').textContent = st.memories.length;
-  const list = $('set-mem-list');
-  list.innerHTML = '';
-  for (const m of st.memories) {
-    const li = document.createElement('li');
-    li.textContent = m.text;
-    list.appendChild(li);
-  }
+  $('set-mem-count').textContent = st.profile.length;
+  $('set-journal-count').textContent = st.journal.length;
+  if (!$('memories').hidden) renderMemories();
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });
   document.querySelectorAll('input[name="lang"]').forEach((r) => { r.checked = r.value === (st.settings.lang || 'id'); });
@@ -830,11 +835,277 @@ $('set-rename').addEventListener('click', () => {
 });
 
 $('set-forget').addEventListener('click', () => {
-  if (!confirm('Hapus nama panggilan dan semua ingatan Gaby di perangkat ini?')) return;
+  if (!confirm('Hapus nama panggilan, semua ingatan, dan catatan harian Gaby di perangkat ini?')) return;
   memory.forgetAll();
   fillSettings();
+  renderMemories();
   toast('Ingatan Gaby di perangkat ini sudah dihapus.');
   restartSession();
+});
+
+// ---------- Catatan harian ----------
+
+let sessionStart = 0;
+let journalUpTo = 0;   // obrolan sampai waktu ini sudah diringkas
+
+// Ringkas obrolan sesi ini jadi catatan harian (dijalankan saat Gaby tidur).
+function writeJournal() {
+  const from = Math.max(sessionStart, journalUpTo);
+  const lines = memory.get().history.filter((h) => h.at >= from);
+  if (!lines.some((h) => h.who === 'user') || lines.length < 2) return;
+  journalUpTo = Date.now();
+  summarizeSession(lines)
+    .then(() => tidyProfile())
+    .then(() => fillSettings())
+    .catch((e) => console.warn('[Gaby] catatan harian gagal:', e.message));
+}
+
+// ---------- Peta: tempat sekitar & rute ----------
+
+const MODE_ICON = { mobil: '🚗', motor: '🏍️', jalan: '🚶' };
+
+function haversineKm(a, b) {
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function showPlaces(query, pos, area) {
+  showMapCard({
+    from: pos,
+    title: `📍 ${query} di sekitar ${area || 'kamu'}`,
+    info: 'Titik biru = lokasi kamu',
+    actions: [{ label: '🗺️ Cari di Google Maps', href: googleSearchNear(query, pos), primary: true }],
+  }).catch(() => linkToast(googleSearchNear(query, pos), 'Google Maps'));
+}
+
+let lastRoute = null;
+
+async function showRoute(tujuan, mode = 'mobil') {
+  const pos = await getPosition();
+  const place = await describePosition(pos);
+  const dest = lastRoute && lastRoute.tujuan === tujuan ? lastRoute.dest : await geocode(tujuan, pos);
+  lastRoute = { tujuan, dest };
+  let r = null;
+  try {
+    r = await route(pos, dest, mode);
+  } catch {}
+  const km = r ? r.km : Math.round(haversineKm(pos, dest));
+  const info = r
+    ? `${MODE_ICON[mode]} ${km} km · ± ${r.waktu}`
+    : `📏 ± ${km} km garis lurus (rute tidak tersedia)`;
+  const actions = ['mobil', 'motor', 'jalan'].map((m) => ({
+    label: `${MODE_ICON[m]} ${m[0].toUpperCase()}${m.slice(1)}`,
+    active: m === mode,
+    onClick: () => showRoute(tujuan, m).catch((e) => toast(e.message, 'err')),
+  }));
+  actions.push({ label: '🧭 Buka di Google Maps', href: googleDirections(pos, dest, mode), primary: true });
+  showMapCard({
+    from: pos,
+    to: dest,
+    line: r ? r.line : null,
+    title: `${shortPlace(place).split(',').slice(-1)[0].trim() || 'Kamu'} → ${dest.nama.split(',')[0]}`,
+    info: info + (r ? ' · tanpa data macet' : ''),
+    actions,
+  }).catch(() => linkToast(googleDirections(pos, dest, mode), 'Google Maps'));
+  touch();
+  return {
+    dari: shortPlace(place),
+    ke: dest.nama,
+    moda: mode,
+    jarak_km: km,
+    waktu_tempuh: r ? r.waktu : 'tidak diketahui',
+    catatan: r ? 'Perkiraan tanpa macet. Peta sudah tampil; sebutkan jarak & waktunya singkat.' : 'Rute tidak tersedia, hanya jarak garis lurus.',
+  };
+}
+
+$('map-close').addEventListener('click', hideMapCard);
+
+// ---------- Halaman Ingatan Gaby ----------
+
+let memFilter = 'semua';
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function highlight(text, q) {
+  const safe = escapeHtml(text);
+  if (!q) return safe;
+  const re = new RegExp(`(${escapeHtml(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig');
+  return safe.replace(re, '<mark>$1</mark>');
+}
+
+function memRow(text, { date, onSave, onDelete, cat, q }) {
+  const row = document.createElement('div');
+  row.className = 'mem-row';
+  const view = () => {
+    row.innerHTML = '';
+    const span = document.createElement('span');
+    span.className = 'mem-text';
+    span.innerHTML = (date ? `<span class="mem-date">${escapeHtml(date)}</span>` : '') + highlight(text, q);
+    const edit = document.createElement('button');
+    edit.textContent = '✏️';
+    edit.title = 'Ubah';
+    edit.onclick = editMode;
+    const del = document.createElement('button');
+    del.textContent = '🗑️';
+    del.title = 'Hapus';
+    del.onclick = () => { if (confirm('Hapus ingatan ini?')) onDelete(); };
+    row.append(span, edit, del);
+  };
+  const editMode = () => {
+    row.innerHTML = '';
+    const box = document.createElement('div');
+    box.className = 'mem-edit';
+    const ta = document.createElement('textarea');
+    ta.className = 'field';
+    ta.value = text;
+    box.appendChild(ta);
+    let sel = null;
+    if (cat) {
+      sel = document.createElement('select');
+      sel.className = 'field small';
+      for (const [k, label] of Object.entries(CATEGORIES)) {
+        const o = document.createElement('option');
+        o.value = k;
+        o.textContent = label;
+        sel.appendChild(o);
+      }
+      sel.value = cat;
+      box.appendChild(sel);
+    }
+    const ok = document.createElement('button');
+    ok.textContent = '✓';
+    ok.title = 'Simpan';
+    ok.onclick = () => onSave(ta.value, sel && sel.value);
+    const cancel = document.createElement('button');
+    cancel.textContent = '✕';
+    cancel.title = 'Batal';
+    cancel.onclick = view;
+    row.append(box, ok, cancel);
+    ta.focus();
+  };
+  view();
+  return row;
+}
+
+function memGroup(label, count, open) {
+  const d = document.createElement('details');
+  d.className = 'mem-group';
+  d.open = open;
+  d.innerHTML = `<summary><span>${escapeHtml(label)}<span class="count">(${count})</span></span></summary>`;
+  return d;
+}
+
+function renderMemories() {
+  const st = memory.get();
+  const q = $('mem-search').value.trim().toLowerCase();
+  const match = (t) => !q || t.toLowerCase().includes(q);
+
+  // Tombol kategori
+  const chips = $('mem-chips');
+  chips.innerHTML = '';
+  const chipList = [['semua', 'Semua'], ...Object.entries(CATEGORIES).map(([k, v]) => [k, v.split(' ')[0]]), ['jurnal', '📔']];
+  for (const [k, label] of chipList) {
+    if (k !== 'semua' && k !== 'jurnal' && !st.profile.some((m) => m.cat === k)) continue;
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.title = k === 'jurnal' ? 'Catatan harian' : (CATEGORIES[k] || 'Semua');
+    b.classList.toggle('on', memFilter === k);
+    b.onclick = () => { memFilter = k; renderMemories(); };
+    chips.appendChild(b);
+  }
+
+  const body = $('mem-body');
+  body.innerHTML = '';
+  let shown = 0;
+
+  if (memFilter !== 'jurnal') {
+    for (const [cat, label] of Object.entries(CATEGORIES)) {
+      if (memFilter !== 'semua' && memFilter !== cat) continue;
+      const items = st.profile.filter((m) => m.cat === cat && match(m.text));
+      if (!items.length) continue;
+      const g = memGroup(label, items.length, !!q || memFilter === cat);
+      for (const m of items) {
+        g.appendChild(memRow(m.text, {
+          cat: m.cat,
+          q,
+          onSave: (text, c) => { memory.updateFact(m.id, text, c); renderMemories(); fillSettings(); },
+          onDelete: () => { memory.removeFact(m.id); renderMemories(); fillSettings(); },
+        }));
+      }
+      body.appendChild(g);
+      shown += items.length;
+    }
+  }
+
+  if (memFilter === 'semua' || memFilter === 'jurnal') {
+    const entries = st.journal.filter((j) => match(j.text)).slice().reverse();
+    if (entries.length) {
+      const g = memGroup('📔 Catatan harian', entries.length, !!q || memFilter === 'jurnal');
+      // Kelompokkan per bulan; bulan terbaru terbuka.
+      const months = new Map();
+      for (const j of entries) {
+        const key = new Date(`${j.date}T12:00:00`).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        if (!months.has(key)) months.set(key, []);
+        months.get(key).push(j);
+      }
+      let first = true;
+      for (const [month, list] of months) {
+        const sub = memGroup(month, list.length, first || !!q);
+        sub.classList.add('mem-sub');
+        first = false;
+        for (const j of list) {
+          const date = new Date(`${j.date}T12:00:00`).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+          sub.appendChild(memRow(j.text, {
+            date,
+            q,
+            onSave: (text) => { memory.updateJournal(j.id, text); renderMemories(); },
+            onDelete: () => { memory.removeJournal(j.id); renderMemories(); fillSettings(); },
+          }));
+        }
+        g.appendChild(sub);
+      }
+      body.appendChild(g);
+      shown += entries.length;
+    }
+  }
+
+  if (!shown) {
+    const p = document.createElement('p');
+    p.className = 'mem-empty';
+    p.textContent = q ? `Tidak ada ingatan berisi "${q}".` : 'Belum ada ingatan. Ngobrol dulu dengan Gaby, nanti otomatis terisi 😊';
+    body.appendChild(p);
+  }
+}
+
+$('set-open-mem').addEventListener('click', () => {
+  $('settings').hidden = true;
+  memFilter = 'semua';
+  $('mem-search').value = '';
+  renderMemories();
+  $('memories').hidden = false;
+});
+$('mem-close').addEventListener('click', () => { $('memories').hidden = true; });
+$('memories').addEventListener('click', (e) => { if (e.target === $('memories')) $('memories').hidden = true; });
+$('mem-search').addEventListener('input', renderMemories);
+$('mem-tidy').addEventListener('click', async () => {
+  const b = $('mem-tidy');
+  b.disabled = true;
+  b.textContent = '🧹 Merapikan…';
+  try {
+    const n = await tidyProfile(true);
+    toast(n ? `Ingatan dirapikan (${n} catatan) ✓` : 'Belum ada yang perlu dirapikan.');
+  } catch (e) {
+    toast(`Gagal merapikan: ${e.message}`, 'err');
+  } finally {
+    b.disabled = false;
+    b.textContent = '🧹 Rapikan sekarang';
+    renderMemories();
+    fillSettings();
+  }
 });
 
 // ---------- Kamera: Gaby bisa melihat ----------
