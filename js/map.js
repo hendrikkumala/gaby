@@ -43,7 +43,12 @@ export async function showMapCard(opts) {
     const el = document.createElement(a.href ? 'a' : 'button');
     el.className = `btn${a.primary ? ' primary' : ''}`;
     el.textContent = a.label;
-    if (a.href) { el.href = a.href; el.target = '_blank'; el.rel = 'noopener'; }
+    if (a.href) {
+      el.href = a.href;
+      el.target = '_blank';
+      el.rel = 'noopener';
+      el.addEventListener('click', () => setTimeout(hideMapCard, 300)); // kartu ditutup setelah Google Maps dibuka
+    }
     if (a.onClick) el.onclick = a.onClick;
     if (a.active) el.classList.add('on');
     acts.appendChild(el);

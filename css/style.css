@@ -150,6 +150,21 @@ html, body {
 }
 .cam-actions button[hidden] { display: none; }
 
+/* ---------- Tombol besar (saat browser memblokir pembukaan otomatis) ---------- */
+.toast.big { justify-content: center; gap: 12px; padding: 14px; border-color: rgba(127, 227, 255, .7); box-shadow: 0 0 30px rgba(95, 212, 255, .35); }
+.toast .big-btn {
+  flex: 1;
+  text-align: center;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(95, 212, 255, .4), rgba(255, 200, 100, .3));
+  border: 1px solid rgba(127, 227, 255, .7);
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 /* ---------- Galeri ---------- */
 .viewer { width: min(560px, 100%); padding: 20px; max-height: 100%; overflow-y: auto; }
 .viewer img { width: 100%; max-height: 60vh; object-fit: contain; border-radius: 14px; background: #000; display: block; }

@@ -155,6 +155,15 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'peta_aksi',
+    description: 'Tindakan untuk kartu peta yang sedang tampil: buka di Google Maps (pengguna bilang "buka di Google Maps", "navigasi ke sana", "oke berangkat"), atau tutup kartunya ("tutup petanya").',
+    parameters: {
+      type: 'object',
+      properties: { aksi: { type: 'string', enum: ['buka', 'tutup'] } },
+      required: ['aksi'],
+    },
+  },
+  {
     name: 'gambar_aksi',
     description: 'Tindakan untuk gambar yang sedang tampil: simpan ke galeri, ulang (gambar lagi dengan perintah sama), atau buang.',
     parameters: {
@@ -280,9 +289,11 @@ export async function runTool(name, args, ui) {
       case 'buka_situs': {
         let url = String(args.url || '');
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-        ui.linkToast(url, args.label || 'Buka');
-        return { ok: true, catatan: 'Tombol ditampilkan di layar; pengguna perlu mengetuknya.' };
+        return ui.openExternal(url, `↗ ${args.label || 'Buka'}`);
       }
+
+      case 'peta_aksi':
+        return ui.mapAction(args.aksi === 'tutup' ? 'tutup' : 'buka');
 
       case 'kamera':
         return await ui.camera(args.aksi, args.kamera);

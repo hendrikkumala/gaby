@@ -122,6 +122,44 @@ function linkToast(url, label) {
   el.appendChild(a);
 }
 
+const isInstalledApp = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+// Buka tautan lewat perintah suara. Browser biasanya memblokir pembukaan tab tanpa ketukan,
+// jadi: coba buka tab baru → kalau Gaby dipasang sebagai aplikasi, buka langsung →
+// kalau tetap tidak bisa, tampilkan satu tombol besar untuk diketuk.
+function openExternal(url, label) {
+  let win = null;
+  try { win = window.open(url, '_blank'); } catch {}
+  if (win) {
+    try { win.opener = null; } catch {}
+    return { ok: true, cara: 'tab baru' };
+  }
+  if (isInstalledApp()) {
+    setTimeout(() => { location.href = url; }, 600); // beri waktu Gaby menjawab singkat
+    return { ok: true, cara: 'langsung', catatan: 'Gaby akan berhenti mendengar sementara; saat kembali, ketuk sekali untuk menyalakan suaranya.' };
+  }
+  bigButton(url, label);
+  return { ok: false, catatan: 'Browser memblokir pembukaan otomatis. Tombol besar sudah tampil; minta pengguna mengetuknya sekali.' };
+}
+
+function bigButton(url, label) {
+  document.querySelectorAll('.toast.big').forEach((t) => t.remove());
+  const el = toast('', 'info big', 30000);
+  el.textContent = '';
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  a.className = 'big-btn';
+  a.textContent = label;
+  a.onclick = () => el.remove();
+  const x = document.createElement('button');
+  x.className = 'icon-btn';
+  x.textContent = '✕';
+  x.onclick = () => el.remove();
+  el.append(a, x);
+}
+
 // Pengingat dengan tombol "Tambahkan ke Kalender".
 function calendarToast(r, when) {
   const el = toast(`⏰ ${r.text} — ${when}`, 'info', 90000);
@@ -219,6 +257,8 @@ const ui = {
   imageAction: (aksi) => imageAction(aksi),
   showPlaces: (query, pos, area) => showPlaces(query, pos, area),
   showRoute: (tujuan, mode) => showRoute(tujuan, mode),
+  mapAction: (aksi) => mapAction(aksi),
+  openExternal: (url, label) => openExternal(url, label),
   setMood,
   refreshSettings: () => fillSettings(),
   setLang(lang) {
@@ -871,7 +911,21 @@ function haversineKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
+let mapLink = null; // tautan Google Maps dari kartu peta yang sedang tampil
+
+function mapAction(aksi) {
+  if (aksi === 'tutup') {
+    hideMapCard();
+    return { ok: true };
+  }
+  if (!mapLink) return { error: 'Belum ada peta yang tampil. Tanyakan dulu tujuan atau tempat yang dicari.' };
+  const res = openExternal(mapLink.url, '🧭 Buka Google Maps');
+  if (res.ok) hideMapCard();
+  return res;
+}
+
 function showPlaces(query, pos, area) {
+  mapLink = { url: googleSearchNear(query, pos) };
   showMapCard({
     from: pos,
     title: `📍 ${query} di sekitar ${area || 'kamu'}`,
@@ -901,6 +955,7 @@ async function showRoute(tujuan, mode = 'mobil') {
     onClick: () => showRoute(tujuan, m).catch((e) => toast(e.message, 'err')),
   }));
   actions.push({ label: '🧭 Buka di Google Maps', href: googleDirections(pos, dest, mode), primary: true });
+  mapLink = { url: googleDirections(pos, dest, mode) };
   showMapCard({
     from: pos,
     to: dest,
