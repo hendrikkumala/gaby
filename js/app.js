@@ -143,14 +143,18 @@ function openExternal(url, label) {
   return { ok: false, catatan: 'Browser memblokir pembukaan otomatis. Tombol besar sudah tampil; minta pengguna mengetuknya sekali.' };
 }
 
-function bigButton(url, label) {
+// sameTab: dibuka di tab yang sama — perlu untuk tautan aplikasi (intent Android /
+// universal link iPhone) supaya HP membukanya di aplikasi, bukan di browser.
+function bigButton(url, label, { sameTab = false } = {}) {
   document.querySelectorAll('.toast.big').forEach((t) => t.remove());
   const el = toast('', 'info big', 30000);
   el.textContent = '';
   const a = document.createElement('a');
   a.href = url;
-  a.target = '_blank';
-  a.rel = 'noopener';
+  if (!sameTab) {
+    a.target = '_blank';
+    a.rel = 'noopener';
+  }
   a.className = 'big-btn';
   a.textContent = label;
   a.onclick = () => el.remove();
@@ -1307,10 +1311,19 @@ $('set-open-todo').addEventListener('click', () => { $('settings').hidden = true
 // ---------- Musik ----------
 
 const MUSIC = {
-  ytmusic: { name: 'YouTube Music', search: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`, watch: (id) => `https://music.youtube.com/watch?v=${id}` },
-  youtube: { name: 'YouTube', search: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, watch: (id) => `https://www.youtube.com/watch?v=${id}` },
-  spotify: { name: 'Spotify', search: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+  ytmusic: { name: 'YouTube Music', pkg: 'com.google.android.apps.youtube.music', search: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`, watch: (id) => `https://music.youtube.com/watch?v=${id}` },
+  youtube: { name: 'YouTube', pkg: 'com.google.android.youtube', search: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, watch: (id) => `https://www.youtube.com/watch?v=${id}` },
+  spotify: { name: 'Spotify', pkg: 'com.spotify.music', search: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
 };
+
+const isAndroid = () => /Android/i.test(navigator.userAgent);
+const isPhone = () => isAndroid() || isApple();
+
+// Android: tautan "intent" langsung membuka aplikasinya (akun Premium-mu);
+// kalau aplikasinya tidak ada, jatuh ke versi web.
+function androidIntent(url, pkg) {
+  return `intent://${url.replace(/^https:\/\//, '')}#Intent;scheme=https;package=${pkg};S.browser_fallback_url=${encodeURIComponent(url)};end`;
+}
 const PIPED = ['https://pipedapi.kavin.rocks', 'https://pipedapi.adminforge.de'];
 
 // Cari ID lagu lewat layanan pencarian YouTube publik (Piped) supaya lagu langsung diputar.
@@ -1334,7 +1347,14 @@ async function playMusic(q) {
   const app = MUSIC[memory.get().settings.musicApp] || MUSIC.ytmusic;
   const song = app.watch ? await findSongId(q) : null;
   const url = song ? app.watch(song.id) : app.search(q);
-  const res = openExternal(url, `🎵 Putar di ${app.name}`);
+  let res;
+  if (isPhone()) {
+    // HP hanya membuka aplikasi musik (bukan versi web) kalau tautannya diketuk langsung.
+    bigButton(isAndroid() ? androidIntent(url, app.pkg) : url, `🎵 Putar di ${app.name}`, { sameTab: true });
+    res = { ok: true, catatan: `Tombol besar sudah tampil. Minta pengguna mengetuknya sekali supaya terbuka di aplikasi ${app.name}.` };
+  } else {
+    res = openExternal(url, `🎵 Putar di ${app.name}`);
+  }
   return {
     ...res,
     aplikasi: app.name,
