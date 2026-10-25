@@ -144,10 +144,11 @@ export const TOOL_DEFS = [
   },
   {
     name: 'rute',
-    description: 'Tunjukkan rute dari lokasi pengguna ke suatu tujuan, dengan jarak dan perkiraan waktu tempuh, dan tampilkan peta di layar.',
+    description: 'Tunjukkan rute ke suatu tujuan, dengan jarak dan perkiraan waktu tempuh, dan tampilkan peta di layar. Titik awal = lokasi pengguna, KECUALI pengguna menyebut asal ("dari Bandung ke Jakarta") — isi kolom dari.',
     parameters: {
       type: 'object',
       properties: {
+        dari: { type: 'string', description: 'Titik awal kalau pengguna menyebutnya, misal "Bandung". Kosongkan untuk lokasi pengguna sekarang.' },
         tujuan: { type: 'string', description: 'Nama tempat/kota tujuan, misal "Surabaya" atau "Tunjungan Plaza Surabaya"' },
         moda: { type: 'string', enum: ['mobil', 'motor', 'jalan'], description: 'Kendaraan, bawaan mobil' },
       },
@@ -381,7 +382,7 @@ export async function runTool(name, args, ui) {
 
       case 'rute': {
         const mode = ['mobil', 'motor', 'jalan'].includes(args.moda) ? args.moda : 'mobil';
-        return await ui.showRoute(String(args.tujuan || ''), mode);
+        return await ui.showRoute(String(args.tujuan || ''), mode, String(args.dari || '').trim());
       }
 
       case 'gambar_aksi':

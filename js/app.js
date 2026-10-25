@@ -281,7 +281,7 @@ const ui = {
     return { ok: true, jumlah_gambar: count };
   },
   showPlaces: (query, pos, area) => showPlaces(query, pos, area),
-  showRoute: (tujuan, mode) => showRoute(tujuan, mode),
+  showRoute: (tujuan, mode, dari) => showRoute(tujuan, mode, dari),
   mapAction: (aksi) => mapAction(aksi),
   todoAction: (aksi, items) => todoAction(aksi, items),
   playMusic: (q) => playMusic(q),
@@ -1092,13 +1092,34 @@ function showPlaces(query, pos, area) {
   }).catch(() => linkToast(googleSearchNear(query, pos), 'Google Maps'));
 }
 
-let lastRoute = null;
+// Hasil pencarian tempat disimpan sementara, supaya ganti kendaraan tidak mencari ulang.
+// Kuncinya nama + titik acuan, jadi "Jakarta" dari Bandung dan dari Surabaya tidak tertukar.
+const placeCache = new Map();
 
-async function showRoute(tujuan, mode = 'mobil') {
-  const pos = await getPosition();
-  const place = await describePosition(pos);
-  const dest = lastRoute && lastRoute.tujuan === tujuan ? lastRoute.dest : await geocode(tujuan, pos);
-  lastRoute = { tujuan, dest };
+async function findPlace(name, near) {
+  const key = `${name.toLowerCase()}|${near ? `${near.lat.toFixed(1)},${near.lon.toFixed(1)}` : ''}`;
+  if (!placeCache.has(key)) placeCache.set(key, await geocode(name, near));
+  return placeCache.get(key);
+}
+
+const shortName = (nama) => nama.split(', ').slice(0, 2).join(', ');
+
+// dari: titik awal yang disebut pengguna ("dari Bandung"); kosong = lokasi GPS pengguna.
+async function showRoute(tujuan, mode = 'mobil', dari = '') {
+  let pos, fromName, fromLabel;
+  if (dari) {
+    // Lokasi GPS hanya dipakai sebagai acuan pencarian; kalau tidak diizinkan, tetap jalan.
+    const gps = await getPosition().catch(() => null);
+    pos = await findPlace(dari, gps);
+    fromName = pos.nama;
+    fromLabel = shortName(pos.nama);
+  } else {
+    pos = await getPosition();
+    const place = await describePosition(pos);
+    fromName = shortPlace(place);
+    fromLabel = place.kota || 'Kamu';
+  }
+  const dest = await findPlace(tujuan, pos);
   let r = null;
   try {
     r = await route(pos, dest, mode);
@@ -1110,7 +1131,7 @@ async function showRoute(tujuan, mode = 'mobil') {
   const actions = ['mobil', 'motor', 'jalan'].map((m) => ({
     label: `${MODE_ICON[m]} ${m[0].toUpperCase()}${m.slice(1)}`,
     active: m === mode,
-    onClick: () => showRoute(tujuan, m).catch((e) => toast(e.message, 'err')),
+    onClick: () => showRoute(tujuan, m, dari).catch((e) => toast(e.message, 'err')),
   }));
   actions.push({ label: '🧭 Buka di Google Maps', href: googleDirections(pos, dest, mode), primary: true });
   mapLink = { url: googleDirections(pos, dest, mode) };
@@ -1119,19 +1140,19 @@ async function showRoute(tujuan, mode = 'mobil') {
     from: pos,
     to: dest,
     line: r ? r.line : null,
-    title: `${place.kota || 'Kamu'} → ${dest.nama.split(', ').slice(0, 2).join(', ')}`,
+    title: `${fromLabel} → ${shortName(dest.nama)}`,
     info: info + (r ? ' · tanpa data macet' : ''),
     actions,
   }).catch(() => linkToast(googleDirections(pos, dest, mode), 'Google Maps'));
   touch();
   return {
-    dari: shortPlace(place),
+    dari: fromName + (dari ? '' : ' (lokasi pengguna sekarang)'),
     ke: dest.nama,
     moda: mode,
     jarak_km: km,
     waktu_tempuh: r ? r.waktu : 'tidak diketahui',
     catatan: (r ? 'Perkiraan tanpa macet. Peta sudah tampil; sebutkan jarak & waktunya singkat.' : 'Rute tidak tersedia, hanya jarak garis lurus.')
-      + ' Cek nama tujuan di atas; kalau ternyata bukan tempat yang dimaksud pengguna, bilang dan minta nama yang lebih spesifik. Jangan menyebut jalan tol kecuali yakin.',
+      + ' Cek nama asal & tujuan di atas; kalau ternyata bukan tempat yang dimaksud pengguna, bilang dan minta nama yang lebih spesifik. Jangan menyebut jalan tol kecuali yakin.',
   };
 }
 
