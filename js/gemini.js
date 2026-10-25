@@ -3,6 +3,8 @@
 import { toBase64, fromBase64 } from './audio.js';
 
 const WS_URL = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+// Fitur eksperimental (merasakan nada suara) hanya ada di versi v1alpha.
+const WS_URL_ALPHA = WS_URL.replace('.v1beta.', '.v1alpha.');
 const REST = 'https://generativelanguage.googleapis.com/v1beta';
 
 // Dipakai jika daftar model tidak bisa diambil.
@@ -56,7 +58,9 @@ export const isSlowModel = (n) => /thinking|dialog/.test(n);
 //   background  = simpan ingatan tanpa membuat Gaby berhenti bicara
 //   manual      = Gaby (perangkat) yang menentukan kapan kamu selesai bicara
 //   extras      = Google Search + sesi panjang
+//   affective   = Gemini merasakan nada suara pengguna (eksperimental, v1alpha)
 const LEVELS = [
+  { affective: true, thinkingOff: true, background: true, manual: true, extras: true },
   { thinkingOff: true, background: true, manual: true, extras: true },
   { background: true, manual: true, extras: true },
   { manual: true, extras: true },
@@ -73,6 +77,7 @@ function toGeminiSchema(s) {
     out.properties = {};
     for (const [k, v] of Object.entries(s.properties)) out.properties[k] = toGeminiSchema(v);
   }
+  if (s.items) out.items = toGeminiSchema(s.items);
   if (s.required) out.required = s.required;
   return out;
 }
@@ -115,7 +120,7 @@ export class GeminiLive {
         reject(err);
       };
 
-      const ws = new WebSocket(`${WS_URL}?key=${encodeURIComponent(this.key)}`);
+      const ws = new WebSocket(`${this.features.affective ? WS_URL_ALPHA : WS_URL}?key=${encodeURIComponent(this.key)}`);
       ws.binaryType = 'arraybuffer';
       this.ws = ws;
       const timer = setTimeout(() => { fail('network', 'Waktu habis saat menyambung'); try { ws.close(); } catch {} }, 15000);
@@ -142,6 +147,7 @@ export class GeminiLive {
           inputAudioTranscription: {},
           outputAudioTranscription: {},
         };
+        if (this.features.affective) setup.enableAffectiveDialog = true;
         if (this.features.thinkingOff) {
           setup.generationConfig.thinkingConfig = { thinkingBudget: 0 };
         }

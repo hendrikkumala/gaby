@@ -66,7 +66,7 @@ ${transcript}
 
 Tugas:
 1. "ringkasan": 1–2 kalimat bahasa Indonesia tentang hal penting dari obrolan ini (topik, rencana, perasaan, permintaan). Tulis dari sudut pandang catatan, misal "${who} cari mochi enak, rencana ke Surabaya minggu depan." Kalau obrolan hanya basa-basi, isi "".
-2. "fakta": fakta BARU atau yang BERUBAH tentang ${who} yang layak diingat lama (bukan hal sesaat). Tiap item: {"kategori": salah satu dari [${CAT_LIST}], "teks": fakta singkat, "menggantikan": kata kunci fakta lama yang sudah tidak berlaku atau ""}. Jangan ulangi fakta yang sudah ada di profil. Boleh kosong.
+2. "fakta": fakta BARU atau yang BERUBAH tentang ${who} yang layak diingat lama (bukan hal sesaat). Tiap item: {"kategori": salah satu dari [${CAT_LIST}], "teks": fakta singkat, "menggantikan": kata kunci fakta lama yang sudah tidak berlaku atau ""}. Jangan ulangi fakta yang sudah ada di profil. JANGAN masukkan tugas kecil/to-do atau pengingat (misal "beli roti", "call Joni jam 3") karena itu sudah dicatat terpisah. Boleh kosong.
 
 Balas JSON: {"ringkasan": "...", "fakta": [...]}`);
   if (out.ringkasan) memory.addJournal(out.ringkasan);

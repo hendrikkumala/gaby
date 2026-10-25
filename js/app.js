@@ -5,6 +5,7 @@ import { memory, CATEGORIES } from './memory.js';
 import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
+import { dailyHint } from './daily.js';
 import { openingCue, LANGS } from './persona.js';
 import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
@@ -265,6 +266,9 @@ const ui = {
   showPlaces: (query, pos, area) => showPlaces(query, pos, area),
   showRoute: (tujuan, mode) => showRoute(tujuan, mode),
   mapAction: (aksi) => mapAction(aksi),
+  todoAction: (aksi, items) => todoAction(aksi, items),
+  playMusic: (q) => playMusic(q),
+  refreshTodos: () => { if (!$('todocard').hidden) renderTodos(); fillSettings(); },
   openExternal: (url, label) => openExternal(url, label),
   setMood,
   refreshSettings: () => fillSettings(),
@@ -394,6 +398,10 @@ async function activate(reason, spoken = '') {
     sessionStart = Date.now();
   }
 
+  // Briefing pagi / sapaan malam disiapkan bersamaan dengan menyambung (tidak menambah jeda).
+  const wantsDaily = !pendingCue && !spoken && reason !== 'resume' && reason !== 'reminder' && memory.get().nickname;
+  const dailyP = wantsDaily ? dailyHint().catch(() => null) : Promise.resolve(null);
+
   try {
     await brain.connect();
   } catch (e) {
@@ -423,8 +431,15 @@ async function activate(reason, spoken = '') {
 
   let cue = pendingCue;
   pendingCue = null;
-  if (!cue && reason !== 'resume') cue = openingCue(reason, spoken);
-  if (cue) brain.sendText(cue);
+  let daily = null;
+  if (!cue && reason !== 'resume') {
+    daily = await Promise.race([dailyP, new Promise((r) => setTimeout(() => r(null), 4000))]);
+    cue = openingCue(reason, spoken, daily ? daily.text : '');
+  }
+  if (cue) {
+    brain.sendText(cue);
+    if (daily) daily.commit();
+  }
 }
 
 function connectFailed(e) {
@@ -485,7 +500,9 @@ function fireReminder(r) {
   }
   const nick = memory.get().nickname || 'pengguna';
   const late = Date.now() - r.due > 120000 ? ' (pengingat ini sedikit terlambat karena aplikasi tadi tertutup)' : '';
-  const cue = `[SISTEM] Waktunya pengingat: "${r.text}"${late}. Sampaikan ke ${nick} sekarang dengan gayamu.`;
+  const linked = r.todoId && memory.get().todos.find((t) => t.id === r.todoId && !t.done);
+  const cue = `[SISTEM] Waktunya pengingat: "${r.text}"${late}. Sampaikan ke ${nick} sekarang dengan gayamu.`
+    + (linked ? ' Ini juga ada di daftar catatan; kalau sudah dikerjakan, dia bisa bilang "sudah" dan kamu tandai selesai.' : '');
   if (phase === 'active') brain.sendText(cue);
   else if (phase === 'sleep') {
     pendingCue = cue;
@@ -713,6 +730,10 @@ function fillSettings() {
   $('set-nick').textContent = st.nickname || 'belum ada';
   $('set-mem-count').textContent = st.profile.length;
   $('set-journal-count').textContent = st.journal.length;
+  $('set-todo-count').textContent = st.todos.filter((t) => !t.done).length;
+  $('set-briefing').checked = st.settings.briefing !== false;
+  $('set-affective').checked = st.settings.affective !== false;
+  $('set-music').value = st.settings.musicApp || 'ytmusic';
   if (!$('memories').hidden) renderMemories();
   const mode = currentMode();
   document.querySelectorAll('input[name="mode"]').forEach((r) => { r.checked = r.value === mode; });
@@ -833,6 +854,18 @@ document.querySelectorAll('input[name="imgengine"]').forEach((r) => r.addEventLi
   memory.setSetting('imageEngine', r.value);
   toast(r.value === 'google' ? 'Mesin gambar: Google (berbayar)' : 'Mesin gambar: Gratis');
 }));
+$('set-briefing').addEventListener('change', (e) => memory.setSetting('briefing', e.target.checked));
+$('set-music').addEventListener('change', (e) => {
+  memory.setSetting('musicApp', e.target.value);
+  toast(`Aplikasi musik: ${MUSIC[e.target.value].name}`);
+});
+$('set-affective').addEventListener('change', (e) => {
+  memory.setSetting('affective', e.target.checked);
+  // Coba ulang dari tingkat teratas supaya fitur ini dicoba lagi (atau dilewati).
+  brain.levels = {};
+  try { localStorage.removeItem('gaby.levels3'); } catch {}
+  restartSession();
+});
 $('set-diag').addEventListener('change', (e) => { memory.setSetting('diag', e.target.checked); renderDiag(); });
 
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });
@@ -933,6 +966,7 @@ function mapAction(aksi) {
 
 function showPlaces(query, pos, area) {
   mapLink = { url: googleSearchNear(query, pos) };
+  hideCards('map');
   showMapCard({
     from: pos,
     title: `📍 ${query} di sekitar ${area || 'kamu'}`,
@@ -963,6 +997,7 @@ async function showRoute(tujuan, mode = 'mobil') {
   }));
   actions.push({ label: '🧭 Buka di Google Maps', href: googleDirections(pos, dest, mode), primary: true });
   mapLink = { url: googleDirections(pos, dest, mode) };
+  hideCards('map');
   showMapCard({
     from: pos,
     to: dest,
@@ -1171,6 +1206,143 @@ $('mem-tidy').addEventListener('click', async () => {
   }
 });
 
+// ---------- Catatan / to-do ----------
+
+const hhmm = (t) => new Date(t).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+function renderTodos(flashIds = []) {
+  const day = new Date().toLocaleDateString('sv-SE');
+  const { todos, reminders } = memory.get();
+  // Belum selesai di atas, yang sudah dicentang hari ini di bawah (tercoret).
+  const items = [...todos.filter((t) => !t.done), ...todos.filter((t) => t.done)];
+  const ul = $('todo-list');
+  ul.innerHTML = '';
+  for (const t of items) {
+    const li = document.createElement('li');
+    li.classList.toggle('done', t.done);
+    li.classList.toggle('flash', flashIds.includes(t.id));
+    const check = document.createElement('button');
+    check.className = 'todo-check';
+    check.textContent = t.done ? '✓' : '';
+    check.title = t.done ? 'Batalkan centang' : 'Tandai selesai';
+    check.onclick = () => { memory.setTodoDone(t.id, !t.done); renderTodos([t.id]); fillSettings(); };
+    const text = document.createElement('span');
+    text.className = 'todo-text';
+    text.textContent = t.text;
+    const r = t.reminderId && reminders.find((x) => x.id === t.reminderId && !x.done);
+    if (r) text.insertAdjacentHTML('beforeend', `<span class="todo-tag">⏰ ${hhmm(r.due)}</span>`);
+    if (!t.done && t.date < day) text.insertAdjacentHTML('beforeend', '<span class="todo-tag old">dari kemarin</span>');
+    const del = document.createElement('button');
+    del.className = 'todo-del';
+    del.textContent = '🗑️';
+    del.title = 'Hapus';
+    del.onclick = () => { memory.removeTodo(t.id); renderTodos(); fillSettings(); };
+    li.append(check, text, del);
+    ul.appendChild(li);
+  }
+  $('todo-empty').hidden = items.length > 0;
+  if (flashIds.length) setTimeout(() => ul.querySelectorAll('.flash').forEach((x) => x.classList.remove('flash')), 1200);
+}
+
+// Hanya satu kartu (peta / gambar / catatan) yang tampil dalam satu waktu.
+function hideCards(except) {
+  if (except !== 'map') hideMapCard();
+  if (except !== 'todo') { $('todocard').classList.remove('show'); $('todocard').hidden = true; }
+  if (except !== 'image') { $('preview').hidden = true; $('preview').classList.remove('show'); }
+}
+
+function showTodoCard(flashIds = []) {
+  memory.dailyCleanup();
+  hideCards('todo');
+  renderTodos(flashIds);
+  const card = $('todocard');
+  card.hidden = false;
+  requestAnimationFrame(() => card.classList.add('show'));
+  touch();
+}
+
+function todoAction(aksi, items) {
+  const names = (list) => list.map((t) => t.text);
+  if (aksi === 'tutup') {
+    hideCards();
+    return { ok: true };
+  }
+  if (aksi === 'tambah') {
+    const added = items.map((x) => memory.addTodo(x)).filter(Boolean);
+    showTodoCard(added.map((t) => t.id));
+    fillSettings();
+    return { ok: true, ditambah: names(added), total_belum_selesai: memory.openTodos().length };
+  }
+  if (aksi === 'selesai' || aksi === 'belum' || aksi === 'hapus') {
+    const hit = [], miss = [], notes = [];
+    for (const x of items) {
+      const t = memory.findTodo(x, { includeDone: aksi !== 'selesai' });
+      if (!t) { miss.push(x); continue; }
+      const r = t.reminderId && memory.get().reminders.find((y) => y.id === t.reminderId && !y.done);
+      if (aksi === 'hapus') memory.removeTodo(t.id);
+      else memory.setTodoDone(t.id, aksi === 'selesai');
+      if (r && aksi !== 'belum') notes.push(`Pengingat "${r.text}" jam ${hhmm(r.due)} ikut dibatalkan di Gaby; kalau sudah disimpan di kalender HP, hapus manual di sana.`);
+      hit.push(t);
+    }
+    showTodoCard(hit.map((t) => t.id));
+    fillSettings();
+    const out = { ok: hit.length > 0, [aksi === 'hapus' ? 'dihapus' : 'ditandai']: names(hit), sisa_belum_selesai: names(memory.openTodos()) };
+    if (miss.length) out.tidak_ketemu = miss;
+    if (notes.length) out.catatan = notes.join(' ');
+    return out;
+  }
+  // lihat
+  showTodoCard();
+  const day = new Date().toLocaleDateString('sv-SE');
+  return {
+    belum_selesai: memory.openTodos().map((t) => (t.date < day ? `${t.text} (dari hari sebelumnya)` : t.text)),
+    selesai_hari_ini: names(memory.get().todos.filter((t) => t.done)),
+    catatan: 'Kartu daftar sudah tampil. Bacakan singkat yang belum selesai.',
+  };
+}
+
+$('todo-close').addEventListener('click', () => hideCards());
+$('set-open-todo').addEventListener('click', () => { $('settings').hidden = true; showTodoCard(); });
+
+// ---------- Musik ----------
+
+const MUSIC = {
+  ytmusic: { name: 'YouTube Music', search: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`, watch: (id) => `https://music.youtube.com/watch?v=${id}` },
+  youtube: { name: 'YouTube', search: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, watch: (id) => `https://www.youtube.com/watch?v=${id}` },
+  spotify: { name: 'Spotify', search: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+};
+const PIPED = ['https://pipedapi.kavin.rocks', 'https://pipedapi.adminforge.de'];
+
+// Cari ID lagu lewat layanan pencarian YouTube publik (Piped) supaya lagu langsung diputar.
+// Kalau layanan itu tidak bisa dihubungi, cukup buka halaman pencarian.
+async function findSongId(q) {
+  for (const base of PIPED) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3500);
+      const res = await fetch(`${base}/search?q=${encodeURIComponent(q)}&filter=music_songs`, { signal: ctrl.signal });
+      clearTimeout(timer);
+      const data = await res.json();
+      const hit = (data.items || []).find((x) => /\/watch\?v=/.test(x.url || ''));
+      if (hit) return { id: hit.url.split('v=')[1].split('&')[0], title: hit.title, by: hit.uploaderName };
+    } catch {}
+  }
+  return null;
+}
+
+async function playMusic(q) {
+  const app = MUSIC[memory.get().settings.musicApp] || MUSIC.ytmusic;
+  const song = app.watch ? await findSongId(q) : null;
+  const url = song ? app.watch(song.id) : app.search(q);
+  const res = openExternal(url, `🎵 Putar di ${app.name}`);
+  return {
+    ...res,
+    aplikasi: app.name,
+    lagu: song ? `${song.title}${song.by ? ` — ${song.by}` : ''}` : null,
+    info: song ? 'Lagu langsung diputar.' : 'Membuka hasil pencarian; pengguna memilih lagunya.',
+  };
+}
+
 // ---------- Kamera: Gaby bisa melihat ----------
 
 const camera = new Camera($('cam-video'));
@@ -1233,6 +1405,18 @@ function closeCamera() {
 
 async function cameraTool(aksi, kamera) {
   if (aksi === 'matikan') { closeCamera(); return { ok: true }; }
+  if (aksi === 'foto') {
+    // Satu gambar tajam (resolusi tinggi) untuk membaca tulisan kecil.
+    if (!camera.active) {
+      const res = await openCamera('kamera');
+      if (!res.ok) return res;
+      await new Promise((r) => setTimeout(r, 900)); // beri waktu kamera fokus
+    }
+    const f = camera.frame(1600, 0.92);
+    if (!f) return { error: 'Belum ada gambar dari kamera' };
+    brain.sendImage(f);
+    return { ok: true, catatan: 'Gambar tajam terkirim. Baca tulisannya dengan teliti; kalau ada angka, hitung dengan cermat dan sebutkan rinciannya singkat.' };
+  }
   if (aksi === 'ganti') {
     if (!camera.active) return openCamera('kamera');
     await camera.flip().catch(() => {});
@@ -1302,6 +1486,7 @@ async function makeImage(prompt, useCam) {
 
 function showPreview() {
   if (!pendingImage) return;
+  hideCards('image');
   if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
   previewUrl = imgSrc(pendingImage);
   $('preview-img').src = previewUrl;

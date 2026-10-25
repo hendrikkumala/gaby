@@ -14,7 +14,7 @@ export class Brain {
     this.provider = null;
     this.models = null;
     // Tingkat pengaturan Gemini yang berhasil per model, diingat supaya bangun lebih cepat.
-    try { this.levels = JSON.parse(localStorage.getItem('gaby.levels2') || '{}'); } catch { this.levels = {}; }
+    try { this.levels = JSON.parse(localStorage.getItem('gaby.levels3') || '{}'); } catch { this.levels = {}; }
   }
 
   async discover(force = false) {
@@ -77,7 +77,8 @@ export class Brain {
     for (const p of order) {
       if (p.kind === 'gemini' && geminiAuthFailed) continue;
       // Mulai dari tingkat pengaturan yang terakhir berhasil, supaya bangun lebih cepat.
-      const start = this.levels[p.id] || 0;
+      // Tingkat 0 = "merasakan nada suara" (eksperimental); dilewati bila dimatikan.
+      const start = Math.max(this.levels[p.id] || 0, memory.get().settings.affective === false ? 1 : 0);
       for (const level of p.kind === 'gemini' ? [...Array(LEVEL_COUNT).keys()].filter((l) => l >= start) : [0]) {
         const prov = this.makeProvider(p, level);
         this.wire(prov, p);
@@ -87,7 +88,7 @@ export class Brain {
           this.current = p;
           if (this.levels[p.id] !== level) {
             this.levels[p.id] = level;
-            try { localStorage.setItem('gaby.levels2', JSON.stringify(this.levels)); } catch {}
+            try { localStorage.setItem('gaby.levels3', JSON.stringify(this.levels)); } catch {}
           }
           memory.clearExhausted(p.id);
           return prov;

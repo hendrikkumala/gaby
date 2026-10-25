@@ -33,6 +33,13 @@ Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyen
 - 📔 **Catatan harian & profil**: setiap Gaby tidur, obrolan diringkas otomatis; fakta tentang kamu dikelompokkan
   (diri, keluarga, kerja, kesukaan, kebiasaan, tanggal penting, rencana). Lihat, cari, ubah, atau hapus di
   Pengaturan → **📚 Buka Ingatan Gaby**. Semua tersimpan di perangkat, tanpa login.
+- 📝 **Catatan / to-do**: "catat ke toko roti dan call Joni", "catatan aku apa aja?", "aku udah call Joni" (dicentang & dicoret).
+  Tugas dengan waktu ("ingatkan jam 3 call Joni") jadi pengingat + tombol kalender dan ikut tampil di daftar.
+  Yang sudah dicentang hilang otomatis keesokan harinya; yang belum ditanyakan saat briefing pagi.
+- 🌅 **Briefing pagi & sapaan malam**: cuaca, catatan, dan pengingat saat pertama dibuka (bisa dimatikan di Pengaturan → Fitur).
+- 🎵 **Musik**: "putar lagu Tulus" → YouTube Music / YouTube / Spotify (pilih di Pengaturan → Fitur).
+- 🧾 **Baca & hitung**: "baca struk ini, totalnya berapa?" — Gaby mengambil foto tajam dari kamera.
+- 🎭 **Merasakan nada suara** (eksperimental): otomatis dilewati kalau model belum mendukung.
 - Membuka situs (YouTube, Maps, dll.)
 - Bilang "udah dulu ya Gaby" supaya dia tidur lagi
 

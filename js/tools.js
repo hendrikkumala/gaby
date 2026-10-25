@@ -65,7 +65,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'buat_pengingat',
-    description: 'Pasang pengingat / alarm / timer. Isi menit_lagi untuk "X menit lagi", atau jam untuk waktu tertentu (format 24 jam "HH:MM", opsional tanggal "YYYY-MM-DD").',
+    description: 'Pasang pengingat / alarm / timer (ada WAKTU: "jam 3", "10 menit lagi", "besok jam 9"). Otomatis juga masuk daftar catatan/to-do; kalau pesannya sama dengan catatan yang sudah ada, catatan itu yang diberi pengingat. Isi menit_lagi untuk "X menit lagi", atau jam (format 24 jam "HH:MM", opsional tanggal "YYYY-MM-DD").',
     parameters: {
       type: 'object',
       properties: {
@@ -109,7 +109,7 @@ export const TOOL_DEFS = [
     parameters: {
       type: 'object',
       properties: {
-        aksi: { type: 'string', enum: ['nyalakan', 'matikan', 'ganti', 'layar'] },
+        aksi: { type: 'string', enum: ['nyalakan', 'matikan', 'ganti', 'layar', 'foto'], description: 'foto = kirim satu gambar tajam untuk membaca tulisan kecil (struk, dokumen, label) atau menghitung' },
         kamera: { type: 'string', enum: ['depan', 'belakang'], description: 'Opsional, untuk aksi nyalakan' },
       },
       required: ['aksi'],
@@ -155,6 +155,27 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'catatan',
+    description: 'Daftar catatan / to-do pengguna (tugas TANPA waktu: "catat beli roti", "catatan aku apa aja?", "aku udah call Joni", "hapus yang roti"). Kartu daftar tampil di layar. Tugas dengan waktu pakai buat_pengingat.',
+    parameters: {
+      type: 'object',
+      properties: {
+        aksi: { type: 'string', enum: ['tambah', 'lihat', 'selesai', 'belum', 'hapus', 'tutup'], description: 'belum = batalkan centang' },
+        item: { type: 'array', items: { type: 'string' }, description: 'Isi catatan, satu tugas per item, singkat (misal ["ke toko roti", "call Joni"]). Untuk selesai/hapus: sebut tugasnya.' },
+      },
+      required: ['aksi'],
+    },
+  },
+  {
+    name: 'putar_musik',
+    description: 'Cari dan putar lagu/musik ("putar lagu santai", "setel Tulus Hati-Hati di Jalan").',
+    parameters: {
+      type: 'object',
+      properties: { lagu: { type: 'string', description: 'Judul, penyanyi, atau suasana lagu' } },
+      required: ['lagu'],
+    },
+  },
+  {
     name: 'peta_aksi',
     description: 'Tindakan untuk kartu peta yang sedang tampil: buka di Google Maps (pengguna bilang "buka di Google Maps", "navigasi ke sana", "oke berangkat"), atau tutup kartunya ("tutup petanya").',
     parameters: {
@@ -196,7 +217,7 @@ const WEATHER_CODES = {
   82: 'hujan lokal lebat', 95: 'badai petir', 96: 'badai petir dengan hujan es', 99: 'badai petir hebat',
 };
 
-async function weather(city) {
+export async function weather(city) {
   let lat, lon, place;
   if (city) {
     const g = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=id`).then((r) => r.json());
@@ -278,9 +299,12 @@ export async function runTool(name, args, ui) {
       case 'buat_pengingat': {
         const due = computeDue(args);
         if (!due) return { error: 'Waktunya belum jelas. Tanyakan berapa menit lagi atau jam berapa.' };
-        const r = memory.addReminder(args.pesan, due);
+        const todo = memory.findTodo(args.pesan) || memory.addTodo(args.pesan);
+        const r = memory.addReminder(args.pesan, due, todo ? todo.id : null);
+        if (todo) memory.linkTodoReminder(todo.id, r.id);
         ui.requestNotify();
         ui.calendarToast(r, fmtTime(due));
+        ui.refreshTodos();
         return {
           ok: true, id: r.id, waktu: fmtTime(due),
           catatan: 'Bilang singkat ke pengguna: ketuk tombol Kalender di layar supaya tetap diingatkan walau Gaby ditutup.',
@@ -306,6 +330,12 @@ export async function runTool(name, args, ui) {
 
       case 'kamera':
         return await ui.camera(args.aksi, args.kamera);
+
+      case 'catatan':
+        return ui.todoAction(args.aksi, Array.isArray(args.item) ? args.item : args.item ? [String(args.item)] : []);
+
+      case 'putar_musik':
+        return ui.playMusic(String(args.lagu || ''));
 
       case 'buat_gambar':
         return await ui.makeImage(String(args.perintah || ''), !!args.pakai_kamera);

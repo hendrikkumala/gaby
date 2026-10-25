@@ -79,6 +79,16 @@
     </div>
   </div>
 
+  <!-- Kartu catatan / to-do -->
+  <div id="todocard" class="mapcard todocard" hidden>
+    <div class="mapcard-head">
+      <b>📝 Catatan Gaby</b>
+      <button id="todo-close" class="icon-btn" aria-label="Tutup catatan">✕</button>
+    </div>
+    <ul id="todo-list" class="todo-list"></ul>
+    <p id="todo-empty" class="hint center">Belum ada catatan. Bilang "Gaby, catat …"</p>
+  </div>
+
   <!-- Kartu peta: rute / tempat sekitar -->
   <div id="mapcard" class="mapcard" hidden>
     <div class="mapcard-head">
@@ -142,7 +152,11 @@
 
       <section id="step-key" class="step" hidden>
         <p class="lead">Satu langkah lagi: masukkan <b>API key Gemini</b> kamu.</p>
-        <p class="hint">Ambil gratis di <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Key hanya disimpan di perangkat ini.</p>
+        <ol class="howto">
+          <li>Buka <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey ↗</a> dan login dengan akun Google</li>
+          <li>Klik <b>Create API key</b>, lalu salin key-nya</li>
+          <li>Tempel di bawah ini. Gratis, dan hanya disimpan di perangkat ini.</li>
+        </ol>
         <input id="key-input" class="field" type="password" placeholder="Tempel API key di sini" autocomplete="off" spellcheck="false">
         <button id="key-save" class="btn primary">Simpan &amp; lanjut</button>
         <p class="error" id="key-error"></p>
@@ -169,6 +183,7 @@
           <button data-go="grp-kamu">👤 Kamu</button>
           <button data-go="grp-panggil">🎙️ Panggilan</button>
           <button data-go="grp-bahasa">🌐 Bahasa</button>
+          <button data-go="grp-fitur">✨ Fitur</button>
           <button data-go="grp-suara">🎨 Suara &amp; Ekspresi</button>
         </nav>
       </div>
@@ -199,6 +214,20 @@
         <label class="radio"><input type="radio" name="lang" value="auto"> <span><b>Ikuti saya</b> — Gaby menjawab dengan bahasa yang kamu pakai</span></label>
       </div>
 
+      <div class="group" id="grp-fitur">
+        <h3>Fitur</h3>
+        <label class="check"><input type="checkbox" id="set-briefing"> <span><b>Briefing pagi & sapaan malam</b> — cuaca, catatan, dan pengingat saat pertama dibuka</span></label>
+        <label class="check"><input type="checkbox" id="set-affective"> <span><b>Gaby merasakan nada suaramu</b> (eksperimental) — kalau model belum mendukung, otomatis dilewati</span></label>
+        <div class="row"><span>Aplikasi musik</span>
+          <select id="set-music" class="field small">
+            <option value="ytmusic">YouTube Music</option>
+            <option value="youtube">YouTube</option>
+            <option value="spotify">Spotify</option>
+          </select></div>
+        <div class="row"><span>Catatan / to-do belum selesai</span><b id="set-todo-count">0</b></div>
+        <div class="btn-row"><button id="set-open-todo" class="btn">📝 Lihat catatan</button></div>
+      </div>
+
       <div class="group" id="grp-suara">
         <h3>Suara &amp; tampilan</h3>
         <div class="row"><span>Suara Gaby (Gemini)</span>
@@ -211,9 +240,9 @@
 
       <div class="group" id="grp-otak">
         <h3>Otak Gaby</h3>
-        <div class="row"><span>API key Gemini</span>
+        <div class="row"><span>API key Gemini <a class="getkey" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Dapatkan key ↗</a></span>
           <input id="set-gemini" class="field small" type="password" placeholder="Tempel API key di sini" autocomplete="off" spellcheck="false"></div>
-        <div class="row"><span>API key OpenAI <i>(opsional, berbayar)</i></span>
+        <div class="row"><span>API key OpenAI <i>(opsional, berbayar)</i> <a class="getkey" href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Dapatkan key ↗</a></span>
           <input id="set-openai" class="field small" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false"></div>
         <div class="row"><span>Model Gemini</span>
           <select id="set-model" class="field small"><option value="auto">Otomatis (tercepat)</option></select></div>
@@ -224,7 +253,7 @@
         <h4 class="sub">Mesin gambar</h4>
         <label class="radio"><input type="radio" name="imgengine" value="free"> <span><b>Gratis</b> — buat gambar baru (kualitas lumayan, kadang lambat)</span></label>
         <label class="radio"><input type="radio" name="imgengine" value="google"> <span><b>Google</b> — kualitas terbaik & bisa edit foto asli. Butuh billing (±Rp300–1.000/gambar); kalau gagal otomatis pakai yang gratis</span></label>
-        <div class="row"><span>Key Pollinations <i>(opsional, gratis)</i></span>
+        <div class="row"><span>Key Pollinations <i>(opsional, gratis)</i> <a class="getkey" href="https://enter.pollinations.ai" target="_blank" rel="noopener">Dapatkan key ↗</a></span>
           <input id="set-poll" class="field small" type="password" placeholder="Hanya jika diminta" autocomplete="off" spellcheck="false"></div>
         <label class="check"><input type="checkbox" id="set-diag"> Tampilkan panel diagnosa (angka kecepatan)</label>
         <p class="hint">Urutan cadangan otomatis: <span id="set-chain">–</span></p>

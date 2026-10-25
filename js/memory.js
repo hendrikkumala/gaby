@@ -22,7 +22,8 @@ const DEFAULTS = {
   journal: [],       // [{ id, date: 'YYYY-MM-DD', at, text }] — catatan harian ringkasan obrolan
   lastTidy: 0,       // kapan profil terakhir dirapikan
   history: [],       // [{ who: 'user' | 'gaby', text, at }]
-  reminders: [],     // [{ id, text, due, done }]
+  reminders: [],     // [{ id, text, due, done, todoId }]
+  todos: [],         // [{ id, text, done, doneAt, createdAt, date, reminderId }] — catatan/to-do
   pinOk: false,
   keys: { gemini: '', openai: '', pollinations: '' },
   settings: {
@@ -33,6 +34,9 @@ const DEFAULTS = {
     vadMode: 'local', // 'local' = perangkat menentukan selesai bicara, 'server' = Gemini
     diag: false,     // tampilkan panel diagnosa
     imageEngine: 'free', // 'free' (Pollinations) | 'google' (berbayar, bisa edit foto)
+    musicApp: 'ytmusic', // 'ytmusic' | 'youtube' | 'spotify'
+    briefing: true,  // briefing pagi & sapaan malam
+    affective: true, // Gemini merasakan nada suara (eksperimental)
     captions: true,
     antiEcho: false,
   },
@@ -168,8 +172,8 @@ export const memory = {
     save();
   },
 
-  addReminder(text, due) {
-    const r = { id: Math.random().toString(36).slice(2, 8), text, due, done: false };
+  addReminder(text, due, todoId = null) {
+    const r = { id: newId().slice(0, 6), text, due, done: false, todoId };
     state.reminders.push(r);
     save();
     return r;
@@ -185,8 +189,85 @@ export const memory = {
   removeReminder(id) {
     const before = state.reminders.length;
     state.reminders = state.reminders.filter((x) => x.id !== id);
+    for (const t of state.todos) if (t.reminderId === id) t.reminderId = null;
     save();
     return before !== state.reminders.length;
+  },
+
+  // ---------- Catatan / to-do ----------
+
+  addTodo(text) {
+    text = String(text).trim().replace(/[.。]+$/, '').slice(0, 200);
+    if (!text) return null;
+    const open = state.todos.find((t) => !t.done && t.text.toLowerCase() === text.toLowerCase());
+    if (open) return open;
+    const t = { id: newId(), text, done: false, doneAt: 0, createdAt: Date.now(), date: today(), reminderId: null };
+    state.todos.push(t);
+    if (state.todos.length > 200) state.todos.shift();
+    save();
+    return t;
+  },
+
+  // Cari item berdasarkan ucapan pengguna ("call joni" → "call Joni").
+  findTodo(query, { includeDone = false } = {}) {
+    const q = String(query || '').toLowerCase().trim();
+    if (!q) return null;
+    const pool = state.todos.filter((t) => includeDone || !t.done);
+    const exact = pool.find((t) => t.text.toLowerCase() === q);
+    if (exact) return exact;
+    const contains = pool.find((t) => t.text.toLowerCase().includes(q) || q.includes(t.text.toLowerCase()));
+    if (contains) return contains;
+    // Kecocokan kata: item dengan kata sama terbanyak.
+    const words = q.split(/\s+/).filter((w) => w.length > 2);
+    let best = null, score = 0;
+    for (const t of pool) {
+      const tw = t.text.toLowerCase();
+      const s = words.filter((w) => tw.includes(w)).length;
+      if (s > score) { best = t; score = s; }
+    }
+    return score ? best : null;
+  },
+
+  setTodoDone(id, done = true) {
+    const t = state.todos.find((x) => x.id === id);
+    if (!t) return null;
+    t.done = done;
+    t.doneAt = done ? Date.now() : 0;
+    // Tugas selesai → pengingatnya tidak perlu berbunyi lagi.
+    if (done && t.reminderId) {
+      const r = state.reminders.find((x) => x.id === t.reminderId);
+      if (r && !r.done) r.done = true;
+    }
+    save();
+    return t;
+  },
+
+  removeTodo(id) {
+    const t = state.todos.find((x) => x.id === id);
+    if (!t) return false;
+    if (t.reminderId) state.reminders = state.reminders.filter((r) => r.id !== t.reminderId || r.done);
+    state.todos = state.todos.filter((x) => x.id !== id);
+    save();
+    return true;
+  },
+
+  linkTodoReminder(todoId, reminderId) {
+    const t = state.todos.find((x) => x.id === todoId);
+    if (t) { t.reminderId = reminderId; save(); }
+  },
+
+  // Bersihkan harian: yang sudah dicentang sebelum hari ini dihapus.
+  // Mengembalikan item belum selesai dari hari-hari sebelumnya.
+  dailyCleanup() {
+    const d = today();
+    const before = state.todos.length;
+    state.todos = state.todos.filter((t) => !(t.done && new Date(t.doneAt).toLocaleDateString('sv-SE') < d));
+    if (state.todos.length !== before) save();
+    return state.todos.filter((t) => !t.done && t.date < d);
+  },
+
+  openTodos() {
+    return state.todos.filter((t) => !t.done);
   },
 
   setKeys(keys) {
