@@ -1,6 +1,6 @@
 // Pengaturan umum aplikasi.
 
-export const VERSION = '1.10.1';
+export const VERSION = '1.10.2';
 
 // Sidik PIN (SHA-256 dari "gaby:" + PIN). Kosong = tanpa PIN.
 // PIN ini kunci ringan: cukup untuk mencegah orang iseng, bukan pengaman rahasia.

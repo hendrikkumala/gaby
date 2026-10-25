@@ -91,6 +91,9 @@ export class Visual {
 
     this.resize();
     addEventListener('resize', () => this.resize());
+    addEventListener('orientationchange', () => this.resizeSoon());
+    addEventListener('pageshow', () => this.resizeSoon());
+    if (window.visualViewport) visualViewport.addEventListener('resize', () => this.resize());
     addEventListener('pointermove', (e) => {
       this.pointer.tx = (e.clientX / innerWidth - 0.5) * 2;
       this.pointer.ty = (e.clientY / innerHeight - 0.5) * 2;
@@ -114,11 +117,18 @@ export class Visual {
 
   resize() {
     this.dpr = Math.min(2, devicePixelRatio || 1);
-    this.w = innerWidth;
-    this.h = innerHeight;
+    // Pakai ukuran kanvas sebenarnya di layar: setelah pindah aplikasi, iPhone kadang
+    // melaporkan innerWidth/innerHeight yang keliru sehingga gambar jadi memanjang.
+    this.w = this.canvas.clientWidth || innerWidth;
+    this.h = this.canvas.clientHeight || innerHeight;
     this.canvas.width = this.w * this.dpr;
     this.canvas.height = this.h * this.dpr;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+  }
+
+  // Hitung ulang ukuran beberapa kali (layar HP kadang baru stabil setelah sesaat).
+  resizeSoon() {
+    for (const ms of [0, 250, 800, 1600]) setTimeout(() => this.resize(), ms);
   }
 
   setMood(name) {

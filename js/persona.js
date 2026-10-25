@@ -138,8 +138,8 @@ export function openingCue(reason, spokenText, dailyHint = '') {
   if (spokenText) {
     return spokenText;
   }
-  if (reason === 'resume') {
-    return null; // sambungan diperbarui diam-diam, tidak perlu menyapa.
+  if (reason === 'resume' || reason === 'return') {
+    return null; // sambungan diperbarui / pengguna kembali dari aplikasi lain: tidak perlu menyapa.
   }
   if (reason === 'wake') {
     const reply = `[SISTEM] ${nickname} baru saja memanggilmu dengan "Hai Gaby". Jawab singkat dan hangat, misalnya "Iya, ${nickname}?" (atau "Yes, ${nickname}?" kalau berbahasa Inggris) atau variasi lucu lainnya`;

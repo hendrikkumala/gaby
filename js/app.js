@@ -403,7 +403,7 @@ async function activate(reason, spoken = '') {
   }
 
   // Briefing pagi / sapaan malam disiapkan bersamaan dengan menyambung (tidak menambah jeda).
-  const wantsDaily = !pendingCue && !spoken && reason !== 'resume' && reason !== 'reminder' && memory.get().nickname;
+  const wantsDaily = !pendingCue && !spoken && !['resume', 'return', 'reminder'].includes(reason) && memory.get().nickname;
   const dailyP = wantsDaily ? dailyHint().catch(() => null) : Promise.resolve(null);
 
   try {
@@ -428,6 +428,7 @@ async function activate(reason, spoken = '') {
   }
 
   phase = 'active';
+  markSession(true);
   sleepRequestedAt = 0;
   touch();
   render();
@@ -459,8 +460,10 @@ function connectFailed(e) {
   if (e.kind === 'nokey' || e.kind === 'auth') openSettings();
 }
 
-function goSleep(silent = false) {
+// keepSession: Gaby tidur karena pindah ke aplikasi lain, nanti dilanjutkan saat kembali.
+function goSleep(silent = false, { keepSession = false } = {}) {
   const wasActive = phase === 'active';
+  if (!keepSession) markSession(false);
   if (wasActive) writeJournal();
   closeCamera();
   brain.close();
@@ -594,23 +597,79 @@ async function keepAwake() {
   } catch {}
 }
 
+// ---------- Pindah aplikasi & kembali ----------
+// Saat pindah ke aplikasi lain (YouTube Music, Google Maps, dll.), Gaby tidur rapi:
+// mikrofon dilepas supaya tidak bentrok. Saat kembali, Gaby langsung mendengar lagi —
+// atau, kalau HP meminta ketukan (biasanya iPhone), cukup ketuk sekali untuk lanjut.
+
+const SESSION_KEY = 'gaby.session';
+let returnPending = false;
+
+function markSession(active) {
+  try {
+    if (active) sessionStorage.setItem(SESSION_KEY, String(Date.now()));
+    else sessionStorage.removeItem(SESSION_KEY);
+  } catch {}
+}
+
+// Halaman dimuat ulang (Android kadang begitu) saat Gaby sedang aktif dalam 15 menit terakhir?
+function wasRecentlyActive() {
+  try {
+    const t = Number(sessionStorage.getItem(SESSION_KEY) || 0);
+    return t && Date.now() - t < 15 * 60000;
+  } catch {
+    return false;
+  }
+}
+
+function showResume() {
+  phase = 'locked';
+  $('gate').hidden = true;
+  $('resume').hidden = false;
+  render();
+}
+
+$('resume').addEventListener('click', async () => {
+  try {
+    await audio.unlock();
+  } catch {
+    toast('Suara belum bisa dinyalakan. Coba ketuk lagi.', 'warn');
+    return;
+  }
+  $('resume').hidden = true;
+  returnPending = false;
+  phase = 'sleep';
+  keepAwake();
+  visual.resizeSoon();
+  activate('return');
+});
+
 document.addEventListener('visibilitychange', async () => {
-  if (phase === 'locked') return;
   if (document.visibilityState === 'hidden') {
-    if (phase === 'active') writeJournal();
+    if (phase === 'active' || phase === 'connecting') {
+      returnPending = true;
+      goSleep(true, { keepSession: true });
+    }
     wake.stop();
     return;
   }
+  visual.resizeSoon();
+  if (phase === 'locked') return;
   keepAwake();
   if (audio.ctx && audio.ctx.state !== 'running') {
     try { await audio.ctx.resume(); } catch {}
   }
-  if (audio.ctx && audio.ctx.state !== 'running') {
-    // iPhone butuh ketukan lagi untuk menyalakan suara.
-    if (phase === 'active') goSleep(true);
-    phase = 'locked';
-    $('tap-lead').textContent = 'Ketuk untuk melanjutkan';
-    showGate('tap');
+  const running = !audio.ctx || audio.ctx.state === 'running';
+  if (!running) {
+    // HP meminta ketukan untuk menyalakan suara lagi.
+    if (!returnPending && phase === 'active') goSleep(true, { keepSession: true });
+    returnPending = true;
+    showResume();
+    return;
+  }
+  if (returnPending) {
+    returnPending = false;
+    activate('return');
     return;
   }
   if (phase === 'sleep' && currentMode() === 'wake' && !micMuted) wake.start();
@@ -628,6 +687,8 @@ function nextGateStep() {
   const st = memory.get();
   if (PIN_HASH && !st.pinOk) return showGate('pin');
   if (!st.keys.gemini && !st.keys.openai) return showGate('key');
+  // Halaman dimuat ulang saat Gaby sedang aktif: cukup ketuk untuk lanjut, tanpa layar Mulai.
+  if (wasRecentlyActive()) return showResume();
   showGate('tap');
 }
 
