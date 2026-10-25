@@ -8,8 +8,8 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Nomor versi diisi otomatis oleh GitHub Actions (nomor perakitan).
-        versionCode (project.findProperty('gabyVersionCode') ?: '1') as int
-        versionName "1.0." + (project.findProperty('gabyVersionCode') ?: '0')
+        versionCode Integer.parseInt((project.findProperty('gabyVersionCode') ?: '1').toString())
+        versionName "1.0.${project.findProperty('gabyVersionCode') ?: '0'}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

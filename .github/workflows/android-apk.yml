@@ -16,14 +16,14 @@ jobs:
   apk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
 
@@ -49,8 +49,15 @@ jobs:
         env:
           GABY_KEYSTORE_PASSWORD: ${{ secrets.GABY_KEYSTORE_PASSWORD }}
         run: |
+          set -o pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug -PgabyVersionCode=${{ github.run_number }} --no-daemon
+          if ! ./gradlew assembleDebug -PgabyVersionCode=${{ github.run_number }} --no-daemon --stacktrace 2>&1 | tee build.log; then
+            # Tampilkan inti error sebagai catatan yang bisa dibaca tanpa login.
+            grep -E "What went wrong|error:|Error:|> |e: |FAILURE" build.log | grep -v "^> Task" | head -40 | while IFS= read -r line; do
+              echo "::error::${line//%/%25}"
+            done
+            exit 1
+          fi
           cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Gaby.apk"
 
       - name: Simpan sebagai artifact
