@@ -6,6 +6,7 @@ import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
 import { dailyHint } from './daily.js';
+import { APPS, buildAppLink } from './apps.js';
 import { openingCue, LANGS } from './persona.js';
 import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
@@ -272,6 +273,7 @@ const ui = {
   mapAction: (aksi) => mapAction(aksi),
   todoAction: (aksi, items) => todoAction(aksi, items),
   playMusic: (q) => playMusic(q),
+  openApp: (args) => openApp(args),
   refreshTodos: () => { if (!$('todocard').hidden) renderTodos(); fillSettings(); },
   openExternal: (url, label) => openExternal(url, label),
   setMood,
@@ -1399,9 +1401,9 @@ $('set-open-todo').addEventListener('click', () => { $('settings').hidden = true
 // ---------- Musik ----------
 
 const MUSIC = {
-  ytmusic: { name: 'YouTube Music', pkg: 'com.google.android.apps.youtube.music', search: (q) => `https://music.youtube.com/search?q=${encodeURIComponent(q)}`, watch: (id) => `https://music.youtube.com/watch?v=${id}` },
-  youtube: { name: 'YouTube', pkg: 'com.google.android.youtube', search: (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, watch: (id) => `https://www.youtube.com/watch?v=${id}` },
-  spotify: { name: 'Spotify', pkg: 'com.spotify.music', search: (q) => `https://open.spotify.com/search/${encodeURIComponent(q)}` },
+  ytmusic: { ...APPS.youtube_music, watch: (id) => `https://music.youtube.com/watch?v=${id}` },
+  youtube: { ...APPS.youtube, watch: (id) => `https://www.youtube.com/watch?v=${id}` },
+  spotify: { ...APPS.spotify },
 };
 
 const isAndroid = () => /Android/i.test(navigator.userAgent);
@@ -1431,18 +1433,55 @@ async function findSongId(q) {
   return null;
 }
 
+// Di HP: satu tombol besar (aplikasinya terbuka kalau terpasang, versi web kalau tidak).
+// Di komputer: langsung dibuka di tab baru.
+function launchLink(phoneUrl, webUrl, label) {
+  if (isPhone()) {
+    bigButton(phoneUrl, label, { sameTab: true });
+    return { ok: true, catatan: 'Tombol besar sudah tampil. Minta pengguna mengetuknya sekali; aplikasinya terbuka kalau terpasang, kalau tidak versi web.' };
+  }
+  return openExternal(webUrl, label);
+}
+
+// Cari nomor/email dari ingatan kategori Kontak ("Joni: 0812…").
+function findContact(name) {
+  const n = String(name).toLowerCase().trim();
+  const fact = memory.get().profile.find((m) => m.cat === 'kontak' && m.text.toLowerCase().includes(n));
+  if (!fact) return null;
+  return {
+    phone: (fact.text.match(/\+?\d[\d\s-]{6,}\d/) || [])[0],
+    email: (fact.text.match(/[\w.+-]+@[\w-]+\.[\w.]+/) || [])[0],
+  };
+}
+
+function openApp(args) {
+  const app = APPS[args.aplikasi];
+  if (!app) return { error: 'Aplikasi tidak dikenal' };
+  let contact = null;
+  if (args.kontak && !args.nomor && !args.email) {
+    contact = findContact(args.kontak);
+    if (!contact) return { error: `Belum ada nomor/email "${args.kontak}" di ingatan. Tanyakan ke pengguna, lalu simpan dengan alat ingat kategori kontak (misal "Joni: 0812…").` };
+  }
+  const link = buildAppLink(args.aplikasi, {
+    cari: args.cari,
+    nomor: args.nomor || (contact && contact.phone),
+    email: args.email || (contact && contact.email),
+    pesan: args.pesan,
+    subjek: args.subjek,
+  });
+  if (!link || link.error) return { error: (link && link.error) || 'Tautan tidak bisa dibuat' };
+  const res = launchLink(link.url, link.web, `↗ Buka ${app.name}`);
+  if (args.pesan && ['whatsapp', 'email', 'sms'].includes(args.aplikasi)) {
+    res.catatan = `${res.catatan || ''} Pesan sudah terisi; pengguna perlu menekan kirim sendiri.`.trim();
+  }
+  return { ...res, aplikasi: app.name };
+}
+
 async function playMusic(q) {
   const app = MUSIC[memory.get().settings.musicApp] || MUSIC.ytmusic;
   const song = app.watch ? await findSongId(q) : null;
   const url = song ? app.watch(song.id) : app.search(q);
-  let res;
-  if (isPhone()) {
-    // HP hanya membuka aplikasi musik (bukan versi web) kalau tautannya diketuk langsung.
-    bigButton(isAndroid() ? androidIntent(url, app.pkg) : url, `🎵 Putar di ${app.name}`, { sameTab: true });
-    res = { ok: true, catatan: `Tombol besar sudah tampil. Minta pengguna mengetuknya sekali supaya terbuka di aplikasi ${app.name}.` };
-  } else {
-    res = openExternal(url, `🎵 Putar di ${app.name}`);
-  }
+  const res = launchLink(isAndroid() ? androidIntent(url, app.pkg) : url, url, `🎵 Putar di ${app.name}`);
   return {
     ...res,
     aplikasi: app.name,

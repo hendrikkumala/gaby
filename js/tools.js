@@ -93,7 +93,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'buka_situs',
-    description: 'Tampilkan tombol untuk membuka situs web atau aplikasi (YouTube, Google Maps, WhatsApp, dll.) di layar pengguna.',
+    description: 'Buka alamat situs web tertentu. Untuk aplikasi populer (WhatsApp, YouTube, Shopee, dll.) pakai buka_aplikasi.',
     parameters: {
       type: 'object',
       properties: {
@@ -164,6 +164,23 @@ export const TOOL_DEFS = [
         item: { type: 'array', items: { type: 'string' }, description: 'Isi catatan, satu tugas per item, singkat (misal ["ke toko roti", "call Joni"]). Untuk selesai/hapus: sebut tugasnya.' },
       },
       required: ['aksi'],
+    },
+  },
+  {
+    name: 'buka_aplikasi',
+    description: 'Buka aplikasi di HP pengguna (WhatsApp, Telegram, Instagram, Facebook, Threads, X, TikTok, YouTube, Netflix, Prime Video, Shopee, Tokopedia, Google Maps, browser, email, telepon, SMS), bisa langsung ke pencarian, chat WhatsApp ke nomor/kontak dengan pesan terisi, email terisi, atau panggilan telepon. Pesan TIDAK terkirim otomatis; pengguna menekan kirim sendiri.',
+    parameters: {
+      type: 'object',
+      properties: {
+        aplikasi: { type: 'string', enum: ['whatsapp', 'telegram', 'instagram', 'facebook', 'threads', 'x', 'tiktok', 'youtube', 'youtube_music', 'spotify', 'netflix', 'prime_video', 'shopee', 'tokopedia', 'google_maps', 'browser', 'email', 'telepon', 'sms'] },
+        cari: { type: 'string', description: 'Kata pencarian (misal "sepatu lari", "resep rendang"), atau username Telegram' },
+        kontak: { type: 'string', description: 'Nama kontak yang tersimpan di ingatan (kategori kontak), misal "Joni"' },
+        nomor: { type: 'string', description: 'Nomor telepon kalau disebut langsung' },
+        email: { type: 'string', description: 'Alamat email tujuan' },
+        pesan: { type: 'string', description: 'Isi pesan WhatsApp/SMS/email' },
+        subjek: { type: 'string', description: 'Subjek email' },
+      },
+      required: ['aplikasi'],
     },
   },
   {
@@ -333,6 +350,9 @@ export async function runTool(name, args, ui) {
 
       case 'catatan':
         return ui.todoAction(args.aksi, Array.isArray(args.item) ? args.item : args.item ? [String(args.item)] : []);
+
+      case 'buka_aplikasi':
+        return ui.openApp(args);
 
       case 'putar_musik':
         return ui.playMusic(String(args.lagu || ''));

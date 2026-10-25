@@ -10,6 +10,7 @@ export const CATEGORIES = {
   kebiasaan: '🔁 Kebiasaan',
   tanggal: '📅 Tanggal penting',
   rencana: '🗓️ Rencana',
+  kontak: '📇 Kontak',
   lain: '📌 Lainnya',
 };
 

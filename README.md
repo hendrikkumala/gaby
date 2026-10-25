@@ -40,7 +40,11 @@ Asisten suara pribadi seperti Jarvis. Ngobrol langsung pakai suara, tanpa menyen
 - 🎵 **Musik**: "putar lagu Tulus" → YouTube Music / YouTube / Spotify (pilih di Pengaturan → Fitur).
 - 🧾 **Baca & hitung**: "baca struk ini, totalnya berapa?" — Gaby mengambil foto tajam dari kamera.
 - 🎭 **Merasakan nada suara** (eksperimental): otomatis dilewati kalau model belum mendukung.
-- Membuka situs (YouTube, Maps, dll.)
+- 📱 **Buka aplikasi**: WhatsApp, Telegram, Instagram, Facebook, Threads, X, TikTok, YouTube, Netflix, Prime Video,
+  Shopee, Tokopedia, Google Maps, browser, email, telepon, SMS. Contoh: "cari sepatu lari di Shopee",
+  "WA ke Joni bilang aku telat" (nomor disimpan di ingatan kategori 📇 Kontak). Di HP muncul satu tombol:
+  aplikasinya terbuka kalau terpasang, versi web kalau tidak. Pesan tidak terkirim otomatis.
+- Membuka situs lain
 - Bilang "udah dulu ya Gaby" supaya dia tidur lagi
 
 ## Otak Gaby (cadangan otomatis)
