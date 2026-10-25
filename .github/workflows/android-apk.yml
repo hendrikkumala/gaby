@@ -1,0 +1,70 @@
+# Merakit APK Android Gaby secara otomatis, lalu menaruhnya di halaman Releases GitHub.
+name: Rakit APK Android
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-app/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Siapkan proyek Capacitor
+        working-directory: android-app
+        run: |
+          npm ci
+          npm run sync
+
+      - name: Kunci tanda tangan (opsional)
+        env:
+          GABY_KEYSTORE: ${{ secrets.GABY_KEYSTORE }}
+        run: |
+          if [ -n "$GABY_KEYSTORE" ]; then
+            echo "$GABY_KEYSTORE" | base64 -d > android-app/android/app/gaby.keystore
+            echo "Memakai kunci tanda tangan tetap."
+          else
+            echo "::warning::Secret GABY_KEYSTORE belum diisi: APK memakai kunci debug acak."
+          fi
+
+      - name: Rakit APK
+        working-directory: android-app/android
+        env:
+          GABY_KEYSTORE_PASSWORD: ${{ secrets.GABY_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug -PgabyVersionCode=${{ github.run_number }} --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Gaby.apk"
+
+      - name: Simpan sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Gaby-apk
+          path: Gaby.apk
+
+      - name: Terbitkan di Releases (apk-terbaru)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-terbaru --yes --cleanup-tag || true
+          gh release create apk-terbaru Gaby.apk \
+            --title "Gaby APK (perakitan #${{ github.run_number }})" \
+            --notes "Unduh **Gaby.apk** di bawah, lalu pasang di HP Android. APK memuat Gaby terbaru langsung dari https://hendrikkumala.github.io/gaby/ — jadi pembaruan Gaby otomatis tanpa pasang ulang." \
+            --target "${{ github.sha }}"

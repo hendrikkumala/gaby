@@ -1,0 +1,20 @@
+{
+  "appId": "id.gaby.assistant",
+  "appName": "Gaby",
+  "webDir": "www",
+  "server": {
+    "url": "https://hendrikkumala.github.io/gaby/",
+    "androidScheme": "https",
+    "allowNavigation": ["hendrikkumala.github.io"]
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#03060d"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_gaby",
+      "iconColor": "#5fd4ff"
+    }
+  }
+}

@@ -324,7 +324,9 @@ export async function runTool(name, args, ui) {
         ui.refreshTodos();
         return {
           ok: true, id: r.id, waktu: fmtTime(due),
-          catatan: 'Bilang singkat ke pengguna: ketuk tombol Kalender di layar supaya tetap diingatkan walau Gaby ditutup.',
+          catatan: ui.isNativeApp
+            ? 'Notifikasi HP sudah dipasang; tetap berbunyi walau Gaby ditutup.'
+            : 'Bilang singkat ke pengguna: ketuk tombol Kalender di layar supaya tetap diingatkan walau Gaby ditutup.',
         };
       }
 

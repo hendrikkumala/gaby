@@ -1,0 +1,17 @@
+{
+  "name": "gaby-android",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cangkang aplikasi Android untuk Gaby (Capacitor)",
+  "scripts": {
+    "copy-web": "node scripts/copy-web.mjs",
+    "sync": "npm run copy-web && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.2",
+    "@capacitor/app-launcher": "^6.0.4",
+    "@capacitor/cli": "^6.2.2",
+    "@capacitor/core": "^6.2.2",
+    "@capacitor/local-notifications": "^6.1.3"
+  }
+}

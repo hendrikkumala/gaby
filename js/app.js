@@ -7,6 +7,7 @@ import { getPosition, describePosition, shortPlace, geocode, route, googleDirect
 import { summarizeSession, tidyProfile } from './journal.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
+import { isNativeApp, nativeOpen, syncNativeReminders } from './native.js';
 import { openingCue, LANGS } from './persona.js';
 import { detectMood } from './mood.js';
 import { AudioEngine } from './audio.js';
@@ -130,6 +131,11 @@ const isInstalledApp = () => matchMedia('(display-mode: standalone)').matches ||
 // jadi: coba buka tab baru → kalau Gaby dipasang sebagai aplikasi, buka langsung →
 // kalau tetap tidak bisa, tampilkan satu tombol besar untuk diketuk.
 function openExternal(url, label) {
+  // Di dalam APK: Android langsung membuka aplikasinya, tanpa tombol.
+  if (isNativeApp) {
+    nativeOpen(url).then((ok) => { if (!ok) bigButton(url, label); });
+    return { ok: true, cara: 'langsung (aplikasi Android)' };
+  }
   let win = null;
   try { win = window.open(url, '_blank'); } catch {}
   if (win) {
@@ -168,6 +174,12 @@ function bigButton(url, label, { sameTab = false } = {}) {
 
 // Pengingat dengan tombol "Tambahkan ke Kalender".
 function calendarToast(r, when) {
+  if (isNativeApp) {
+    // Di APK pengingat jadi notifikasi Android asli, tidak perlu kalender.
+    toast(`⏰ ${r.text} — ${when} · notifikasi HP dipasang`, 'info', 8000);
+    syncNative();
+    return;
+  }
   const el = toast(`⏰ ${r.text} — ${when}`, 'info', 90000);
   el.classList.add('stack');
   const row = document.createElement('div');
@@ -287,6 +299,7 @@ const ui = {
       Notification.requestPermission().catch(() => {});
     }
   },
+  isNativeApp,
   sleepAfterSpeech() {
     sleepRequestedAt = Date.now();
   },
@@ -342,6 +355,7 @@ const brain = new Brain({
     } finally {
       thinking--;
       touch();
+      syncNative();
     }
   },
   onLost(info) {
@@ -508,7 +522,7 @@ function checkReminders() {
 function fireReminder(r) {
   audio.chime('alarm');
   toast(`⏰ ${r.text}`, 'warn', 20000);
-  if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+  if (!isNativeApp && 'Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
     try { new Notification('Gaby mengingatkan', { body: r.text, icon: 'icons/icon-192.png' }); } catch {}
   }
   const nick = memory.get().nickname || 'pengguna';
@@ -528,6 +542,15 @@ function fireReminder(r) {
     });
   }
 }
+
+// ---------- Notifikasi Android (APK) ----------
+
+// Samakan notifikasi terjadwal di HP dengan daftar pengingat (baru → dijadwalkan,
+// selesai/dihapus → dibatalkan). Di browser biasa tidak melakukan apa-apa.
+function syncNative() {
+  if (isNativeApp) syncNativeReminders(memory.get().reminders, memory.get().nickname).catch(() => {});
+}
+if (isNativeApp) setInterval(syncNative, 5000);
 
 // ---------- Putaran utama ----------
 
@@ -1436,6 +1459,7 @@ async function findSongId(q) {
 // Di HP: satu tombol besar (aplikasinya terbuka kalau terpasang, versi web kalau tidak).
 // Di komputer: langsung dibuka di tab baru.
 function launchLink(phoneUrl, webUrl, label) {
+  if (isNativeApp) return openExternal(webUrl, label);
   if (isPhone()) {
     bigButton(phoneUrl, label, { sameTab: true });
     return { ok: true, catatan: 'Tombol besar sudah tampil. Minta pengguna mengetuknya sekali; aplikasinya terbuka kalau terpasang, kalau tidak versi web.' };

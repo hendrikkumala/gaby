@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Gaby</string>
+    <string name="title_activity_main">Gaby</string>
+    <string name="package_name">id.gaby.assistant</string>
+    <string name="custom_url_scheme">id.gaby.assistant</string>
+</resources>
