@@ -28,7 +28,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/visual.js`, `mood.js` | Tampilan hologram & warna emosi |
 | `js/persona.js` | Prompt Gaby + daftar alat yang boleh dipakai |
 | `js/tools.js` | Alat yang dipanggil Gaby (ingat, catatan, pengingat, pasang_alarm, rute, buka_aplikasi, kamera, gambar, dll.) |
-| `js/memory.js` | Semua ingatan: profil per kategori, jurnal, to-do, pengingat, pengaturan, key |
+| `js/memory.js` | Semua ingatan: profil per laci (18 kategori + tanda 👍/👎), penjaga laci `recall()`, jurnal, to-do, pengingat, pengaturan, key |
 | `js/daily.js`, `journal.js` | Briefing pagi/sapaan malam, ringkasan harian |
 | `js/location.js`, `map.js` | GPS, cari tempat, rute (OSRM), kartu peta (Leaflet) |
 | `js/apps.js` | Buka WhatsApp/YouTube/dll. (Android intent, iOS universal link) |
@@ -59,27 +59,35 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   `pasang_alarm` = alarm bangun (Android: aplikasi Jam via plugin; iPhone: tombol Pintasan "Gaby Alarm"; lainnya: jadi pengingat); `catatan` = to-do tanpa waktu.
 - Di APK, nada "ting" buatan Gaby tidak dibunyikan untuk pengingat yang sudah dijadwalkan sebagai notifikasi HP; Gaby bicara 2,5 dtk setelah nada.
   Pengingat yang jatuh tempo saat Gaby di latar belakang disampaikan Gaby ketika dibuka lagi (`missed` di `app.js`).
+- Ingatan berlaci (v1.15): 18 laci di `CATEGORIES`, tiap fakta punya `rasa` ('suka' 👍 / 'tidak' 👎 / ''). Kalau ingatan > 40 (`DRAWER_LIMIT`),
+  prompt hanya membawa laci penting (`ALWAYS_CATS`) + semua 👎 + daftar isi laci; Gaby membuka laci lain lewat alat `buka_ingatan`
+  (penjaga laci = pencocokan kata kunci lokal, tanpa AI). Ingatan lama dipindah otomatis (kata kunci) lalu dipilah ulang AI sekali (`needResort`).
+  Penyisipan konteks di tengah sesi Live sengaja tidak dipakai (bisa memotong Gaby bicara); pakai alat saja.
+- Anti muter-muter: prompt punya bagian "CARA MEMAKAI INGATAN", catatan harian yang dibawa hanya 5 terakhir.
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`.
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`.
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.14.0, APK #6)
+## Status saat ini (v1.15.0, APK #6)
 Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan hologram), kamera/layar, gambar (gratis & galeri),
 lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
 APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
 pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android (diuji pemilik 31 Okt 2026).
 
 **Belum dites langsung oleh pemilik:**
+- v1.15.0: laci ingatan baru + 👍/👎 + alat `buka_ingatan` + aturan anti muter-muter (hanya web, tanpa update APK).
 - `pasang_alarm` di iPhone (Pintasan "Gaby Alarm" — langkah membuatnya ada di Pengaturan → Fitur).
 Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
+- Tahap 2 (sudah disetujui konsepnya, ditunda pemilik): agen riset internet — alat terpisah memakai Gemini teks + Google Search,
+  wajib sumber, kartu sumber di layar, "tidak ketemu" daripada mengarang; cek dulu batas gratis grounding.
 - "Hai Gaby" tanpa sentuh di Android (butuh layanan latar depan + notifikasi tetap; ditolak untuk sekarang).
 - Aplikasi iPhone asli (butuh Apple Developer $99/tahun; belum perlu).
 - PIN (pemilik belum menentukan).

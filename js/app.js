@@ -1,7 +1,7 @@
 // Pengendali utama Gaby: menyatukan tampilan, suara, otak AI, dan ingatan.
 
 import { VERSION, PIN_HASH, PIN_LENGTH } from './config.js';
-import { memory, CATEGORIES } from './memory.js';
+import { memory, CATEGORIES, RASA } from './memory.js';
 import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
@@ -1394,14 +1394,16 @@ function highlight(text, q) {
   return safe.replace(re, '<mark>$1</mark>');
 }
 
-function memRow(text, { date, onSave, onDelete, cat, q }) {
+function memRow(text, { date, onSave, onDelete, cat, rasa, q }) {
   const row = document.createElement('div');
   row.className = 'mem-row';
   const view = () => {
     row.innerHTML = '';
     const span = document.createElement('span');
     span.className = 'mem-text';
-    span.innerHTML = (date ? `<span class="mem-date">${escapeHtml(date)}</span>` : '') + highlight(text, q);
+    span.innerHTML = (date ? `<span class="mem-date">${escapeHtml(date)}</span>` : '')
+      + (RASA[rasa] ? `<span class="mem-rasa" title="${rasa === 'suka' ? 'Suka' : 'Tidak suka'}">${RASA[rasa]}</span>` : '')
+      + highlight(text, q);
     const edit = document.createElement('button');
     edit.textContent = '✏️';
     edit.title = 'Ubah';
@@ -1421,6 +1423,7 @@ function memRow(text, { date, onSave, onDelete, cat, q }) {
     ta.value = text;
     box.appendChild(ta);
     let sel = null;
+    let rasaSel = null;
     if (cat) {
       sel = document.createElement('select');
       sel.className = 'field small';
@@ -1432,11 +1435,21 @@ function memRow(text, { date, onSave, onDelete, cat, q }) {
       }
       sel.value = cat;
       box.appendChild(sel);
+      rasaSel = document.createElement('select');
+      rasaSel.className = 'field small';
+      for (const [k, label] of [['', 'Biasa (tanpa tanda)'], ['suka', '👍 Suka'], ['tidak', '👎 Tidak suka']]) {
+        const o = document.createElement('option');
+        o.value = k;
+        o.textContent = label;
+        rasaSel.appendChild(o);
+      }
+      rasaSel.value = rasa || '';
+      box.appendChild(rasaSel);
     }
     const ok = document.createElement('button');
     ok.textContent = '✓';
     ok.title = 'Simpan';
-    ok.onclick = () => onSave(ta.value, sel && sel.value);
+    ok.onclick = () => onSave(ta.value, sel && sel.value, rasaSel ? rasaSel.value : undefined);
     const cancel = document.createElement('button');
     cancel.textContent = '✕';
     cancel.title = 'Batal';
@@ -1488,8 +1501,9 @@ function renderMemories() {
       for (const m of items) {
         g.appendChild(memRow(m.text, {
           cat: m.cat,
+          rasa: m.rasa,
           q,
-          onSave: (text, c) => { memory.updateFact(m.id, text, c); renderMemories(); fillSettings(); },
+          onSave: (text, c, r) => { memory.updateFact(m.id, text, c, r); renderMemories(); fillSettings(); },
           onDelete: () => { memory.removeFact(m.id); renderMemories(); fillSettings(); },
         }));
       }
@@ -2004,6 +2018,11 @@ nextGateStep();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// Laci ingatan baru (v1.15): pilah ulang ingatan lama dengan AI sekali, diam-diam di belakang.
+if (memory.get().needResort) {
+  setTimeout(() => tidyProfile().then(() => fillSettings()).catch(() => {}), 20000);
 }
 
 // Akses untuk debugging di konsol browser.

@@ -4,6 +4,9 @@ import { memory, CATEGORIES } from './memory.js';
 import { getPosition, describePosition, shortPlace } from './location.js';
 import { LANGS } from './persona.js';
 
+// Penjelasan singkat tiap laci untuk Gaby, misal "makanan = Makanan & minuman".
+const CAT_HELP = 'Laci: ' + Object.entries(CATEGORIES).map(([k, v]) => `${k} = ${v.replace(/^\S+\s/, '')}`).join('; ');
+
 // Definisi alat dalam format umum (JSON Schema sederhana).
 export const TOOL_DEFS = [
   {
@@ -19,15 +22,25 @@ export const TOOL_DEFS = [
   {
     name: 'ingat',
     background: true,
-    description: 'Simpan satu fakta penting tentang pengguna untuk diingat lama (diri, keluarga, pekerjaan, kesukaan, kebiasaan, tanggal penting, rencana). Kalau fakta lama berubah, isi menggantikan.',
+    description: 'Simpan satu fakta penting tentang pengguna untuk diingat lama, ke laci (kategori) yang paling pas. Isi rasa kalau itu kesukaan atau hal yang tidak disukai/dihindari. Kalau fakta lama berubah, isi menggantikan.',
     parameters: {
       type: 'object',
       properties: {
         fakta: { type: 'string', description: 'Fakta singkat, misal "suka kopi hitam tanpa gula"' },
-        kategori: { type: 'string', enum: Object.keys(CATEGORIES) },
+        kategori: { type: 'string', enum: Object.keys(CATEGORIES), description: CAT_HELP },
+        rasa: { type: 'string', enum: ['suka', 'tidak_suka', 'netral'], description: 'suka = kesukaan/favorit; tidak_suka = tidak suka, alergi, pantangan, dihindari; netral = fakta biasa' },
         menggantikan: { type: 'string', description: 'Kata kunci fakta lama yang sudah tidak berlaku (opsional), misal "kerja di"' },
       },
       required: ['fakta', 'kategori'],
+    },
+  },
+  {
+    name: 'buka_ingatan',
+    description: 'Buka laci ingatan tentang pengguna untuk satu topik obrolan (makanan, olahraga, musik, film, jalan-jalan, kesehatan, keuangan, teknologi, ilmu, belajar, kebiasaan, kontak, dll.), atau cari nama orang/tempat. Hasilnya daftar hal yang diingat; 👍 = disukai, 👎 = tidak disukai.',
+    parameters: {
+      type: 'object',
+      properties: { topik: { type: 'string', description: 'Topik atau nama laci, misal "makanan", "film", "rencana liburan ke Bali", "Joni"' } },
+      required: ['topik'],
     },
   },
   {
@@ -309,9 +322,17 @@ export async function runTool(name, args, ui) {
         return { ok: true, nama: memory.get().nickname };
 
       case 'ingat':
-        memory.remember(args.fakta, args.kategori, args.menggantikan);
+        memory.remember(args.fakta, args.kategori, args.menggantikan, args.rasa);
         ui.refreshSettings();
         return { ok: true };
+
+      case 'buka_ingatan': {
+        const { laci, cocok } = memory.recall(args.topik);
+        if (!Object.keys(laci).length && !cocok.length) {
+          return { kosong: true, catatan: 'Belum ada ingatan tentang topik ini. Ngobrol biasa saja; kalau pengguna menyebut hal penting, simpan dengan ingat.' };
+        }
+        return { laci, ...(cocok.length ? { ingatan_lain_yang_cocok: cocok } : {}) };
+      }
 
       case 'lupakan':
         return { ok: true, dihapus: memory.forget(args.kata_kunci) };

@@ -1,6 +1,6 @@
 // Kepribadian Gaby. Ubah teks di sini kalau ingin sifat Gaby berbeda.
 
-import { memory, CATEGORIES } from './memory.js';
+import { memory, CATEGORIES, ALWAYS_CATS, DRAWER_LIMIT } from './memory.js';
 
 export const LANGS = {
   id: 'Indonesia',
@@ -43,14 +43,29 @@ export function buildPersona(providerName) {
     ? `Nama panggilan pengguna adalah "${nickname}". Panggil dia dengan nama itu secara alami (jangan di setiap kalimat).`
     : `Kamu BELUM tahu nama panggilan pengguna. Ini pertemuan pertama kalian.`;
 
-  // Profil dikelompokkan per kategori supaya mudah dipahami Gaby.
-  const groups = Object.entries(CATEGORIES)
-    .map(([cat, label]) => {
-      const items = profile.filter((m) => m.cat === cat);
-      return items.length ? `${label}:\n${items.map((m) => `- ${m.text}`).join('\n')}` : '';
-    })
-    .filter(Boolean);
-  const mem = groups.length ? groups.join('\n') : '- (belum ada)';
+  // Profil dikelompokkan per laci. Kalau ingatan sudah banyak, hanya laci penting
+  // + semua hal bertanda 👎 yang dibawa; laci lain cukup daftar isinya (hemat token).
+  const drawers = profile.length > DRAWER_LIMIT;
+  const mark = (m) => (m.rasa === 'tidak' ? '[TIDAK suka] ' : m.rasa === 'suka' ? '[suka] ' : '');
+  const groups = [];
+  const index = [];
+  for (const [cat, label] of Object.entries(CATEGORIES)) {
+    const all = profile.filter((m) => m.cat === cat);
+    if (!all.length) continue;
+    const carry = !drawers || ALWAYS_CATS.includes(cat);
+    const items = carry ? all : all.filter((m) => m.rasa === 'tidak');
+    if (items.length) groups.push(`${label}:\n${items.map((m) => `- ${mark(m)}${m.text}`).join('\n')}`);
+    if (!carry) index.push(`${label.replace(/^\S+\s/, '')} (${all.length})`);
+  }
+  let mem = groups.length ? groups.join('\n') : '- (belum ada)';
+  if (index.length) mem += `\n\nLACI LAIN (belum dibuka, isinya ada di buka_ingatan): ${index.join(', ')}`;
+
+  const memRules = `CARA MEMAKAI INGATAN
+- Pakai ingatan HANYA kalau nyambung dengan yang sedang dibicarakan. Jangan mengungkit ingatan, catatan harian, atau topik lama tanpa diminta, dan jangan mengulang hal yang sama berkali-kali.
+- Ikuti arah obrolan pengguna. Kalau dia pindah topik, ikut pindah; jangan menarik balik ke topik sebelumnya.
+- Variasikan: tawarkan ide atau hal baru, jangan selalu menyarankan hal yang sama.
+- JANGAN pernah menyarankan sesuatu yang ditandai [TIDAK suka] (termasuk alergi/pantangan).${drawers ? `
+- Sebagian ingatan disimpan di LACI LAIN. Begitu pengguna membahas topik yang lacinya ada (misal makanan, film, olahraga, kesehatan, keuangan) dan laci itu belum kamu buka di obrolan ini, panggil buka_ingatan dengan topiknya SEBELUM menjawab. Cukup sekali per topik.` : ''}`;
 
   // Catatan/to-do yang belum selesai dan pengingat aktif.
   const day = new Date().toLocaleDateString('sv-SE');
@@ -61,7 +76,7 @@ export function buildPersona(providerName) {
   }).join('\n') || '- (kosong)';
 
   // Catatan harian terbaru (obrolan hari-hari sebelumnya).
-  const diary = journal.slice(-12)
+  const diary = journal.slice(-5)
     .map((j) => `- ${j.date}: ${j.text}`)
     .join('\n') || '- (belum ada)';
 
@@ -93,13 +108,15 @@ ${who}
 YANG KAMU INGAT TENTANG PENGGUNA
 ${mem}
 
-CATATAN HARIAN (ringkasan obrolan hari-hari sebelumnya)
+${memRules}
+
+CATATAN HARIAN (ringkasan obrolan hari-hari sebelumnya; hanya latar belakang, jangan diungkit kecuali nyambung)
 ${diary}
 
 CATATAN / TO-DO YANG BELUM SELESAI
 ${todoList}
 
-OBROLAN TERAKHIR (untuk konteks)
+OBROLAN TERAKHIR (hanya konteks; topik di sini SUDAH dibahas, jangan diulang kecuali pengguna yang memulai)
 ${recent}
 
 ALAT YANG KAMU PUNYA (pakai tanpa bilang "aku memanggil fungsi")
@@ -108,7 +125,8 @@ ALAT YANG KAMU PUNYA (pakai tanpa bilang "aku memanggil fungsi")
 - buat_pengingat: tugas yang ADA WAKTUNYA ("ingatkan jam 3 call Joni"). Otomatis masuk daftar catatan juga, jadi jangan panggil catatan tambah lagi. Kalau pengguna minta waktu untuk catatan yang sudah ada, pakai buat_pengingat dengan pesan yang sama. Kalau waktunya kabur ("nanti sore"), catat dulu lalu tanya jam berapa.
 - pasang_alarm: ALARM bangun / jam weker ("pasang alarm jam 5", "bangunkan aku jam 4.30") → dipasang di aplikasi Jam HP, berdering sampai dimatikan. Bedakan dengan buat_pengingat ("ingatkan aku…") yang hanya notifikasi. Ikuti catatan dari hasilnya (misal minta pengguna mengetuk tombol), jawab singkat.
 - Bedakan: catatan/to-do = tugas kecil hari ini; ingat kategori "rencana" = rencana jangka panjang (liburan, pindah kerja). Jangan simpan to-do ke ingat.
-- ingat / lupakan: simpan hal penting tentang pengguna dengan kategorinya. Kalau ada yang berubah (pindah kerja, ganti hobi), isi "menggantikan". Simpan diam-diam tanpa perlu bilang.
+- ingat / lupakan: simpan hal penting tentang pengguna ke laci (kategori) yang paling pas, beri rasa "suka" / "tidak_suka" kalau jelas (misal "suka rendang" → makanan + suka; "alergi udang" → makanan + tidak_suka). Kalau ada yang berubah (pindah kerja, ganti hobi), isi "menggantikan". Simpan diam-diam tanpa perlu bilang.
+- buka_ingatan: buka laci ingatan untuk satu topik (misal "makanan", "film", "rencana liburan", atau nama orang). Pakai hasilnya untuk menjawab dengan nyambung; jangan membacakan isinya satu per satu.
 - lokasi_saya: tahu posisi pengguna. cari_tempat: tempat di sekitar pengguna (lalu pakai Google Search dengan nama daerahnya). rute: jarak & waktu tempuh ke tujuan, peta tampil di layar; kalau pengguna menyebut kota/tempat asal ("dari Bandung ke Jakarta"), WAJIB isi kolom dari, kalau tidak, titik awalnya lokasi pengguna. Sebutkan jarak dan waktunya lewat suara, dan ingatkan waktunya belum termasuk macet bila perjalanan jauh.
 - peta_aksi: "buka di Google Maps"/"navigasi"/"oke berangkat" → buka; "tutup petanya" → tutup. Kalau hasilnya menyebut tombol besar, minta pengguna mengetuknya sekali.
 - ganti_bahasa: kalau pengguna minta bicara dalam bahasa Indonesia atau Inggris.

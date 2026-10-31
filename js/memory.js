@@ -2,24 +2,91 @@
 
 const KEY = 'gaby.v1';
 
+// Laci-laci ingatan tentang pengguna. Urutan ini juga urutan tampil di Pengaturan.
 export const CATEGORIES = {
   diri: '👤 Tentang kamu',
   keluarga: '👨‍👩‍👧 Keluarga & hewan',
   kerja: '💼 Pekerjaan',
-  suka: '❤️ Kesukaan',
-  kebiasaan: '🔁 Kebiasaan',
+  kontak: '📇 Kontak',
   tanggal: '📅 Tanggal penting',
   rencana: '🗓️ Rencana',
-  kontak: '📇 Kontak',
+  kebiasaan: '🔁 Kebiasaan',
+  makanan: '🍜 Makanan & minuman',
+  olahraga: '⚽ Olahraga',
+  musik: '🎵 Musik',
+  hiburan: '🎬 Film & hiburan',
+  jalan: '✈️ Jalan-jalan',
+  kesehatan: '🩺 Kesehatan & kedokteran',
+  keuangan: '💰 Keuangan',
+  teknologi: '💻 Teknologi',
+  ilmu: '🔬 Ilmu pengetahuan',
+  belajar: '📚 Pelajaran & belajar',
   lain: '📌 Lainnya',
 };
+
+// Tanda perasaan pengguna terhadap suatu hal: 'suka' (👍), 'tidak' (👎), '' (biasa saja).
+export const RASA = { suka: '👍', tidak: '👎' };
+
+// Laci yang selalu dibawa Gaby di setiap obrolan (selain semua hal bertanda 👎).
+export const ALWAYS_CATS = ['diri', 'keluarga', 'kerja', 'tanggal', 'rencana'];
+
+// Kalau jumlah ingatan masih sedikit, semua laci dibawa sekaligus (tidak perlu buka laci).
+export const DRAWER_LIMIT = 40;
+
+// Kata kunci "penjaga laci": dipakai untuk menebak laci dari ucapan/topik (tanpa AI, gratis).
+const TOPIC_WORDS = {
+  keluarga: 'keluarga istri suami anak ayah ibu papa mama bapak kakak adik nenek kakek pacar kucing anjing hewan peliharaan mertua sepupu ponakan keponakan',
+  kerja: 'kerja kerjaan kantor pekerjaan bos atasan rekan meeting rapat proyek klien lembur karir karier jabatan',
+  kontak: 'kontak nomor telepon whatsapp',
+  tanggal: 'ulang tahun ultah anniversary hari jadi peringatan',
+  rencana: 'rencana target resolusi impian cita-cita',
+  kebiasaan: 'kebiasaan rutinitas rutin biasanya bangun',
+  makanan: 'makan makanan minum minuman kuliner masak masakan resep menu restoran resto warung kafe cafe kopi teh sarapan lapar haus jajan camilan cemilan snack nasi mie bakso sate rendang ayam ikan daging sayur buah pedas manis gurih alergi vegetarian seafood udang kue roti es jus boba pizza burger sushi martabak soto',
+  olahraga: 'olahraga sport bola lari jogging gym fitness sepak bola futsal badminton bulu tangkis basket voli renang sepeda gowes yoga tenis golf pertandingan liga klub timnas piala motogp f1 tinju ufc maraton senam pemain',
+  musik: 'musik lagu penyanyi band album konser playlist spotify nyanyi karaoke gitar piano dangdut pop rock jazz kpop k-pop',
+  hiburan: 'film movie bioskop nonton serial series drama drakor anime netflix youtube game gim komik novel tv acara podcast aktor aktris',
+  jalan: 'jalan-jalan liburan libur wisata traveling travel trip pantai gunung hotel pesawat tiket mudik piknik luar negeri destinasi staycation kereta bali',
+  kesehatan: 'sehat kesehatan sakit dokter obat rumah sakit klinik puskesmas demam batuk pilek flu pusing kolesterol darah tinggi hipertensi diabetes gula darah asam urat alergi vitamin tidur insomnia diet berat badan kedokteran medis penyakit gejala operasi jantung gigi vaksin stres mental',
+  keuangan: 'uang duit keuangan gaji tabungan nabung investasi saham reksa dana crypto kripto bitcoin emas utang hutang cicilan kredit pinjaman bank budget anggaran tagihan pajak asuransi bisnis usaha cuan',
+  teknologi: 'teknologi hp handphone ponsel smartphone iphone android samsung laptop komputer pc gadget aplikasi internet wifi ai coding program software website robot elektronik',
+  ilmu: 'ilmu sains science fisika kimia biologi astronomi angkasa planet bintang semesta sejarah geografi matematika penelitian riset ilmuwan evolusi dinosaurus',
+  belajar: 'belajar pelajaran sekolah kuliah kampus kursus les ujian pr skripsi guru dosen murid mahasiswa sertifikat',
+};
+
+// Frasa dua kata dicocokkan utuh; sisanya per kata.
+const TOPIC_PHRASES = ['ulang tahun', 'hari jadi', 'sepak bola', 'bulu tangkis', 'rumah sakit', 'darah tinggi', 'gula darah',
+  'asam urat', 'berat badan', 'reksa dana', 'luar negeri'];
+const TOPIC_LIST = Object.fromEntries(Object.entries(TOPIC_WORDS).map(([cat, list]) => {
+  for (const p of TOPIC_PHRASES) list = list.replace(p, p.replace(' ', '_'));
+  return [cat, list.split(' ').map((w) => w.replace('_', ' '))];
+}));
+
+const words = (s) => String(s || '').toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)*/g) || [];
+
+// Laci yang cocok dengan sebuah teks (ucapan pengguna atau topik).
+export function guessCats(text) {
+  const t = ` ${words(text).join(' ')} `;
+  return Object.keys(TOPIC_LIST).filter((cat) => TOPIC_LIST[cat].some((w) => t.includes(` ${w} `)));
+}
+
+// Tebak perasaan dari teks fakta (dipakai saat memindahkan ingatan lama).
+export function guessRasa(text) {
+  const s = String(text || '').toLowerCase();
+  if (/\b(tidak|gak|nggak|ngga|ga|enggak|kurang) (suka|doyan|bisa makan|tahan)|\bbenci\b|\balergi\b|\banti\b|\bmenghindari\b|\bpantang\b/.test(s)) return 'tidak';
+  if (/\b(suka|doyan|favorit|senang|gemar|hobi|cinta|penggemar|fans?)\b/.test(s)) return 'suka';
+  return '';
+}
+
+const cleanRasa = (r) => (r === 'suka' || r === 'tidak' ? r : r === 'tidak_suka' ? 'tidak' : '');
 
 const newId = () => Math.random().toString(36).slice(2, 10);
 const today = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD waktu lokal
 
 const DEFAULTS = {
   nickname: null,
-  profile: [],       // [{ id, cat, text, at }] — ingatan tentang pengguna, per kategori
+  profile: [],       // [{ id, cat, text, rasa, at }] — ingatan tentang pengguna, per laci
+  profileVer: 2,     // versi susunan laci (2 = laci lengkap + tanda 👍/👎)
+  needResort: false, // true = minta AI memilah ulang semua ingatan ke laci yang pas
   journal: [],       // [{ id, date: 'YYYY-MM-DD', at, text }] — catatan harian ringkasan obrolan
   lastTidy: 0,       // kapan profil terakhir dirapikan
   history: [],       // [{ who: 'user' | 'gaby', text, at }]
@@ -62,6 +129,26 @@ function load() {
       for (const m of data.memories) st.profile.push({ id: newId(), cat: 'lain', text: m.text, at: m.at || Date.now() });
     }
     delete st.memories;
+    // Versi 1 → 2: laci baru & tanda 👍/👎. Dipilah cepat di sini dengan kata kunci,
+    // lalu dirapikan AI saat Gaby tidur berikutnya (needResort).
+    if ((data.profileVer || 1) < 2) {
+      for (const m of st.profile) {
+        const wasSuka = m.cat === 'suka';
+        const rasa = cleanRasa(m.rasa) || guessRasa(m.text);
+        if (wasSuka || m.cat === 'lain' || !CATEGORIES[m.cat]) {
+          const g = guessCats(m.text).filter((c) => !['kontak', 'tanggal', 'rencana', 'kebiasaan'].includes(c));
+          m.cat = g[0] || 'lain';
+        }
+        // Ingatan lama di laci "Kesukaan" otomatis bertanda 👍 kalau tidak jelas 👎.
+        m.rasa = rasa || (wasSuka ? 'suka' : '');
+      }
+      st.profileVer = 2;
+      st.needResort = st.profile.length > 0;
+    }
+    for (const m of st.profile) {
+      m.rasa = cleanRasa(m.rasa);
+      if (!CATEGORIES[m.cat]) m.cat = 'lain';
+    }
     return st;
   } catch {
     return structuredClone(DEFAULTS);
@@ -85,27 +172,35 @@ export const memory = {
   },
 
   // Simpan fakta. Kalau `replaces` diisi, fakta lama yang mengandung kata itu diganti.
-  remember(text, cat = 'lain', replaces = '') {
+  // rasa: 'suka' (👍), 'tidak' / 'tidak_suka' (👎), atau kosong.
+  remember(text, cat = 'lain', replaces = '', rasa = '') {
     text = String(text).trim().slice(0, 300);
     if (!text) return false;
     if (!CATEGORIES[cat]) cat = 'lain';
+    rasa = cleanRasa(rasa);
     const k = String(replaces || '').toLowerCase().trim();
     const old = k && state.profile.find((m) => m.text.toLowerCase().includes(k));
     if (old) {
-      Object.assign(old, { text, cat, at: Date.now() });
-    } else if (!state.profile.some((m) => m.text.toLowerCase() === text.toLowerCase())) {
-      state.profile.push({ id: newId(), cat, text, at: Date.now() });
-      if (state.profile.length > 150) state.profile.shift();
+      Object.assign(old, { text, cat, rasa, at: Date.now() });
+    } else {
+      const same = state.profile.find((m) => m.text.toLowerCase() === text.toLowerCase());
+      if (same) {
+        Object.assign(same, { cat, rasa: rasa || same.rasa, at: Date.now() });
+      } else {
+        state.profile.push({ id: newId(), cat, text, rasa, at: Date.now() });
+        if (state.profile.length > 300) state.profile.shift();
+      }
     }
     save();
     return true;
   },
 
-  updateFact(id, text, cat) {
+  updateFact(id, text, cat, rasa) {
     const m = state.profile.find((x) => x.id === id);
     if (!m) return;
     if (text != null) m.text = String(text).trim().slice(0, 300) || m.text;
     if (cat && CATEGORIES[cat]) m.cat = cat;
+    if (rasa !== undefined) m.rasa = cleanRasa(rasa);
     m.at = Date.now();
     save();
   },
@@ -119,9 +214,42 @@ export const memory = {
   replaceProfile(items) {
     state.profile = items
       .filter((m) => m && m.text)
-      .map((m) => ({ id: newId(), cat: CATEGORIES[m.cat] ? m.cat : 'lain', text: String(m.text).slice(0, 300), at: Date.now() }));
+      .map((m) => ({
+        id: newId(),
+        cat: CATEGORIES[m.cat] ? m.cat : 'lain',
+        text: String(m.text).slice(0, 300),
+        rasa: cleanRasa(m.rasa),
+        at: Date.now(),
+      }));
     state.lastTidy = Date.now();
+    state.needResort = false;
     save();
+  },
+
+  // "Penjaga laci": cari ingatan untuk sebuah topik obrolan, tanpa AI.
+  // Topik bisa nama laci ("makanan"), ucapan ("nanti malam makan apa"), atau nama ("Joni").
+  // Hasil: { laci: { 'Label laci': ['👍 suka rendang', ...] }, cocok: [...] }.
+  recall(topic) {
+    const q = String(topic || '').toLowerCase().trim();
+    const cats = new Set(guessCats(q));
+    for (const [k, label] of Object.entries(CATEGORIES)) {
+      const name = label.replace(/^\S+\s/, '').toLowerCase();
+      if (q === k || q.includes(name) || name.split(/ & /).some((n) => q.split(/\s+/).includes(n))) cats.add(k);
+    }
+    const line = (m) => `${RASA[m.rasa] ? `${RASA[m.rasa]} ` : ''}${m.text}`;
+    const laci = {};
+    for (const cat of Object.keys(CATEGORIES)) {
+      if (!cats.has(cat)) continue;
+      const items = state.profile.filter((m) => m.cat === cat);
+      if (items.length) laci[CATEGORIES[cat]] = items.slice(-30).map(line);
+    }
+    // Ingatan di laci lain yang menyebut kata dari topik (misal nama orang/tempat).
+    const keys = words(q).filter((w) => w.length > 3);
+    const cocok = state.profile
+      .filter((m) => !cats.has(m.cat) && keys.some((w) => m.text.toLowerCase().includes(w)))
+      .slice(-10)
+      .map((m) => `${line(m)} (${CATEGORIES[m.cat]})`);
+    return { laci, cocok };
   },
 
   forget(keyword) {
