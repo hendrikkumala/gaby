@@ -72,13 +72,12 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 ## Status saat ini (v1.14.0, APK #6)
 Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan hologram), kamera/layar, gambar (gratis & galeri),
 lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
-APK Android dengan kunci tetap & kartu update.
+APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
+pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android (diuji pemilik 31 Okt 2026).
 
-**Baru dikerjakan, belum dites langsung oleh pemilik di HP** (v1.14.0 / APK #6):
-- Pengingat berbunyi saat HP terkunci (saluran notifikasi "Pengingat Gaby", alarm tepat waktu, perbaikan pembatalan otomatis).
-- Alat `pasang_alarm` (aplikasi Jam di Android; Pintasan "Gaby Alarm" di iPhone — langkah membuatnya ada di Pengaturan → Fitur).
-- Bagian Pengaturan → Fitur → "Pengingat & alarm di HP ini" (status + tombol izin; Oppo/ColorOS perlu izin baterai latar belakang).
-Kalau pemilik melaporkan masalah di sini, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
+**Belum dites langsung oleh pemilik:**
+- `pasang_alarm` di iPhone (Pintasan "Gaby Alarm" — langkah membuatnya ada di Pengaturan → Fitur).
+Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
 - "Hai Gaby" tanpa sentuh di Android (butuh layanan latar depan + notifikasi tetap; ditolak untuk sekarang).
