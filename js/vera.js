@@ -169,4 +169,66 @@ export async function checkImage({ request, image }) {
   return unchecked;
 }
 
+// ---------- Cek rencana Pandu ----------
+
+// Kata penting dari hal yang tidak disukai ("tidak suka makanan pedas" → "pedas").
+const STOP = new Set(['tidak', 'suka', 'gak', 'nggak', 'ngga', 'enggak', 'kurang', 'alergi', 'benci', 'anti', 'pantang', 'menghindari',
+  'makan', 'makanan', 'minum', 'minuman', 'yang', 'dan', 'atau', 'sama', 'dengan', 'terlalu', 'banget', 'sangat', 'doyan', 'bisa', 'tahan']);
+function dislikeTerms() {
+  return memory.get().profile.filter((m) => m.rasa === 'tidak').flatMap((m) =>
+    (m.text.toLowerCase().match(/[a-z0-9]+/g) || []).filter((w) => w.length > 3 && !STOP.has(w)).map((w) => ({ w, fact: m.text })));
+}
+
+// Pemeriksaan pasti tanpa AI: hal yang tidak disukai, pengingat yang sudah lewat, bentrok jadwal.
+function localPlanIssues(plan) {
+  const issues = [];
+  const text = ` ${JSON.stringify({ ...plan, sumber: undefined, catatan: undefined }).toLowerCase()} `;
+  const hits = dislikeTerms().filter(({ w }) => new RegExp(`[^a-z0-9]${w}[^a-z0-9]`).test(text));
+  for (const h of [...new Map(hits.map((x) => [x.fact, x])).values()]) {
+    issues.push({ serius: true, text: `Ada saran yang bertentangan dengan "${h.fact}" (kata "${h.w}"). Ganti dengan pilihan lain.` });
+  }
+  const today = new Date().toLocaleDateString('sv-SE');
+  for (const r of plan.pengingat || []) {
+    if (r.tanggal < today) issues.push({ serius: true, text: `Pengingat "${r.pesan}" bertanggal ${r.tanggal}, sudah lewat. Pakai tanggal di masa depan atau hapus.` });
+  }
+  if (plan.tanggal_mulai) {
+    const same = memory.get().reminders.filter((r) => !r.done && new Date(r.due).toLocaleDateString('sv-SE') === plan.tanggal_mulai);
+    if (same.length) issues.push({ serius: false, text: `Di tanggal mulai sudah ada pengingat: ${same.map((r) => r.text).join(', ')}.` });
+  }
+  return issues;
+}
+
+// Hasil: { ok, feedback, badge, issues[] }. ok=false + feedback → Pandu memperbaiki sekali.
+// fixes = koreksi otomatis yang sudah dilakukan (misal total dihitung ulang).
+export async function checkPlan(plan, fixes = []) {
+  const local = localPlanIssues(plan);
+  const prompt = `Kamu VERA, pemeriksa rencana untuk asisten Gaby. Periksa rencana dari Pandu ini dengan teliti.
+
+Hari ini: ${new Date().toLocaleDateString('sv-SE')}.
+Hal yang tidak disukai pengguna: ${memory.get().profile.filter((m) => m.rasa === 'tidak').map((m) => m.text).join('; ') || '-'}
+
+RENCANA (JSON):
+${JSON.stringify({ ...plan, sumber: (plan.sumber || []).map((x) => x.title) }).slice(0, 6000)}
+
+Cek: (1) hitungan biaya masuk akal dan tidak ada biaya penting yang terlupa (misal transport/makan untuk perjalanan), (2) tanggal & urutan jadwal masuk akal dan bisa dijalani, (3) tidak ada saran yang bertentangan dengan hal yang tidak disukai, (4) tidak ada janji pasti yang sebenarnya hanya perkiraan.
+Jangan rewel soal selera; laporkan hanya masalah NYATA.
+
+Balas HANYA JSON:
+{"status": "ok" | "perlu_perbaikan", "masalah": ["masalah singkat bahasa Indonesia"], "perbaikan": "instruksi singkat untuk Pandu (kosong kalau ok)"}`;
+  const v = await askVera(prompt, { timeout: 30000 });
+  const llmIssues = v && v.status === 'perlu_perbaikan'
+    ? (Array.isArray(v.masalah) ? v.masalah : []).map((t) => ({ serius: true, text: String(t).slice(0, 200) })).slice(0, 5)
+    : [];
+  const issues = [...local, ...llmIssues];
+  const serious = issues.filter((i) => i.serius);
+  const feedback = serious.length
+    ? [...serious.map((i) => i.text), v && v.perbaikan ? String(v.perbaikan).slice(0, 300) : ''].filter(Boolean).join(' ')
+    : '';
+  let badge;
+  if (!v && !local.length) badge = '❓ belum dicek Vera';
+  else if (serious.length) badge = `⚠️ Vera: ${serious[0].text.slice(0, 70)}`;
+  else badge = '✅ dicek Vera';
+  return { ok: !serious.length, feedback, badge, issues, notes: [...fixes, ...issues.filter((i) => !i.serius).map((i) => i.text)], model: v && v._model };
+}
+
 export const _internal = { askVera, REST };

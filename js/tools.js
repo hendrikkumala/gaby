@@ -239,6 +239,48 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'buat_rencana',
+    description: 'Minta PANDU (teman perencana) menyusun rencana berlangkah: liburan/perjalanan, acara (ultah, arisan), diet/olahraga mingguan, belanja besar, membandingkan produk, dll. Pandu bekerja 1–2 menit di belakang layar (riset lewat Rara, dicek Vera), lalu rencana bernomor tampil di Kartu Rencana dan kamu dikabari sistem. Untuk MENGUBAH rencana lama ("ganti hotel rencana 1 yang dekat pantai"), isi dari_nomor; hasilnya rencana baru (turunan), yang lama tetap ada.',
+    parameters: {
+      type: 'object',
+      properties: {
+        permintaan: { type: 'string', description: 'Permintaan pengguna lengkap dengan kata-katanya (tujuan, tanggal, budget, jumlah orang, kesukaan)' },
+        dari_nomor: { type: 'number', description: 'Nomor rencana lama yang diubah (opsional)' },
+      },
+      required: ['permintaan'],
+    },
+  },
+  {
+    name: 'buka_rencana',
+    description: 'Buka rencana tersimpan (Kartu Rencana tampil) dan ambil isinya untuk menjawab: "buka rencana 3", "rencana Bali kemarin budgetnya berapa?", "hotel di rencana Bali namanya apa?". Isi nomor kalau disebut, selain itu kata_kunci.',
+    parameters: { type: 'object', properties: { nomor: { type: 'number' }, kata_kunci: { type: 'string' } } },
+  },
+  {
+    name: 'daftar_rencana',
+    description: 'Jumlah dan daftar rencana yang tersimpan ("ada berapa rencana?", "rencana-rencanaku apa aja?").',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'bandingkan_rencana',
+    description: 'Bandingkan 2–3 rencana tersimpan ("bandingin rencana 1 dengan rencana 3"). Kartu Perbandingan tampil.',
+    parameters: { type: 'object', properties: { nomor: { type: 'array', items: { type: 'number' } } }, required: ['nomor'] },
+  },
+  {
+    name: 'hapus_rencana',
+    description: 'Hapus rencana LANGSUNG tanpa konfirmasi: satu/beberapa nomor ("hapus rencana 2"), atau semua ("hapus semua rencana"). Bisa dibatalkan 1 menit dengan batal_hapus_rencana.',
+    parameters: { type: 'object', properties: { nomor: { type: 'array', items: { type: 'number' } }, semua: { type: 'boolean' } } },
+  },
+  {
+    name: 'batal_hapus_rencana',
+    description: 'Kembalikan rencana yang baru saja dihapus ("eh batal", "jangan dihapus"), maksimal 1 menit setelah dihapus.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
+    name: 'rencana_ke_catatan',
+    description: 'Masukkan persiapan (checklist) rencana ke catatan/to-do dan pasang pengingat usulannya, kalau pengguna setuju ("boleh, masukin ke catatan").',
+    parameters: { type: 'object', properties: { nomor: { type: 'number' } }, required: ['nomor'] },
+  },
+  {
     name: 'tutup_kartu',
     description: 'Tutup kartu di layar dengan menyebut namanya: Kartu Berita (hasil Rara), Kartu Rencana, Kartu Perbandingan, Kartu Daftar Rencana, Kartu Catatan, Kartu Peta, Kartu Gambar, Galeri, atau semua ("tutup semua kartu", "bersihkan layar"). "Tutup beritanya / sumbernya" = berita.',
     parameters: {
@@ -426,6 +468,30 @@ export async function runTool(name, args, ui) {
         let url = String(args.url || '');
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
         return ui.openExternal(url, `↗ ${args.label || 'Buka'}`);
+      }
+
+      case 'buat_rencana':
+        return ui.startPlan({ permintaan: args.permintaan, dari_nomor: args.dari_nomor ? Number(args.dari_nomor) : null });
+
+      case 'buka_rencana':
+        return ui.openPlan({ nomor: args.nomor ? Number(args.nomor) : null, kata_kunci: String(args.kata_kunci || '') });
+
+      case 'daftar_rencana':
+        return ui.listPlans();
+
+      case 'bandingkan_rencana':
+        return ui.comparePlans({ nomor: args.nomor });
+
+      case 'hapus_rencana':
+        return ui.deletePlans({ nomor: args.nomor, semua: !!args.semua });
+
+      case 'batal_hapus_rencana':
+        return ui.undoDelete();
+
+      case 'rencana_ke_catatan': {
+        const r = ui.planToTodos(Number(args.nomor));
+        if (!r.error) ui.refreshTodos();
+        return r;
       }
 
       case 'tutup_kartu':

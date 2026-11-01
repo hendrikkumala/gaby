@@ -126,6 +126,31 @@ async function doSync(reminders, nickname) {
   saveMap(map);
 }
 
+// Notifikasi sekali, sekarang juga (misal "Rencana #3 dari Pandu sudah siap") saat Gaby di latar belakang.
+export async function nativeNotifyNow(title, body) {
+  if (!isNativeApp) return false;
+  try {
+    if (!permissionAsked) {
+      permissionAsked = true;
+      await call('LocalNotifications', 'requestPermissions');
+    }
+    await ensureChannel();
+    await call('LocalNotifications', 'schedule', {
+      notifications: [{
+        id: 1500000000 + Math.floor(Math.random() * 400000000),
+        title,
+        body,
+        schedule: { at: new Date(Date.now() + 1500).toISOString(), allowWhileIdle: true },
+        channelId: CHANNEL,
+        smallIcon: 'ic_stat_gaby',
+      }],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ---------- Alarm di aplikasi Jam & pengaturan HP ----------
 // Butuh APK versi baru (plugin GabyAlarm). Di APK lama fungsi ini mengembalikan false.
 

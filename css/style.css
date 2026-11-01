@@ -648,6 +648,31 @@ mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px;
 .tb-steps { margin: 2px 0 6px 18px; padding: 0; list-style: none; font-size: 12px; opacity: .85; }
 .tb-steps li { padding: 1px 0; }
 .tb-more { font-size: 11.5px; opacity: .7; text-align: center; padding-top: 2px; }
+/* Kartu rencana / perbandingan / daftar */
+.plancard { width: min(94vw, 460px); top: calc(48% + var(--board-h, 0px) / 2); }
+.plan-body { max-height: min(62vh, calc(100vh - 230px - var(--board-h, 0px))); overflow-y: auto; font-size: 14px; line-height: 1.4; }
+.plan-body h4 { margin: 2px 0 4px; font-size: 15px; }
+.plan-meta { font-size: 12.5px; opacity: .8; margin: 0 0 8px; }
+.plan-meta .ok { color: #7dffb0; }
+.plan-meta .warn { color: #ffd27a; }
+.plan-sec { margin: 8px 0; }
+.plan-sec > b { display: block; margin-bottom: 2px; }
+.plan-sec ul { margin: 0; padding-left: 18px; }
+.plan-sec li { margin: 1px 0; }
+.plan-total { font-size: 16px; font-weight: 700; }
+.plan-detail[hidden] { display: none; }
+.plan-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.plan-actions .btn { width: auto; margin: 0; padding: 8px 12px; font-size: 13px; }
+.plan-sec a { color: var(--accent); word-break: break-word; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cmp th, .cmp td { text-align: left; vertical-align: top; padding: 5px 4px; border-bottom: 1px solid var(--line); }
+.cmp th { font-weight: 600; white-space: nowrap; opacity: .85; }
+.cmp thead th { color: var(--accent); }
+.plan-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.plan-row:last-child { border-bottom: none; }
+.plan-row span { flex: 1; min-width: 0; }
+.plan-row small { opacity: .7; white-space: nowrap; }
+.plan-row button { background: none; border: 0; color: inherit; font-size: 16px; cursor: pointer; padding: 2px 4px; }
 .preview-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 6px; font-size: 14px; }
 .preview-vera { font-size: 12px; opacity: .85; text-align: right; }
 .src-list { list-style: none; margin: 0; padding: 0; max-height: 24vh; overflow-y: auto; }

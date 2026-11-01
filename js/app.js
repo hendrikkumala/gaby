@@ -12,7 +12,7 @@ import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
 import {
-  isNativeApp, nativeOpen, syncNativeReminders, nativeReminderScheduled, installedApk, checkApkUpdate, APK_URL,
+  isNativeApp, nativeOpen, nativeNotifyNow, syncNativeReminders, nativeReminderScheduled, installedApk, checkApkUpdate, APK_URL,
   nativeAlarmAvailable, setNativeAlarm, reminderHealth, openPhoneSetting,
 } from './native.js';
 import { openingCue, LANGS } from './persona.js';
@@ -27,7 +27,8 @@ import { LocalVad } from './vad.js';
 import { Camera } from './camera.js';
 import { gallery } from './gallery.js';
 import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
-import { checkImage } from './vera.js';
+import { checkImage, checkPlan } from './vera.js';
+import { runPandu } from './pandu.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -421,6 +422,13 @@ const ui = {
   showSources: (q, sources, queries, badge) => showSources(q, sources, queries, badge),
   startJob: (who, text, opts) => startJob(who, text, opts),
   closeCards: (jenis) => closeCards(jenis),
+  startPlan: (a) => startPlan(a),
+  openPlan: (a) => openPlan(a),
+  listPlans: () => listPlansTool(),
+  comparePlans: (a) => comparePlans(a),
+  deletePlans: (a) => deletePlans(a),
+  undoDelete: () => undoDelete(),
+  planToTodos: (no) => planToTodos(no),
   switchToQuickSearch: (q) => switchToQuickSearch(q),
   sleepAfterSpeech() {
     sleepRequestedAt = Date.now();
@@ -582,6 +590,8 @@ async function activate(reason, spoken = '') {
   }
   const missedCue = takeMissedCue();
   if (missedCue) cue = cue ? `${cue}\n${missedCue}` : missedCue;
+  const planCue = takePlanNews(); // kabar dari Pandu saat Gaby tidur
+  if (planCue) cue = cue ? `${cue}\n${planCue}` : planCue;
   // Update baru: diceritakan sekali, hanya saat dibuka biasa (bukan karena pengingat/ucapan langsung).
   const news = !spoken && ['tap', 'wake', 'open'].includes(reason) ? newsCue() : '';
   if (news) cue = cue ? `${cue}\n${news}` : news;
@@ -1122,6 +1132,7 @@ function fillSettings() {
   $('set-research-box').hidden = !reasons.length;
   $('set-research-why').textContent = reasons.map((r) => `${r.label} — ${r.text}`).join('\n\n');
   fillNews();
+  fillPlans();
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
   $('set-vera-image').checked = st.settings.veraImage !== false;
@@ -1902,6 +1913,377 @@ function switchToQuickSearch(query) {
   setTimeout(() => attempt(), 1500);
   return true;
 }
+
+// ---------- Rencana (Pandu) ----------
+// Pandu bekerja di belakang layar; selesai → disimpan bernomor, Kartu Rencana tampil,
+// dan Gaby mengabarkan sendiri (atau lewat notifikasi kalau Gaby sedang tidur).
+
+const fmtRp = (n) => (n ? `Rp${Number(n).toLocaleString('id-ID')}` : '–');
+const fmtDay = (t) => new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+const esc = (v) => escapeHtml(String(v == null ? '' : v));
+let planRunning = null;
+const planNews = []; // kabar yang menunggu Gaby bangun
+
+// Kabarkan sesuatu lewat Gaby: tunggu jeda (tidak memotong siapa pun), atau simpan kalau Gaby tidur.
+function announce(cue, notify) {
+  if (phase === 'active' && brain.connected) {
+    const started = Date.now();
+    const tryNow = () => {
+      if (phase !== 'active' || !brain.connected) { planNews.push(cue); return; }
+      const busy = audio.isSpeaking() || thinking > 0 || vad.active || Date.now() - lastAudioAt < 900;
+      if (busy && Date.now() - started < 45000) { setTimeout(tryNow, 400); return; }
+      brain.sendText(cue);
+      touch();
+    };
+    tryNow();
+    return;
+  }
+  planNews.push(cue);
+  if (!notify) return;
+  if (isNativeApp) nativeNotifyNow(notify.title, notify.body);
+  else if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    try { new Notification(notify.title, { body: notify.body, icon: 'icons/icon-192.png' }); } catch {}
+  }
+}
+
+function takePlanNews() {
+  return planNews.length ? planNews.splice(0).join('\n') : '';
+}
+
+function planSummary(p) {
+  const d = p.data || {};
+  const hotel = (d.tempat || [])[0];
+  return {
+    nomor: p.no,
+    judul: p.title,
+    tanggal: d.tanggal || '',
+    total_biaya: d.total_biaya ? fmtRp(d.total_biaya) : '',
+    rincian: (d.rincian_biaya || []).map((r) => `${r.item}: ${fmtRp(r.biaya)}`),
+    tempat: (d.tempat || []).map((t) => [t.nama, t.area, t.harga].filter(Boolean).join(', ')),
+    jadwal: (d.jadwal || []).map((j) => `${j.waktu}: ${j.kegiatan}`),
+    checklist: d.checklist || [],
+    pengingat: (d.pengingat || []).map((r) => `${r.tanggal} ${r.jam}: ${r.pesan}`),
+    catatan: d.catatan || [],
+    ringkasan: d.ringkasan || '',
+    turunan_dari: p.parent ? `#${p.parent}` : '',
+    cek_vera: p.vera ? p.vera.badge : '',
+    dibuat: fmtDay(p.created),
+    _utama: hotel ? `${hotel.nama}${hotel.area ? ` (${hotel.area})` : ''}` : '',
+  };
+}
+
+function startPlan({ permintaan, dari_nomor }) {
+  const request = String(permintaan || '').trim().slice(0, 400);
+  if (!request) return { error: 'Permintaannya kosong. Tanyakan mau direncanakan apa.' };
+  if (!memory.get().keys.groq) {
+    return { error: 'butuh_groq', catatan: 'Pandu butuh kunci Groq gratis. Bilang singkat: isi kunci Groq di Pengaturan → Otak Gaby, lalu coba lagi.' };
+  }
+  if (planRunning) {
+    return { error: 'sibuk', catatan: `Pandu masih mengerjakan "${planRunning.request}". Bilang singkat dan minta pengguna menunggu sebentar.` };
+  }
+  const base = dari_nomor ? memory.getPlan(dari_nomor) : null;
+  if (dari_nomor && !base) {
+    return { error: `Rencana #${dari_nomor} tidak ada.`, rencana_tersimpan: memory.listPlans().map((p) => `#${p.no} ${p.title}`) };
+  }
+  const job = startJob('pandu', base ? `Mengubah rencana #${base.no}…` : 'Menyusun langkah…');
+  planRunning = { request };
+  runPlanJob(request, base, job).finally(() => { planRunning = null; });
+  return {
+    ok: true,
+    mulai: true,
+    catatan: 'Pandu mulai bekerja (biasanya 1–2 menit; prosesnya tampil di papan kerja di atas). Bilang SINGKAT bahwa Pandu sedang menyusun rencananya dan pengguna boleh ngobrol hal lain sambil menunggu. JANGAN mengarang isi rencana; sistem akan mengabarimu saat selesai.',
+  };
+}
+
+async function runPlanJob(request, base, job) {
+  let veraIdx = 0;
+  try {
+    const res = await runPandu({
+      request,
+      base,
+      hooks: {
+        onSteps: (list) => { veraIdx = list.length; job.setSteps([...list, 'Vera mengecek rencana']); },
+        onStep: (i, text) => { job.pass('pandu'); job.step(i, text); },
+        onRara: (who, text) => job.pass(who, text),
+        onWait: () => job.update('Menunggu jatah Groq sebentar…'),
+        onFix: (fb) => job.pass('pandu', `Memperbaiki: ${fb.slice(0, 70)}…`),
+        verify: async (plan, fixes) => {
+          job.pass('vera');
+          job.step(veraIdx, 'Mengecek hitungan, tanggal, dan pantanganmu…');
+          return checkPlan(plan, fixes);
+        },
+      },
+    });
+    let vera = res.vera;
+    if (!vera) {
+      job.pass('vera');
+      job.step(veraIdx, 'Mengecek ulang rencana…');
+      vera = await checkPlan(res.plan, res.fixes);
+    }
+    const plan = memory.addPlan({
+      title: res.plan.judul,
+      request,
+      data: res.plan,
+      vera: { badge: vera.badge, ok: vera.ok, notes: vera.notes || [], issues: (vera.issues || []).map((i) => i.text) },
+      parent: base ? base.no : null,
+    });
+    job.pass('pandu');
+    job.done(`Rencana #${plan.no} siap · ${vera.badge}`);
+    showPlanCard(plan.no);
+    fillSettings();
+    const s = planSummary(plan);
+    const extra = (plan.data.checklist.length || plan.data.pengingat.length)
+      ? ' Lalu tanya apakah mau dimasukkan ke catatan & pengingat (alat rencana_ke_catatan).' : '';
+    announce(`[SISTEM] Pandu sudah selesai: Rencana #${plan.no} "${plan.title}" sudah siap dan tampil di Kartu Rencana. Cek Vera: ${vera.badge}${vera.ok ? '' : ` (${(vera.issues || []).map((i) => i.text).join('; ')})`}. Ringkasan: ${JSON.stringify({ tanggal: s.tanggal, total: s.total_biaya, utama: s._utama, rincian: s.rincian.slice(0, 5), jadwal: s.jadwal.slice(0, 4) })}. Sampaikan dengan antusias tapi SINGKAT (2–3 kalimat): sebut nomor rencana, total biaya, dan 1–2 hal utama${vera.ok ? '' : ', lalu jujur sebut catatan Vera'}.${extra}`,
+    { title: `Rencana #${plan.no} siap`, body: `${plan.title}${s.total_biaya ? ` · total ${s.total_biaya}` : ''}` });
+  } catch (e) {
+    console.warn('[Gaby] Pandu gagal:', e);
+    job.fail(String(e.message || 'Gagal').slice(0, 80));
+    announce(`[SISTEM] Pandu gagal menyusun rencana "${request}": ${e.message}. Sampaikan singkat dan jujur, lalu tawarkan untuk mencoba lagi.`,
+      { title: 'Pandu belum berhasil', body: String(e.message || '').slice(0, 100) });
+  }
+}
+
+function showPlanCardShell(kind, title, html) {
+  hideCards('plan');
+  document.querySelectorAll('.toast.big').forEach((t) => t.remove());
+  const card = $('plancard');
+  card.dataset.kind = kind;
+  $('plan-title').textContent = title;
+  $('plan-body').innerHTML = html;
+  $('plan-body').scrollTop = 0;
+  card.classList.remove('show');
+  card.hidden = false;
+  void card.offsetWidth;
+  requestAnimationFrame(() => card.classList.add('show'));
+  touch();
+}
+
+function showPlanCard(no) {
+  const p = memory.getPlan(no);
+  if (!p) return false;
+  const d = p.data || {};
+  const badge = p.vera ? p.vera.badge : '';
+  const list = (items) => `<ul>${items.map((x) => `<li>${x}</li>`).join('')}</ul>`;
+  const sec = (title, inner) => (inner ? `<div class="plan-sec"><b>${title}</b>${inner}</div>` : '');
+  const tempat = (d.tempat || []).map((t) => `${esc(t.nama)}${t.area ? `, ${esc(t.area)}` : ''}${t.harga ? ` · ${esc(t.harga)}` : ''}`);
+  const jadwal = (d.jadwal || []).map((j) => `<b>${esc(j.waktu)}</b> ${esc(j.kegiatan)}`);
+  const main = [
+    `<h4>${esc(p.title)}</h4>`,
+    `<p class="plan-meta">${[esc(d.tanggal), p.parent ? `turunan dari #${p.parent}` : '', badge ? `<span class="${badge.startsWith('✅') ? 'ok' : badge.startsWith('⚠️') ? 'warn' : ''}">${esc(badge)}</span>` : ''].filter(Boolean).join(' · ')}</p>`,
+    d.ringkasan ? `<p>${esc(d.ringkasan)}</p>` : '',
+    d.total_biaya ? sec('💰 Biaya', `<div class="plan-total">Total ± ${fmtRp(d.total_biaya)}</div>${list((d.rincian_biaya || []).map((r) => `${esc(r.item)}: ${fmtRp(r.biaya)}`))}`) : '',
+    tempat.length ? sec(`${/hotel/i.test((d.tempat[0] || {}).jenis) ? '🏨 Hotel / tempat' : '📍 Tempat'}`, list(tempat.slice(0, 3))) : '',
+    jadwal.length ? sec('📅 Jadwal', list(jadwal.slice(0, 4)) + (jadwal.length > 4 ? '<i>…lihat detail</i>' : '')) : '',
+  ].join('');
+  const detail = [
+    jadwal.length > 4 ? sec('📅 Jadwal lengkap', list(jadwal)) : '',
+    d.checklist && d.checklist.length ? sec('✅ Persiapan', list(d.checklist.map(esc))) : '',
+    d.pengingat && d.pengingat.length ? sec('⏰ Pengingat usulan', list(d.pengingat.map((r) => `${esc(r.tanggal)} ${esc(r.jam)} — ${esc(r.pesan)}`))) : '',
+    d.catatan && d.catatan.length ? sec('📌 Catatan', list(d.catatan.map(esc))) : '',
+    p.vera && p.vera.notes && p.vera.notes.length ? sec('🔍 Catatan Vera', list(p.vera.notes.map(esc))) : '',
+    d.sumber && d.sumber.length ? sec('🔗 Sumber', list(d.sumber.map((x) => `<a href="${esc(x.url)}" data-ext="1">${esc(x.title)}</a>`))) : '',
+    `<p class="plan-meta">Permintaan: “${esc(p.request)}” · dibuat ${fmtDay(p.created)}</p>`,
+  ].join('');
+  const canTodo = (d.checklist && d.checklist.length) || (d.pengingat && d.pengingat.length);
+  const html = `${main}<div class="plan-detail" hidden>${detail}</div>
+    <div class="plan-actions">
+      <button class="btn" data-act="detail">📋 Lihat detail</button>
+      ${canTodo ? `<button class="btn primary" data-act="todo">📝 Masukkan ke catatan & pengingat</button>` : ''}
+    </div>`;
+  showPlanCardShell('rencana', `🗺️ Kartu Rencana #${p.no}`, html);
+  $('plan-body').dataset.no = String(p.no);
+  return true;
+}
+
+function showPlanList() {
+  const plans = memory.listPlans().slice().reverse();
+  const html = plans.length
+    ? plans.map((p) => `<div class="plan-row" data-open="${p.no}"><span><b>#${p.no}</b> ${esc(p.title)}</span><small>${fmtDay(p.created)}</small></div>`).join('')
+    : '<p class="hint">Belum ada rencana tersimpan.</p>';
+  showPlanCardShell('daftar_rencana', `📋 Kartu Daftar Rencana (${plans.length})`, html);
+}
+
+function showCompareCard(plans) {
+  const sums = plans.map(planSummary);
+  const cell = (v) => `<td>${v || '–'}</td>`;
+  const row = (label, f) => `<tr><th>${label}</th>${sums.map((s, i) => cell(f(s, plans[i]))).join('')}</tr>`;
+  const html = `<table class="cmp">
+    <thead><tr><th></th>${sums.map((s) => `<th>#${s.nomor}</th>`).join('')}</tr></thead>
+    <tbody>
+      ${row('Judul', (s) => esc(s.judul))}
+      ${row('💰 Total', (s) => esc(s.total_biaya))}
+      ${row('📍 Utama', (s, p) => esc((p.data.tempat || [])[0] ? [p.data.tempat[0].nama, p.data.tempat[0].area].filter(Boolean).join(', ') : ''))}
+      ${row('💵 Harga', (s, p) => esc((p.data.tempat || [])[0] ? p.data.tempat[0].harga : ''))}
+      ${row('📅 Tanggal', (s) => esc(s.tanggal))}
+      ${row('🗓️ Jadwal', (s) => (s.jadwal.length ? `${s.jadwal.length} kegiatan` : ''))}
+      ${row('✅ Cek Vera', (s) => esc(s.cek_vera))}
+    </tbody></table>`;
+  showPlanCardShell('perbandingan', `📊 Kartu Perbandingan ${plans.map((p) => `#${p.no}`).join(' vs ')}`, html);
+}
+
+$('plan-close').addEventListener('click', () => hidePlanCard());
+$('plan-body').addEventListener('click', (e) => {
+  const ext = e.target.closest('a[data-ext]');
+  if (ext) { e.preventDefault(); openExternal(ext.href, ext.textContent); return; }
+  const open = e.target.closest('[data-open]');
+  if (open) { showPlanCard(Number(open.dataset.open)); return; }
+  const act = e.target.closest('[data-act]');
+  if (!act) return;
+  if (act.dataset.act === 'detail') {
+    const d = $('plan-body').querySelector('.plan-detail');
+    d.hidden = !d.hidden;
+    act.textContent = d.hidden ? '📋 Lihat detail' : '📋 Sembunyikan detail';
+  } else if (act.dataset.act === 'todo') {
+    const r = planToTodos(Number($('plan-body').dataset.no));
+    toast(r.error || r.pesan, r.error ? 'warn' : 'info', 6000);
+  }
+});
+
+// Buka rencana: nomor, atau kata kunci / isi. Hasilnya dipakai Gaby untuk menjawab.
+function openPlan({ nomor, kata_kunci }) {
+  if (!memory.listPlans().length) return { kosong: true, catatan: 'Belum ada rencana tersimpan. Tawarkan untuk membuatkan.' };
+  let found = nomor ? [memory.getPlan(nomor)].filter(Boolean) : memory.findPlans(kata_kunci || '');
+  if (!found.length && nomor) return { error: `Rencana #${nomor} tidak ada.`, rencana_tersimpan: memory.listPlans().map((p) => `#${p.no} ${p.title}`) };
+  if (!found.length) return { ketemu: false, rencana_tersimpan: memory.listPlans().map((p) => `#${p.no} ${p.title}`), catatan: 'Tidak ada yang cocok. Sebutkan daftar ini singkat lalu tanya yang mana.' };
+  if (found.length > 1) {
+    return { perlu_pilih: true, pilihan: found.slice(0, 5).map((p) => `#${p.no} ${p.title} (${fmtDay(p.created)})`), catatan: 'Ada beberapa yang cocok. Tanya pengguna yang mana (sebut nomornya).' };
+  }
+  showPlanCard(found[0].no);
+  const s = planSummary(found[0]);
+  delete s._utama;
+  return { ...s, catatan: 'Kartu Rencana sudah tampil. Jawab pertanyaan pengguna HANYA dari data ini, singkat.' };
+}
+
+function listPlansTool() {
+  const plans = memory.listPlans();
+  if (!plans.length) return { jumlah: 0, catatan: 'Belum ada rencana tersimpan.' };
+  const newest = plans.slice().reverse();
+  const out = { jumlah: plans.length, rencana: newest.slice(0, plans.length > 5 ? 5 : plans.length).map((p) => `#${p.no} ${p.title}`) };
+  if (plans.length > 5) {
+    showPlanList();
+    out.catatan = `Sebut jumlahnya, lalu 5 terbaru saja; sisanya ada di Kartu Daftar Rencana yang sudah tampil.`;
+  } else {
+    out.catatan = 'Sebut jumlahnya dan semua rencana singkat (nomor + judul).';
+  }
+  return out;
+}
+
+function comparePlans({ nomor }) {
+  const nums = [...new Set((Array.isArray(nomor) ? nomor : [nomor]).map(Number).filter(Boolean))];
+  if (nums.length < 2) return { error: 'Sebutkan minimal 2 nomor rencana untuk dibandingkan.' };
+  if (nums.length > 3) return { error: 'Maksimal 3 rencana sekaligus. Tanya pengguna mau yang mana saja.' };
+  const plans = nums.map((n) => memory.getPlan(n));
+  const missing = nums.filter((n, i) => !plans[i]);
+  if (missing.length) return { error: `Rencana ${missing.map((n) => `#${n}`).join(', ')} tidak ada.`, rencana_tersimpan: memory.listPlans().map((p) => `#${p.no} ${p.title}`) };
+  showCompareCard(plans);
+  const prefs = memory.get().profile.filter((m) => m.rasa || m.cat === 'keuangan').slice(-12).map((m) => `${m.rasa === 'suka' ? '👍' : m.rasa === 'tidak' ? '👎' : '💰'} ${m.text}`);
+  return {
+    rencana: plans.map((p) => { const s = planSummary(p); delete s._utama; return s; }),
+    kesukaan_pengguna: prefs,
+    catatan: 'Kartu Perbandingan sudah tampil. Simpulkan SINGKAT (2–3 kalimat): beda biaya, beda utama (misal lokasi hotel), lalu beri saran sesuai kesukaan/keuangan pengguna. Hanya dari data ini.',
+  };
+}
+
+// Hapus rencana: langsung, dengan tombol "Batalkan" selama 1 menit (berjaga kalau salah dengar).
+let lastDeletion = null;
+function deletePlans({ nomor, semua }) {
+  const all = memory.listPlans();
+  if (!all.length) return { ok: true, dihapus: [], catatan: 'Belum ada rencana tersimpan.' };
+  let snapshot;
+  if (semua) {
+    snapshot = memory.removeAllPlans();
+  } else {
+    const nums = (Array.isArray(nomor) ? nomor : [nomor]).map(Number).filter((n) => memory.getPlan(n));
+    if (!nums.length) return { error: `Rencana ${[].concat(nomor).map((n) => `#${n}`).join(', ')} tidak ada.`, rencana_tersimpan: all.map((p) => `#${p.no} ${p.title}`) };
+    snapshot = memory.removePlans(nums);
+  }
+  const card = $('plancard');
+  if (!card.hidden) {
+    const shown = Number($('plan-body').dataset.no || 0);
+    if (card.dataset.kind !== 'rencana' || snapshot.removed.some((p) => p.no === shown)) hidePlanCard();
+  }
+  lastDeletion = { snapshot, at: Date.now() };
+  document.querySelectorAll('.toast.undo').forEach((t) => t.remove());
+  const label = semua ? 'Semua rencana dihapus' : `${snapshot.removed.map((p) => `Rencana #${p.no}`).join(', ')} dihapus`;
+  const el = toast(`🗑️ ${label}`, 'info undo', 60000);
+  const b = document.createElement('a');
+  b.href = '#';
+  b.textContent = '↩️ Batalkan';
+  b.onclick = (e) => { e.preventDefault(); const r = undoDelete(); toast(r.error || `↩️ ${r.dikembalikan} rencana dikembalikan`, r.error ? 'warn' : 'info'); };
+  el.appendChild(b);
+  fillSettings();
+  return {
+    ok: true,
+    dihapus: snapshot.removed.map((p) => `#${p.no} ${p.title}`),
+    nomor_berikutnya: memory.get().nextPlanNo,
+    catatan: 'Sudah dihapus (bisa dibatalkan 1 menit dengan "batal"). Jawab singkat. Kalau pengguna menyebut alasan tidak suka (misal "hotelnya jelek"), simpan dengan ingat (rasa tidak_suka).',
+  };
+}
+
+function undoDelete() {
+  if (!lastDeletion || Date.now() - lastDeletion.at > 60000) return { error: 'Tidak ada penghapusan yang bisa dibatalkan (batasnya 1 menit).' };
+  const n = memory.restorePlans(lastDeletion.snapshot);
+  lastDeletion = null;
+  document.querySelectorAll('.toast.undo').forEach((t) => t.remove());
+  fillSettings();
+  return { ok: true, dikembalikan: n, rencana: memory.listPlans().map((p) => `#${p.no} ${p.title}`) };
+}
+
+// Checklist → catatan/to-do; pengingat usulan (tanggal masa depan) → pengingat sungguhan.
+function planToTodos(no) {
+  const p = memory.getPlan(no);
+  if (!p) return { error: `Rencana #${no} tidak ada.` };
+  if (p.addedToTodos) return { ok: true, sudah: true, pesan: `Rencana #${no} sudah pernah dimasukkan ke catatan.`, catatan: 'Bilang singkat bahwa ini sudah pernah dimasukkan.' };
+  const d = p.data || {};
+  let todos = 0;
+  let reminders = 0;
+  const skipped = [];
+  for (const item of d.checklist || []) if (memory.addTodo(`${item} (rencana #${no})`)) todos++;
+  for (const r of d.pengingat || []) {
+    const due = new Date(`${r.tanggal}T${(r.jam || '09:00').padStart(5, '0')}:00`).getTime();
+    if (!isFinite(due) || due <= Date.now()) { skipped.push(r.pesan); continue; }
+    const text = `${r.pesan} (rencana #${no})`;
+    const t = memory.addTodo(text);
+    const rem = memory.addReminder(text, due, t ? t.id : null);
+    if (t) memory.linkTodoReminder(t.id, rem.id);
+    reminders++;
+  }
+  p.addedToTodos = true;
+  memory.updatePlan(p);
+  renderTodosIfOpen();
+  fillSettings();
+  syncNative();
+  return {
+    ok: true,
+    catatan_ditambah: todos,
+    pengingat_dipasang: reminders,
+    dilewati: skipped,
+    pesan: `📝 ${todos} catatan & ⏰ ${reminders} pengingat dari Rencana #${no} ditambahkan`,
+    catatan: `Bilang singkat hasilnya.${reminders && !isNativeApp ? ' Ingatkan bahwa di browser pengingat hanya berbunyi saat Gaby terbuka.' : ''}${skipped.length ? ' Beberapa pengingat dilewati karena tanggalnya sudah lewat.' : ''}`,
+  };
+}
+
+function renderTodosIfOpen() {
+  if (!$('todocard').hidden) renderTodos();
+}
+
+// Pengaturan → 🗺️ Rencana tersimpan.
+function fillPlans() {
+  const box = $('set-plans');
+  const plans = memory.listPlans().slice().reverse();
+  box.innerHTML = plans.length
+    ? plans.map((p) => `<div class="plan-row"><span><b>#${p.no}</b> ${esc(p.title)}</span><small>${fmtDay(p.created)}</small><button data-open="${p.no}" title="Buka">📂</button><button data-del="${p.no}" title="Hapus">🗑️</button></div>`).join('')
+    : '<p class="hint">Belum ada rencana.</p>';
+  $('set-plans-delall').hidden = !plans.length;
+}
+$('set-plans').addEventListener('click', (e) => {
+  const o = e.target.closest('[data-open]');
+  if (o) { $('settings').hidden = true; showPlanCard(Number(o.dataset.open)); return; }
+  const d = e.target.closest('[data-del]');
+  if (d) deletePlans({ nomor: Number(d.dataset.del) });
+});
+$('set-plans-delall').addEventListener('click', () => deletePlans({ semua: true }));
 
 // ---------- Musik ----------
 

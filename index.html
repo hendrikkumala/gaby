@@ -104,6 +104,15 @@
     <ul id="src-list" class="src-list"></ul>
   </div>
 
+  <!-- Kartu rencana / perbandingan / daftar rencana (dari Pandu) -->
+  <div id="plancard" class="mapcard plancard" hidden>
+    <div class="mapcard-head">
+      <b id="plan-title"></b>
+      <button id="plan-close" class="icon-btn" aria-label="Tutup kartu">✕</button>
+    </div>
+    <div id="plan-body" class="plan-body"></div>
+  </div>
+
   <!-- Kartu peta: rute / tempat sekitar -->
   <div id="mapcard" class="mapcard" hidden>
     <div class="mapcard-head">
@@ -204,6 +213,7 @@
           <button data-go="grp-panggil">🎙️ Panggilan</button>
           <button data-go="grp-bahasa">🌐 Bahasa</button>
           <button data-go="grp-fitur">✨ Fitur</button>
+          <button data-go="grp-rencana">🗺️ Rencana</button>
           <button data-go="grp-suara">🎨 Suara &amp; Ekspresi</button>
         </nav>
       </div>
@@ -280,6 +290,13 @@
           <div class="btn-row"><a class="btn" href="shortcuts://create-shortcut">➕ Buka Pintasan</a></div>
           <p class="hint">Setelah itu cukup bilang "Gaby, pasang alarm jam 5 pagi", lalu ketuk tombol <b>Pasang alarm</b> yang muncul.</p>
         </details>
+      </div>
+
+      <div class="group" id="grp-rencana">
+        <h3>🗺️ Rencana tersimpan (Pandu)</h3>
+        <p class="hint">Minta Gaby: "rencanakan liburan ke Bali 3 hari, budget 5 juta". Setiap rencana bernomor; bisa dibuka, dibandingkan ("bandingin rencana 1 dan 3"), atau dihapus lewat suara.</p>
+        <div id="set-plans" class="plan-list"></div>
+        <div class="btn-row"><button id="set-plans-delall" class="btn danger">Hapus semua rencana</button></div>
       </div>
 
       <div class="group" id="grp-suara">

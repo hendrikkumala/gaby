@@ -83,6 +83,9 @@ export function guessRasa(text) {
   return '';
 }
 
+// Catatan singkat rencana di laci 🗓️ Rencana, misal "Rencana #3: Liburan Bali (Hotel C) — 12–14 Des".
+const planPointer = (p) => `Rencana #${p.no}: ${p.title}${p.data && p.data.tanggal ? ` — ${p.data.tanggal}` : ''}`;
+
 const cleanRasa = (r) => (r === 'suka' || r === 'tidak' ? r : r === 'tidak_suka' ? 'tidak' : '');
 
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -99,6 +102,8 @@ const DEFAULTS = {
   history: [],       // [{ who: 'user' | 'gaby', text, at }]
   reminders: [],     // [{ id, text, due, done, todoId }]
   todos: [],         // [{ id, text, done, doneAt, createdAt, date, reminderId }] — catatan/to-do
+  plans: [],         // [{ no, title, created, parent, request, data, vera }] — rencana dari Pandu (bernomor)
+  nextPlanNo: 1,     // nomor rencana berikutnya (tidak dipakai ulang, kecuali semua rencana dihapus)
   pinOk: false,
   keys: { gemini: '', openai: '', pollinations: '', groq: '' },
   settings: {
@@ -407,6 +412,94 @@ export const memory = {
 
   openTodos() {
     return state.todos.filter((t) => !t.done);
+  },
+
+  // ---------- Rencana (Pandu) ----------
+
+  // Simpan rencana baru dengan nomor berikutnya. Laci 🗓️ Rencana mendapat catatan singkat.
+  addPlan({ title, request, data, vera, parent = null }) {
+    const plan = {
+      no: state.nextPlanNo++,
+      title: String(title || 'Rencana').slice(0, 80),
+      created: Date.now(),
+      parent,
+      request: String(request || '').slice(0, 400),
+      data,
+      vera: vera || null,
+    };
+    state.plans.push(plan);
+    state.profile.push({ id: newId(), cat: 'rencana', text: planPointer(plan), rasa: '', at: Date.now() });
+    save();
+    return plan;
+  },
+
+  updatePlan(plan) {
+    const i = state.plans.findIndex((p) => p.no === plan.no);
+    if (i >= 0) { state.plans[i] = plan; save(); }
+  },
+
+  getPlan(no) {
+    return state.plans.find((p) => p.no === Number(no)) || null;
+  },
+
+  listPlans() {
+    return state.plans.slice();
+  },
+
+  // Cari rencana dari nomor ("rencana 3"), kata kunci ("Bali"), atau isi ("Hotel C").
+  findPlans(query) {
+    const q = String(query || '').toLowerCase().trim();
+    if (!q) return [];
+    const num = q.match(/(?:^|#|rencana\s*(?:nomor|no\.?)?\s*)(\d+)\b/);
+    if (num && this.getPlan(num[1])) return [this.getPlan(num[1])];
+    const all = words(q).map(stem);
+    const ws = all.filter((w) => w.length > 2 && !['rencana', 'yang', 'kemarin', 'tadi', 'itu', 'dengan', 'untuk'].includes(w));
+    // Frasa dua kata ("hotel c", "pantai kuta") lebih kuat daripada kata tunggal.
+    const pairs = all.slice(1).map((w, i) => `${all[i]} ${w}`).filter((p) => !/^(rencana|yang) /.test(p));
+    if (!ws.length && !pairs.length) return [];
+    const scored = state.plans.map((p) => {
+      const hay = ` ${words(`${p.title} ${p.request} ${JSON.stringify(p.data || {})}`).join(' ')} `;
+      return {
+        p,
+        score: ws.filter((w) => hay.includes(w)).length
+          + 2 * pairs.filter((x) => hay.includes(` ${x} `)).length
+          + (ws.some((w) => p.title.toLowerCase().includes(w)) ? 0.5 : 0),
+      };
+    }).filter((x) => x.score > 0);
+    const top = Math.max(0, ...scored.map((x) => x.score));
+    return scored.filter((x) => x.score === top).map((x) => x.p).sort((a, b) => b.created - a.created);
+  },
+
+  // Hapus rencana tertentu (nomor tidak dipakai ulang). Mengembalikan data untuk "batal".
+  removePlans(nos) {
+    const set = new Set(nos.map(Number));
+    const removed = state.plans.filter((p) => set.has(p.no));
+    const snapshot = { removed, nextPlanNo: state.nextPlanNo, pointers: state.profile.filter((m) => removed.some((p) => m.text.startsWith(`Rencana #${p.no}:`))) };
+    state.plans = state.plans.filter((p) => !set.has(p.no));
+    state.profile = state.profile.filter((m) => !snapshot.pointers.includes(m));
+    save();
+    return snapshot;
+  },
+
+  // Hapus semua rencana; nomor mulai lagi dari #1.
+  removeAllPlans() {
+    const snapshot = this.removePlans(state.plans.map((p) => p.no));
+    state.profile = state.profile.filter((m) => !(m.cat === 'rencana' && /^Rencana #\d+:/.test(m.text)));
+    state.nextPlanNo = 1;
+    save();
+    return snapshot;
+  },
+
+  // Kembalikan rencana yang baru dihapus ("eh, batal").
+  restorePlans(snapshot) {
+    if (!snapshot || !snapshot.removed.length) return 0;
+    const have = new Set(state.plans.map((p) => p.no));
+    const back = snapshot.removed.filter((p) => !have.has(p.no));
+    state.plans = [...state.plans, ...back].sort((a, b) => a.no - b.no);
+    state.profile.push(...snapshot.pointers.filter((m) => !state.profile.includes(m)));
+    state.nextPlanNo = Math.max(state.nextPlanNo, snapshot.nextPlanNo, ...state.plans.map((p) => p.no + 1));
+    save();
+    return back.length;
   },
 
   setKeys(keys) {
