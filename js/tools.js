@@ -282,11 +282,11 @@ export const TOOL_DEFS = [
   },
   {
     name: 'tutup_kartu',
-    description: 'Tutup kartu di layar dengan menyebut namanya: Kartu Berita (hasil Rara), Kartu Rencana, Kartu Perbandingan, Kartu Daftar Rencana, Kartu Catatan, Kartu Peta, Kartu Gambar, Galeri, atau semua ("tutup semua kartu", "bersihkan layar"). "Tutup beritanya / sumbernya" = berita.',
+    description: 'Tutup kartu di layar dengan menyebut namanya: Papan Kerja (meteran teman yang sedang bekerja di atas; teman tetap bekerja di belakang layar), Kartu Berita (hasil Rara), Kartu Rencana, Kartu Perbandingan, Kartu Daftar Rencana, Kartu Catatan, Kartu Peta, Kartu Gambar, Galeri, atau semua ("tutup semua kartu", "bersihkan layar"). "Tutup beritanya / sumbernya" = berita.',
     parameters: {
       type: 'object',
       properties: {
-        jenis: { type: 'string', enum: ['berita', 'rencana', 'perbandingan', 'daftar_rencana', 'catatan', 'peta', 'gambar', 'galeri', 'semua'] },
+        jenis: { type: 'string', enum: ['papan', 'berita', 'rencana', 'perbandingan', 'daftar_rencana', 'catatan', 'peta', 'gambar', 'galeri', 'semua'] },
       },
       required: ['jenis'],
     },

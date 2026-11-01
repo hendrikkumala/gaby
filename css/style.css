@@ -635,6 +635,9 @@ mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px;
   font-size: 12.5px; cursor: pointer;
 }
 .teamboard[hidden] { display: none; }
+.tb-x { position: absolute; top: 3px; right: 4px; width: 24px; height: 24px; border: 0; border-radius: 50%;
+  background: rgba(127, 227, 255, .12); color: inherit; font-size: 12px; line-height: 24px; padding: 0; cursor: pointer; }
+.teamboard .tb-row, .teamboard .tb-more { margin-right: 26px; }
 .tb-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .tb-row b { white-space: nowrap; font-weight: 600; min-width: 64px; }
 .tb-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .9; }

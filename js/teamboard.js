@@ -13,14 +13,34 @@ const WHO = {
 const jobs = new Map();
 let seq = 0;
 let expanded = false;
+let hiddenByUser = false; // pengguna menutup papan (✕ / "tutup papan kerja"); muncul lagi saat ada pekerjaan baru
 let box = null;
+const STUCK_MS = 6 * 60 * 1000; // pekerjaan yang macet lebih dari 6 menit dihapus dari papan
 
 function el() {
   if (!box) {
     box = document.getElementById('teamboard');
-    if (box) box.addEventListener('click', () => { expanded = !expanded; render(); });
+    if (box) {
+      box.addEventListener('click', (e) => {
+        if (e.target.closest('.tb-x')) { e.stopPropagation(); hideBoard(); return; }
+        expanded = !expanded;
+        render();
+      });
+    }
   }
   return box;
+}
+
+// Sembunyikan papan (teman-teman tetap bekerja di belakang layar).
+export function hideBoard() {
+  hiddenByUser = true;
+  expanded = false;
+  render();
+}
+
+// true = papan sedang terlihat di layar.
+export function boardVisible() {
+  return !!el() && !el().hidden;
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -38,8 +58,8 @@ function render() {
   const b = el();
   if (!b) return;
   const list = [...jobs.values()];
-  b.hidden = list.length === 0;
-  if (!list.length) {
+  b.hidden = list.length === 0 || hiddenByUser;
+  if (b.hidden) {
     document.documentElement.style.setProperty('--board-h', '0px');
     return;
   }
@@ -57,7 +77,7 @@ function render() {
     return `<div class="tb-row ${j.state}"><b>${esc(WHO[j.who] || j.who)}</b>${bar}<span class="tb-text">${esc(j.text)}${count}</span></div>${steps}`;
   });
   const more = !expanded && list.length > 2 ? `<div class="tb-more">+${list.length - 2} lagi · ketuk untuk lihat</div>` : '';
-  b.innerHTML = rows.join('') + more;
+  b.innerHTML = `<button class="tb-x" aria-label="Tutup papan kerja" title="Tutup papan (teman tetap bekerja)">✕</button>${rows.join('')}${more}`;
   b.classList.toggle('expanded', expanded);
   // Kartu di bawah papan ikut turun supaya tidak tertutup.
   document.documentElement.style.setProperty('--board-h', `${b.offsetHeight + 6}px`);
@@ -66,8 +86,9 @@ function render() {
 // Mulai satu pekerjaan. Mengembalikan pengendali untuk memperbarui papan.
 export function startJob(who, text, { steps = [] } = {}) {
   const id = ++seq;
-  const job = { id, who, text: String(text || ''), frac: null, state: 'run', steps: [] };
+  const job = { id, who, text: String(text || ''), frac: null, state: 'run', steps: [], started: Date.now() };
   jobs.set(id, job);
+  hiddenByUser = false; // pekerjaan baru: tampilkan lagi papannya
   const setSteps = (list) => { job.steps = (list || []).map((t) => ({ text: String(t), state: 'todo' })); };
   setSteps(steps);
   render();
@@ -102,3 +123,19 @@ export function startJob(who, text, { steps = [] } = {}) {
 export function boardBusy() {
   return [...jobs.values()].some((j) => j.state === 'run');
 }
+
+// Pengaman: pekerjaan yang tidak pernah selesai (misal internet putus di tengah jalan)
+// tidak dibiarkan menggantung di papan selamanya.
+setInterval(() => {
+  const now = Date.now();
+  let changed = false;
+  for (const [id, j] of jobs) {
+    if (j.state === 'run' && now - j.started > STUCK_MS) {
+      j.state = 'fail';
+      j.text = 'Terlalu lama, dihentikan';
+      changed = true;
+      setTimeout(() => { jobs.delete(id); render(); }, 7000);
+    }
+  }
+  if (changed) render();
+}, 15000);

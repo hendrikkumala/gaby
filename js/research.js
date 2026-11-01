@@ -224,8 +224,11 @@ function groqEvidence(msg) {
 }
 
 // Rara lewat Groq: GPT-OSS + browser_search.
-async function askGroq(key, question) {
-  const list = await groqModels(key, 'rara');
+// small = utamakan GPT-OSS 20B (dipakai saat Pandu bekerja, supaya jatah token per menit
+// tidak berebut dengan Pandu yang memakai GPT-OSS 120B).
+async function askGroq(key, question, small = false) {
+  let list = await groqModels(key, 'rara');
+  if (small) list = [...list].sort((a, b) => (/gpt-oss-20b/.test(b) ? 1 : 0) - (/gpt-oss-20b/.test(a) ? 1 : 0));
   let last = { error: 'model', message: 'Model GPT-OSS tidak tersedia di Groq' };
   for (const model of list) {
     const body = {
@@ -261,7 +264,7 @@ async function askGroq(key, question) {
 //   { ok: true, found: false }              → tidak ketemu di internet
 //   { ok: false, reason: 'habis', nofree }  → semua jatah teliti habis / tidak diberi (pindah ke pencarian cepat)
 //   { ok: false, reason: 'auth' | 'gagal' } → kunci ditolak / gangguan
-export async function research(question) {
+export async function research(question, { small = false } = {}) {
   const { keys } = memory.get();
   let failed = false;
   let nofree = false;
@@ -271,7 +274,7 @@ export async function research(question) {
     let r;
     let model;
     if (tier.id === 'groq') {
-      r = await askGroq(keys.groq, question);
+      r = await askGroq(keys.groq, question, small);
       model = r.model || 'Groq';
     } else {
       const list = await pickModels(keys.gemini);
@@ -316,15 +319,15 @@ export async function research(question) {
 // Rara diminta mencari ulang SEKALI dengan catatan Vera, lalu dicek lagi.
 // onStage(siapa, keterangan) dipakai untuk papan kerja tim.
 // Hasil: sama seperti research(), ditambah { badge, status, note } kalau ketemu.
-export async function researchChecked(question, { onStage = () => {} } = {}) {
+export async function researchChecked(question, { onStage = () => {}, small = false } = {}) {
   onStage('rara', `Mencari: ${question}`);
-  let r = await research(question);
+  let r = await research(question, { small });
   if (!r.ok || !r.found) return r;
   onStage('vera', 'Mengecek fakta dari sumber…');
   let v = await checkFacts({ question, answer: r.text, sources: r.sources, evidence: r.evidence });
   if (v.status === 'lemah') {
     onStage('rara', 'Vera minta cek ulang, mencari lagi…');
-    const again = await research(`${question} (cari data resmi & terbaru; catatan pemeriksa: ${v.note || 'jawaban sebelumnya tidak didukung sumber'})`);
+    const again = await research(`${question} (cari data resmi & terbaru; catatan pemeriksa: ${v.note || 'jawaban sebelumnya tidak didukung sumber'})`, { small });
     if (again.ok && again.found) {
       onStage('vera', 'Mengecek ulang…');
       const v2 = await checkFacts({ question, answer: again.text, sources: again.sources, evidence: again.evidence });

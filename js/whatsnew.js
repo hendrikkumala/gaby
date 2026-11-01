@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.18.1',
+    quiet: true,
+    items: ['Perbaikan bug kecil'],
+  },
+  {
     version: '1.18.0',
     items: [
       'Teman baru, Pandu si perencana: bilang "rencanakan liburan ke Bali 3 hari, budget 5 juta", nanti dia susun rencana bernomor lengkap dengan biaya, hotel, dan jadwal. Rencananya tersimpan, bisa dibuka lagi, dibandingkan, atau dihapus',

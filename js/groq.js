@@ -33,7 +33,7 @@ let listed = null; // { key, names: Set }
 async function available(key) {
   if (listed && listed.key === key) return listed.names;
   try {
-    const res = await fetch(`${API}/models`, { headers: { Authorization: `Bearer ${key}` } });
+    const res = await fetch(`${API}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined });
     if (!res.ok) return null;
     const data = await res.json();
     const names = new Set((data.data || []).filter((m) => m.active !== false).map((m) => m.id));
@@ -72,8 +72,79 @@ export function classifyGroq(status, message) {
   return 'error';
 }
 
+// ---------- Penjaga batas token per menit (TPM) ----------
+// Paket gratis Groq membatasi token per menit PER MODEL (±6.000–8.000). Supaya tidak ditolak,
+// pemakaian 60 detik terakhir dicatat, dan sebelum memanggil kita menunggu dulu kalau jatahnya
+// belum cukup. Kalau Groq mengirim header batas (x-ratelimit-*), angka itu yang dipakai.
+const DEFAULT_TPM = 8000; // GPT-OSS 120B gratis ±8.000; angka resmi dari header Groq dipakai kalau ada
+const usage = new Map();  // model → [{ at, tokens }]
+const limits = new Map(); // model → { limit, remaining, resetAt }
+
+// "7.66s", "1m2.5s", "120ms" → milidetik
+function parseReset(v) {
+  let ms = 0;
+  for (const m of String(v || '').matchAll(/([\d.]+)(ms|s|m|h)/g)) {
+    const n = parseFloat(m[1]);
+    ms += m[2] === 'ms' ? n : m[2] === 's' ? n * 1000 : m[2] === 'm' ? n * 60000 : n * 3600000;
+  }
+  return ms;
+}
+
+// Perkiraan token sebuah permintaan (±3,5 huruf per token) + jawaban.
+export function estimateTokens(body) {
+  const chars = JSON.stringify(body.messages || '').length + (body.tools ? JSON.stringify(body.tools).length : 0);
+  // Jawaban biasanya jauh lebih pendek dari batas maksimalnya; usage asli dicatat setelah jawaban datang.
+  return Math.ceil(chars / 3.5) + Math.min(body.max_completion_tokens || 1024, 600);
+}
+
+function recent(model) {
+  const now = Date.now();
+  const list = (usage.get(model) || []).filter((u) => now - u.at < 60000);
+  usage.set(model, list);
+  return list;
+}
+
+// Berapa milidetik harus menunggu sebelum memakai model ini (0 = boleh sekarang). Maks 60 detik.
+export function waitNeeded(model, est) {
+  const now = Date.now();
+  const lim = limits.get(model) || {};
+  if (lim.resetAt && lim.resetAt > now && lim.remaining != null && lim.remaining < est) return Math.min(lim.resetAt - now + 300, 60000);
+  const cap = (lim.limit || DEFAULT_TPM) * 0.95;
+  const list = recent(model);
+  let total = list.reduce((a, u) => a + u.tokens, 0);
+  if (!list.length || total + est <= cap) return 0;
+  for (const u of list) {
+    total -= u.tokens;
+    if (total + est <= cap) return Math.min(Math.max(u.at + 60000 - now + 300, 0), 60000);
+  }
+  return Math.min(Math.max(list[list.length - 1].at + 60000 - now + 300, 0), 60000);
+}
+
+function noteLimits(model, res, tokensUsed) {
+  if (tokensUsed) recent(model).push({ at: Date.now(), tokens: tokensUsed });
+  const h = (k) => res && res.headers ? res.headers.get(k) : null;
+  const limit = parseInt(h('x-ratelimit-limit-tokens') || '', 10);
+  const remaining = parseInt(h('x-ratelimit-remaining-tokens') || '', 10);
+  const reset = parseReset(h('x-ratelimit-reset-tokens'));
+  if (isFinite(limit) || isFinite(remaining)) {
+    limits.set(model, {
+      limit: isFinite(limit) ? limit : (limits.get(model) || {}).limit,
+      remaining: isFinite(remaining) ? remaining : null,
+      resetAt: reset ? Date.now() + reset : 0,
+    });
+  }
+}
+
 // Panggil Groq (format OpenAI). Hasil: { data } atau { error, message, retryAfter }.
-export async function groqChat(key, body, timeoutMs = 30000) {
+// opts.onWait(detik): dipanggil kalau harus menunggu jatah token per menit dulu.
+export async function groqChat(key, body, timeoutMs = 30000, { onWait } = {}) {
+  const est = estimateTokens(body);
+  for (let i = 0; i < 3; i++) {
+    const w = waitNeeded(body.model, est);
+    if (!w) break;
+    if (onWait) onWait(Math.ceil(w / 1000));
+    await new Promise((ok) => setTimeout(ok, w));
+  }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -87,8 +158,11 @@ export async function groqChat(key, body, timeoutMs = 30000) {
     if (!res.ok) {
       const message = data.error?.message || `HTTP ${res.status}`;
       const retryAfter = parseFloat(res.headers.get('retry-after') || '') || 0;
-      return { error: classifyGroq(res.status, message), message, retryAfter };
+      const kind = classifyGroq(res.status, message);
+      if (kind === 'minute') limits.set(body.model, { ...(limits.get(body.model) || {}), remaining: 0, resetAt: Date.now() + Math.max(retryAfter, 2) * 1000 });
+      return { error: kind, message, retryAfter };
     }
+    noteLimits(body.model, res, data.usage?.total_tokens || est);
     return { data };
   } catch (e) {
     return { error: e.name === 'AbortError' ? 'timeout' : 'network', message: e.message };

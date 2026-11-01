@@ -6,40 +6,32 @@
 // membayar, memesan, atau mengirim pesan.
 
 import { memory, CATEGORIES } from './memory.js';
-import { groqModels, groqChat, reasoningFor } from './groq.js';
+import { groqModels, groqChat, reasoningFor, estimateTokens, waitNeeded } from './groq.js';
 import { researchChecked } from './research.js';
 import { weather } from './tools.js';
 import { getPosition, geocode, route } from './location.js';
 
 const MAX_TURNS = 14;
-const MAX_SEARCH = 6;
+const MAX_SEARCH = 4; // hemat token: Groq gratis membatasi token per menit
 
-// Skema rencana (juga dipakai Vera & kartu).
-const PLAN_SCHEMA = {
-  type: 'object',
-  properties: {
-    judul: { type: 'string', description: 'Judul singkat, maks 6 kata, sebut pembeda utama, misal "Liburan Bali (Hotel C)"' },
-    ringkasan: { type: 'string', description: '1–2 kalimat ringkasan rencana' },
-    tanggal: { type: 'string', description: 'Tanggal/periode yang mudah dibaca, misal "12–14 Des 2026", atau "" kalau tidak ada' },
-    tanggal_mulai: { type: 'string', description: 'YYYY-MM-DD kalau ada tanggal pasti, selain itu ""' },
-    total_biaya: { type: 'number', description: 'Total perkiraan biaya dalam rupiah (jumlah rincian_biaya), 0 kalau tidak relevan' },
-    rincian_biaya: { type: 'array', items: { type: 'object', properties: { item: { type: 'string' }, biaya: { type: 'number' } }, required: ['item', 'biaya'] } },
-    tempat: {
-      type: 'array',
-      description: 'Hotel / tempat / toko / produk utama yang dipilih',
-      items: { type: 'object', properties: { jenis: { type: 'string', description: 'hotel | tempat | restoran | toko | produk | lainnya' }, nama: { type: 'string' }, area: { type: 'string' }, harga: { type: 'string' }, catatan: { type: 'string' } }, required: ['jenis', 'nama'] },
-    },
-    jadwal: { type: 'array', items: { type: 'object', properties: { waktu: { type: 'string', description: 'misal "Hari 1" atau "Sabtu 09:00"' }, kegiatan: { type: 'string' } }, required: ['waktu', 'kegiatan'] } },
-    checklist: { type: 'array', items: { type: 'string' }, description: 'Tugas persiapan singkat (masuk ke catatan/to-do kalau pengguna setuju)' },
-    pengingat: {
-      type: 'array',
-      description: 'Pengingat penting yang bertanggal (misal beli tiket H-30), hanya tanggal di masa depan',
-      items: { type: 'object', properties: { pesan: { type: 'string' }, tanggal: { type: 'string', description: 'YYYY-MM-DD' }, jam: { type: 'string', description: 'HH:MM' } }, required: ['pesan', 'tanggal'] },
-    },
-    catatan: { type: 'array', items: { type: 'string' }, description: 'Catatan penting / asumsi (misal "harga perkiraan, belum termasuk macet")' },
-  },
-  required: ['judul', 'ringkasan', 'total_biaya', 'rincian_biaya', 'jadwal', 'checklist'],
-};
+// Skema rencana (juga dipakai Vera & kartu). Keterangan sengaja singkat: daftar alat ini
+// dikirim ulang di setiap langkah, dan jatah token per menit Groq terbatas.
+const S = { type: 'string' };
+const N = { type: 'number' };
+const obj = (properties, required) => ({ type: 'object', properties, required });
+const PLAN_SCHEMA = obj({
+  judul: { type: 'string', description: 'maks 6 kata + pembeda, misal "Liburan Bali (Hotel C)"' },
+  ringkasan: S,
+  tanggal: { type: 'string', description: 'misal "12–14 Des 2026" atau ""' },
+  tanggal_mulai: { type: 'string', description: 'YYYY-MM-DD atau ""' },
+  total_biaya: { type: 'number', description: 'rupiah = jumlah rincian_biaya' },
+  rincian_biaya: { type: 'array', items: obj({ item: S, biaya: N }, ['item', 'biaya']) },
+  tempat: { type: 'array', description: 'hotel/tempat/toko/produk terpilih', items: obj({ jenis: S, nama: S, area: S, harga: S, catatan: S }, ['jenis', 'nama']) },
+  jadwal: { type: 'array', items: obj({ waktu: S, kegiatan: S }, ['waktu', 'kegiatan']) },
+  checklist: { type: 'array', items: S, description: 'tugas persiapan singkat' },
+  pengingat: { type: 'array', description: 'tanggal masa depan saja', items: obj({ pesan: S, tanggal: { type: 'string', description: 'YYYY-MM-DD' }, jam: { type: 'string', description: 'HH:MM' } }, ['pesan', 'tanggal']) },
+  catatan: { type: 'array', items: S, description: 'asumsi/perkiraan' },
+}, ['judul', 'ringkasan', 'total_biaya', 'rincian_biaya', 'jadwal', 'checklist']);
 
 const fn = (name, description, properties = {}, required = []) => ({
   type: 'function',
@@ -47,14 +39,14 @@ const fn = (name, description, properties = {}, required = []) => ({
 });
 
 const TOOLS = [
-  fn('tentukan_langkah', 'WAJIB dipanggil pertama: 3–7 langkah singkat (bahasa Indonesia) yang akan kamu kerjakan.', { langkah: { type: 'array', items: { type: 'string' } } }, ['langkah']),
-  fn('cari_internet', 'Minta Rara mencari info terbaru di internet (harga, hotel, tiket, jadwal, ulasan, produk). Hasilnya sudah dicek Vera.', { pertanyaan: { type: 'string', description: 'Pertanyaan lengkap, sertakan kota/tanggal' } }, ['pertanyaan']),
-  fn('cuaca', 'Cuaca/prakiraan hari ini & besok di sebuah kota (bukan prakiraan jauh ke depan).', { kota: { type: 'string' } }, ['kota']),
-  fn('jarak', 'Jarak & perkiraan waktu tempuh antara dua tempat (tanpa macet). Kosongkan dari untuk lokasi pengguna.', { dari: { type: 'string' }, ke: { type: 'string' }, kendaraan: { type: 'string', enum: ['mobil', 'motor', 'jalan'] } }, ['ke']),
-  fn('buka_ingatan', 'Buka laci ingatan tentang pengguna untuk satu topik (keluarga, makanan, keuangan, kesehatan, dll.).', { topik: { type: 'string' } }, ['topik']),
-  fn('jadwal_saya', 'Daftar pengingat & to-do pengguna yang masih aktif (supaya rencana tidak bentrok).'),
-  fn('lihat_rencana', 'Lihat isi rencana tersimpan berdasarkan nomornya.', { nomor: { type: 'number' } }, ['nomor']),
-  { type: 'function', function: { name: 'simpan_rencana', description: 'Serahkan rencana final (dicek Vera dulu). Panggil sekali di akhir.', parameters: PLAN_SCHEMA } },
+  fn('tentukan_langkah', 'Pertama: 3–7 langkah singkat.', { langkah: { type: 'array', items: S } }, ['langkah']),
+  fn('cari_internet', 'Rara mencari info terbaru (harga, hotel, tiket, jadwal, produk); sudah dicek Vera.', { pertanyaan: S }, ['pertanyaan']),
+  fn('cuaca', 'Cuaca hari ini & besok di kota.', { kota: S }, ['kota']),
+  fn('jarak', 'Jarak & waktu tempuh (tanpa macet). dari kosong = lokasi pengguna.', { dari: S, ke: S, kendaraan: { type: 'string', enum: ['mobil', 'motor', 'jalan'] } }, ['ke']),
+  fn('buka_ingatan', 'Ingatan tentang pengguna untuk satu topik.', { topik: S }, ['topik']),
+  fn('jadwal_saya', 'Pengingat & to-do aktif pengguna.'),
+  fn('lihat_rencana', 'Isi rencana tersimpan.', { nomor: N }, ['nomor']),
+  { type: 'function', function: { name: 'simpan_rencana', description: 'Rencana final (dicek Vera). Sekali di akhir.', parameters: PLAN_SCHEMA } },
 ];
 
 const num = (v) => {
@@ -124,7 +116,7 @@ const SYSTEM = `Kamu PANDU, perencana di tim asisten suara Gaby. Kerjakan permin
 
 Cara kerja:
 1. Panggil tentukan_langkah dulu (3–7 langkah).
-2. Kerjakan langkahnya dengan alat. Harga, hotel, tiket, jadwal, dan produk HARUS dari cari_internet (paling banyak ${MAX_SEARCH} kali; gabungkan pertanyaan yang mirip). Jangan mengarang angka; kalau tidak ketemu, tulis perkiraan wajar dan sebut di catatan bahwa itu perkiraan.
+2. HEMAT LANGKAH (jatah token per menit terbatas): panggil beberapa alat sekaligus dalam satu giliran (misal tentukan_langkah bersama 2–3 cari_internet, atau buka_ingatan bersama jadwal_saya). Kerjakan langkahnya dengan alat. Harga, hotel, tiket, jadwal, dan produk HARUS dari cari_internet (paling banyak ${MAX_SEARCH} kali; gabungkan pertanyaan yang mirip). Jangan mengarang angka; kalau tidak ketemu, tulis perkiraan wajar dan sebut di catatan bahwa itu perkiraan.
 3. Pakai buka_ingatan / jadwal_saya kalau rencana menyangkut keluarga, kesehatan, keuangan, atau tanggal tertentu.
 4. Akhiri dengan simpan_rencana. total_biaya = jumlah rincian_biaya (rupiah, angka). Tulis semua teks dalam bahasa Indonesia yang ringkas.
 
@@ -133,6 +125,15 @@ Aturan:
 - Jangan menyarankan hal yang tidak disukai pengguna.
 - Pengingat hanya untuk tanggal di masa depan.
 - Kalau permintaan bukan perjalanan (acara, diet, belanja, membandingkan produk), sesuaikan isinya: tempat bisa berisi toko/produk, jadwal bisa berisi langkah per hari.`;
+
+// Hemat token: hasil alat yang sudah lama (selain 2 terakhir) dipadatkan, karena seluruh
+// percakapan dikirim ulang ke Groq di setiap langkah.
+function compact(messages) {
+  const tools = messages.filter((m) => m.role === 'tool');
+  for (const m of tools.slice(0, -2)) {
+    if (m.content.length > 450) m.content = `${m.content.slice(0, 420)}… (dipadatkan)`;
+  }
+}
 
 function trimResult(obj) {
   const s = JSON.stringify(obj);
@@ -176,7 +177,7 @@ export async function runPandu({ request, base = null, hooks = {} }) {
         searches++;
         const q = str(a.pertanyaan, 200);
         step(`Rara mencari: ${q}`);
-        const r = await researchChecked(q, { onStage: (who, t) => hooks.onRara && hooks.onRara(who, t) });
+        const r = await researchChecked(q, { small: true, onStage: (who, t) => hooks.onRara && hooks.onRara(who, t) });
         if (r.ok && r.found) {
           for (const s of r.sources || []) if (!sources.some((x) => x.url === s.url)) sources.push(s);
           return { jawaban: r.text, cek_vera: r.badge || '', sumber: (r.sources || []).map((s) => s.title).slice(0, 4) };
@@ -225,24 +226,35 @@ export async function runPandu({ request, base = null, hooks = {} }) {
   for (let turn = 0; turn < MAX_TURNS + 2; turn++) {
     const last = turn >= MAX_TURNS;
     if (last) messages.push({ role: 'user', content: 'Waktunya hampir habis. Segera panggil simpan_rencana dengan data yang sudah ada.' });
-    const model = models[mi];
-    if (!model) throw new Error('Pandu tidak menemukan model Groq yang bisa dipakai.');
+    if (!models[mi]) throw new Error('Pandu tidak menemukan model Groq yang bisa dipakai.');
+    compact(messages);
+    // Jatah token per menit dihitung PER MODEL: kalau model utama harus menunggu lama,
+    // pakai model cadangan yang jatahnya masih kosong untuk giliran ini saja.
+    const est = estimateTokens({ messages, tools: TOOLS, max_completion_tokens: 3000 });
+    let model = models[mi];
+    if (waitNeeded(model, est) > 8000) {
+      const free = models.slice(mi + 1).find((m) => waitNeeded(m, est) === 0);
+      if (free) model = free;
+    }
     const body = {
       model,
       messages,
       tools: TOOLS,
       tool_choice: last ? { type: 'function', function: { name: 'simpan_rencana' } } : 'required',
       temperature: 0.3,
-      max_completion_tokens: 4000,
+      max_completion_tokens: 3000,
       ...reasoningFor(model, false),
     };
-    let r = await groqChat(keys.groq, body, 60000);
+    // groqChat menunggu sendiri kalau jatah token per menit belum cukup (papan kerja diberi tahu).
+    const opts = { onWait: (sec) => hooks.onWait && hooks.onWait(sec) };
+    let r = await groqChat(keys.groq, body, 60000, opts);
     for (let wait = 0; r.error === 'minute' && wait < 3; wait++) {
-      if (hooks.onWait) hooks.onWait();
-      await new Promise((ok) => setTimeout(ok, Math.min(Math.max(r.retryAfter * 1000, 2000), 20000)));
-      r = await groqChat(keys.groq, body, 60000);
+      const sec = Math.ceil(Math.min(Math.max(r.retryAfter * 1000, 2000), 20000) / 1000);
+      if (hooks.onWait) hooks.onWait(sec);
+      await new Promise((ok) => setTimeout(ok, sec * 1000));
+      r = await groqChat(keys.groq, body, 60000, opts);
     }
-    if (r.error === 'network' || r.error === 'timeout') r = await groqChat(keys.groq, body, 60000);
+    if (r.error === 'network' || r.error === 'timeout') r = await groqChat(keys.groq, body, 60000, opts);
     if (r.error) {
       if (['model', 'day', 'hour', 'minute', 'nosearch'].includes(r.error) && mi + 1 < models.length) { mi++; turn--; continue; }
       throw new Error(r.error === 'auth' ? 'Kunci Groq ditolak.' : r.error === 'day' ? 'Jatah Groq hari ini habis.' : `Groq: ${r.message || r.error}`);

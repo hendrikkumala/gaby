@@ -7,7 +7,7 @@ import { getPosition, describePosition, shortPlace, geocode, route, googleDirect
 import { summarizeSession, tidyProfile } from './journal.js';
 import { researchStatus, researchReasons, resetResearch, quickSearchMode } from './research.js';
 import { groqLabel } from './groq.js';
-import { startJob, boardBusy } from './teamboard.js';
+import { startJob, boardBusy, hideBoard, boardVisible } from './teamboard.js';
 import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
@@ -1821,6 +1821,7 @@ function hideSources() {
 
 // Alat suara tutup_kartu: setiap kartu punya nama ("tutup kartu berita", "tutup semua kartu").
 const CARD_NAMES = {
+  papan: 'Papan Kerja',
   berita: 'Kartu Berita',
   rencana: 'Kartu Rencana',
   perbandingan: 'Kartu Perbandingan',
@@ -1833,6 +1834,7 @@ const CARD_NAMES = {
 
 function cardOpen(jenis) {
   switch (jenis) {
+    case 'papan': return boardVisible();
     case 'berita': return !$('srccard').hidden || document.querySelectorAll('.toast.big').length > 0;
     case 'catatan': return !$('todocard').hidden;
     case 'peta': return !$('mapcard').hidden;
@@ -1844,6 +1846,7 @@ function cardOpen(jenis) {
 
 function closeCard(jenis) {
   switch (jenis) {
+    case 'papan': hideBoard(); break;
     case 'berita': hideSources(); document.querySelectorAll('.toast.big').forEach((t) => t.remove()); break;
     case 'catatan': $('todocard').classList.remove('show'); $('todocard').hidden = true; break;
     case 'peta': hideMapCard(); break;
@@ -2007,7 +2010,7 @@ async function runPlanJob(request, base, job) {
         onSteps: (list) => { veraIdx = list.length; job.setSteps([...list, 'Vera mengecek rencana']); },
         onStep: (i, text) => { job.pass('pandu'); job.step(i, text); },
         onRara: (who, text) => job.pass(who, text),
-        onWait: () => job.update('Menunggu jatah Groq sebentar…'),
+        onWait: (sec) => { job.pass('pandu'); job.update(`Menunggu jatah Groq per menit${sec ? ` ±${sec} dtk` : ''}…`); },
         onFix: (fb) => job.pass('pandu', `Memperbaiki: ${fb.slice(0, 70)}…`),
         verify: async (plan, fixes) => {
           job.pass('vera');
