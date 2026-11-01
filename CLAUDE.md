@@ -79,10 +79,10 @@ Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan 
 lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
 APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
 pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android (diuji pemilik 31 Okt 2026).
+`pasang_alarm` di iPhone juga berhasil (1 Nov 2026): ketuk kartu alarm dari Gaby → pindah ke app Jam → pemilik menekan Simpan sendiri (iOS tidak mengizinkan alarm terpasang otomatis).
 
 **Belum dites langsung oleh pemilik:**
 - v1.15.0: laci ingatan baru + 👍/👎 + alat `buka_ingatan` + aturan anti muter-muter (hanya web, tanpa update APK).
-- `pasang_alarm` di iPhone (Pintasan "Gaby Alarm" — langkah membuatnya ada di Pengaturan → Fitur).
 Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
