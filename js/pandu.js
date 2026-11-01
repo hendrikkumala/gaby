@@ -12,14 +12,16 @@ import { weather } from './tools.js';
 import { getPosition, geocode, route } from './location.js';
 
 const MAX_TURNS = 14;
-const MAX_SEARCH = 4; // hemat token: Groq gratis membatasi token per menit
+const MAX_SEARCH = 5; // hemat token: Groq gratis membatasi token per menit
 
 // Skema rencana (juga dipakai Vera & kartu). Keterangan sengaja singkat: daftar alat ini
 // dikirim ulang di setiap langkah, dan jatah token per menit Groq terbatas.
 const S = { type: 'string' };
 const N = { type: 'number' };
 const obj = (properties, required) => ({ type: 'object', properties, required });
+export const PLAN_TYPES = ['perjalanan', 'proyek', 'acara', 'belajar', 'kesehatan', 'belanja', 'lainnya'];
 const PLAN_SCHEMA = obj({
+  jenis: { type: 'string', enum: PLAN_TYPES },
   judul: { type: 'string', description: 'maks 6 kata + pembeda, misal "Liburan Bali (Hotel C)"' },
   ringkasan: S,
   tanggal: { type: 'string', description: 'misal "12–14 Des 2026" atau ""' },
@@ -28,10 +30,16 @@ const PLAN_SCHEMA = obj({
   rincian_biaya: { type: 'array', items: obj({ item: S, biaya: N }, ['item', 'biaya']) },
   tempat: { type: 'array', description: 'hotel/tempat/toko/produk terpilih', items: obj({ jenis: S, nama: S, area: S, harga: S, catatan: S }, ['jenis', 'nama']) },
   jadwal: { type: 'array', items: obj({ waktu: S, kegiatan: S }, ['waktu', 'kegiatan']) },
-  checklist: { type: 'array', items: S, description: 'tugas persiapan singkat' },
+  transportasi: { type: 'array', description: 'perjalanan: nama maskapai/kereta/bus', items: obj({ moda: S, nama: S, rute: S, waktu: S, harga: S, catatan: S }, ['moda', 'nama']) },
+  kuliner: { type: 'array', description: 'nama resto/warung/menu', items: obj({ nama: S, area: S, menu: S, harga: S, waktu: S }, ['nama']) },
+  tujuan: S,
+  fitur: { type: 'array', description: 'proyek: fitur/poin utama', items: obj({ nama: S, prioritas: { type: 'string', enum: ['wajib', 'nanti'] } }, ['nama']) },
+  alat: { type: 'array', description: 'teknologi/aplikasi/bahan/sumber belajar', items: obj({ nama: S, kegunaan: S, biaya: S }, ['nama']) },
+  risiko: { type: 'array', items: S },
+  checklist: { type: 'array', items: S, description: 'tugas persiapan / langkah pertama' },
   pengingat: { type: 'array', description: 'tanggal masa depan saja', items: obj({ pesan: S, tanggal: { type: 'string', description: 'YYYY-MM-DD' }, jam: { type: 'string', description: 'HH:MM' } }, ['pesan', 'tanggal']) },
   catatan: { type: 'array', items: S, description: 'asumsi/perkiraan' },
-}, ['judul', 'ringkasan', 'total_biaya', 'rincian_biaya', 'jadwal', 'checklist']);
+}, ['jenis', 'judul', 'ringkasan', 'total_biaya', 'rincian_biaya', 'jadwal', 'checklist']);
 
 const fn = (name, description, properties = {}, required = []) => ({
   type: 'function',
@@ -76,6 +84,7 @@ export function normalizePlan(raw) {
   if (past.length) fixes.push(`Pengingat yang tanggalnya sudah lewat dihapus: ${past.map((r) => r.pesan).join(', ')}.`);
   return {
     plan: {
+      jenis: PLAN_TYPES.includes(p.jenis) ? p.jenis : 'lainnya',
       judul: str(p.judul, 80) || 'Rencana',
       ringkasan: str(p.ringkasan, 400),
       tanggal: str(p.tanggal, 60),
@@ -84,6 +93,12 @@ export function normalizePlan(raw) {
       rincian_biaya: rincian,
       tempat: arr(p.tempat).map((t) => ({ jenis: str(t.jenis, 20) || 'tempat', nama: str(t.nama, 80), area: str(t.area, 80), harga: str(t.harga, 60), catatan: str(t.catatan, 160) })).filter((t) => t.nama).slice(0, 8),
       jadwal: arr(p.jadwal).map((j) => ({ waktu: str(j.waktu, 40), kegiatan: str(j.kegiatan, 240) })).filter((j) => j.kegiatan).slice(0, 20),
+      transportasi: arr(p.transportasi).map((t) => ({ moda: str(t.moda, 20), nama: str(t.nama, 80), rute: str(t.rute, 80), waktu: str(t.waktu, 60), harga: str(t.harga, 60), catatan: str(t.catatan, 120) })).filter((t) => t.nama).slice(0, 6),
+      kuliner: arr(p.kuliner).map((k) => ({ nama: str(k.nama, 80), area: str(k.area, 60), menu: str(k.menu, 100), harga: str(k.harga, 60), waktu: str(k.waktu, 40) })).filter((k) => k.nama).slice(0, 10),
+      tujuan: str(p.tujuan, 300),
+      fitur: arr(p.fitur).map((f) => ({ nama: str(typeof f === 'string' ? f : f.nama, 120), prioritas: (f && f.prioritas === 'nanti') ? 'nanti' : 'wajib' })).filter((f) => f.nama).slice(0, 12),
+      alat: arr(p.alat).map((a) => ({ nama: str(typeof a === 'string' ? a : a.nama, 80), kegunaan: str(a && a.kegunaan, 120), biaya: str(a && a.biaya, 60) })).filter((a) => a.nama).slice(0, 10),
+      risiko: arr(p.risiko).map((r) => str(r, 160)).filter(Boolean).slice(0, 6),
       checklist: arr(p.checklist).map((c) => str(c, 120)).filter(Boolean).slice(0, 15),
       pengingat: reminders.filter((r) => r.tanggal >= today).slice(0, 8),
       catatan: arr(p.catatan).map((c) => str(c, 200)).filter(Boolean).slice(0, 8),
@@ -120,11 +135,18 @@ Cara kerja:
 3. Pakai buka_ingatan / jadwal_saya kalau rencana menyangkut keluarga, kesehatan, keuangan, atau tanggal tertentu.
 4. Akhiri dengan simpan_rencana. total_biaya = jumlah rincian_biaya (rupiah, angka). Tulis semua teks dalam bahasa Indonesia yang ringkas.
 
+Isi sesuai jenis (tentukan dulu jenisnya):
+- perjalanan: WAJIB transportasi (nama maskapai/kereta/bus, rute, perkiraan jam, kisaran harga; catatan "cek ulang saat pesan"), hotel di tempat, kuliner berisi NAMA resto/warung per hari (area & kisaran harga), jadwal per hari yang menyebut nama tempat & resto.
+- proyek (bikin aplikasi, usaha, renovasi): tujuan, fitur (prioritas wajib/nanti), alat/teknologi + biaya, jadwal = tahapan per minggu, rincian biaya, risiko, checklist = langkah pertama. Kamu hanya merencanakan, bukan membuatnya.
+- acara: tempat, kuliner = menu/katering, checklist = persiapan & belanja.
+- belajar / kesehatan: tujuan, jadwal per minggu, alat = materi/sumber/peralatan.
+- belanja: tempat berisi produk (jenis "produk", harga, catatan kelebihan/kekurangan) lalu rekomendasi di ringkasan.
+
 Aturan:
 - JANGAN pernah membeli, membayar, memesan, atau mengirim pesan; kamu hanya merencanakan.
 - Jangan menyarankan hal yang tidak disukai pengguna.
 - Pengingat hanya untuk tanggal di masa depan.
-- Kalau permintaan bukan perjalanan (acara, diet, belanja, membandingkan produk), sesuaikan isinya: tempat bisa berisi toko/produk, jadwal bisa berisi langkah per hari.`;
+`;
 
 // Hemat token: hasil alat yang sudah lama (selain 2 terakhir) dipadatkan, karena seluruh
 // percakapan dikirim ulang ke Groq di setiap langkah.

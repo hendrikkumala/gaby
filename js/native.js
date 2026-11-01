@@ -151,6 +151,34 @@ export async function nativeNotifyNow(title, body) {
   }
 }
 
+// ---------- Simpan / bagikan file (butuh APK dengan plugin Share & Filesystem) ----------
+
+export const nativeShareAvailable = () =>
+  isNativeApp && typeof cap.isPluginAvailable === 'function' && cap.isPluginAvailable('Share') && cap.isPluginAvailable('Filesystem');
+
+// Tulis file sementara lalu buka menu Bagikan Android (Simpan ke Galeri / Drive / WhatsApp, dll.).
+// Hasil: 'ok' | 'batal' | 'tidak_ada' (APK lama tanpa plugin) | 'gagal'.
+export async function nativeShareFile(base64, filename, { title = 'Gaby', text = '' } = {}) {
+  if (!nativeShareAvailable()) return 'tidak_ada';
+  try {
+    const res = await call('Filesystem', 'writeFile', { path: filename, data: base64, directory: 'CACHE' });
+    await call('Share', 'share', { title, text, files: [res.uri], dialogTitle: 'Simpan atau bagikan' });
+    return 'ok';
+  } catch (e) {
+    return /cancel/i.test(String(e && e.message)) ? 'batal' : 'gagal';
+  }
+}
+
+export async function nativeShareText(text, title = 'Gaby') {
+  if (!isNativeApp || typeof cap.isPluginAvailable !== 'function' || !cap.isPluginAvailable('Share')) return 'tidak_ada';
+  try {
+    await call('Share', 'share', { title, text, dialogTitle: 'Kirim rencana' });
+    return 'ok';
+  } catch (e) {
+    return /cancel/i.test(String(e && e.message)) ? 'batal' : 'gagal';
+  }
+}
+
 // ---------- Alarm di aplikasi Jam & pengaturan HP ----------
 // Butuh APK versi baru (plugin GabyAlarm). Di APK lama fungsi ini mengembalikan false.
 

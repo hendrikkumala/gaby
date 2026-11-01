@@ -41,6 +41,10 @@ Kalau Rara gagal, alasannya tampil di Pengaturan → Fitur → *Pencarian intern
 - Semua rencana **bernomor dan tersimpan**: *"buka rencana 3"*, *"rencana Bali kemarin budgetnya berapa?"*,
   *"ganti hotel rencana 1 yang dekat pantai"* (jadi rencana baru, yang lama tetap ada), *"bandingin rencana 1 dengan 3"*,
   *"ada berapa rencana?"*, *"hapus rencana 2"*, *"hapus semua rencana"* (langsung; bilang *"eh batal"* dalam 1 menit untuk mengembalikan).
+- Bukan cuma liburan: *"rencana bikin aplikasi kasir untuk warung"* (tujuan, fitur, alat, tahapan, biaya, risiko),
+  acara, belajar, olahraga, sampai *"bandingin 3 HP di bawah 5 juta"*. Pandu merencanakan, bukan membuatkan aplikasinya.
+- Rencana perjalanan berisi nama maskapai/kereta, hotel, dan rekomendasi tempat makan (cek ulang harga & jadwal saat memesan).
+- **💾 Simpan ke HP** (gambar rapi) atau **📤 Kirim teks** (WhatsApp/Catatan) dari Kartu Rencana, atau bilang *"simpan rencana 1 ke HP"*.
 - Daftar juga ada di Pengaturan → 🗺️ Rencana.
 
 ## Yang bisa Gaby lakukan
@@ -102,7 +106,7 @@ Kalau Rara gagal, alasannya tampil di Pengaturan → Fitur → *Pencarian intern
 - Kepribadian Gaby: `js/persona.js`
 - Kemampuan (alat): `js/tools.js`
 - Rara (riset internet): `js/research.js`, `js/groq.js` · Lukas (gambar): `js/imagegen.js` · Meri: `js/journal.js`
-- Pandu (perencana): `js/pandu.js` · Vera (pemeriksa): `js/vera.js` · Papan kerja tim: `js/teamboard.js`
+- Pandu (perencana): `js/pandu.js` · Vera (pemeriksa): `js/vera.js` · Papan kerja tim: `js/teamboard.js` · Isi/gambar/teks rencana: `js/planexport.js`
 - Laci ingatan: `js/memory.js` · Daftar "apa yang baru" (isi setiap rilis): `js/whatsnew.js`
 - Tampilan bola cahaya: `js/visual.js`
 - PIN: `js/config.js`

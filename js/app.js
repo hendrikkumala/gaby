@@ -12,7 +12,7 @@ import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
 import {
-  isNativeApp, nativeOpen, nativeNotifyNow, syncNativeReminders, nativeReminderScheduled, installedApk, checkApkUpdate, APK_URL,
+  isNativeApp, nativeOpen, nativeNotifyNow, nativeShareFile, nativeShareText, nativeShareAvailable, syncNativeReminders, nativeReminderScheduled, installedApk, checkApkUpdate, APK_URL,
   nativeAlarmAvailable, setNativeAlarm, reminderHealth, openPhoneSetting,
 } from './native.js';
 import { openingCue, LANGS } from './persona.js';
@@ -29,6 +29,7 @@ import { gallery } from './gallery.js';
 import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
 import { checkImage, checkPlan } from './vera.js';
 import { runPandu } from './pandu.js';
+import { planSections, planHeader, planText, compareSections, compareText, renderImage, JENIS } from './planexport.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -429,6 +430,7 @@ const ui = {
   deletePlans: (a) => deletePlans(a),
   undoDelete: () => undoDelete(),
   planToTodos: (no) => planToTodos(no),
+  savePlan: (a) => savePlanTool(a),
   switchToQuickSearch: (q) => switchToQuickSearch(q),
   sleepAfterSpeech() {
     sleepRequestedAt = Date.now();
@@ -1966,6 +1968,13 @@ function planSummary(p) {
     rincian: (d.rincian_biaya || []).map((r) => `${r.item}: ${fmtRp(r.biaya)}`),
     tempat: (d.tempat || []).map((t) => [t.nama, t.area, t.harga].filter(Boolean).join(', ')),
     jadwal: (d.jadwal || []).map((j) => `${j.waktu}: ${j.kegiatan}`),
+    jenis: d.jenis || 'lainnya',
+    transportasi: (d.transportasi || []).map((t) => [t.nama, t.moda, t.rute, t.waktu, t.harga].filter(Boolean).join(', ')),
+    kuliner: (d.kuliner || []).map((k) => [k.waktu, k.nama, k.area, k.menu, k.harga].filter(Boolean).join(', ')),
+    tujuan: d.tujuan || '',
+    fitur: (d.fitur || []).map((f) => `${f.nama} (${f.prioritas})`),
+    alat: (d.alat || []).map((a) => [a.nama, a.kegunaan, a.biaya].filter(Boolean).join(', ')),
+    risiko: d.risiko || [],
     checklist: d.checklist || [],
     pengingat: (d.pengingat || []).map((r) => `${r.tanggal} ${r.jam}: ${r.pesan}`),
     catatan: d.catatan || [],
@@ -2042,7 +2051,7 @@ async function runPlanJob(request, base, job) {
     const s = planSummary(plan);
     const extra = (plan.data.checklist.length || plan.data.pengingat.length)
       ? ' Lalu tanya apakah mau dimasukkan ke catatan & pengingat (alat rencana_ke_catatan).' : '';
-    announce(`[SISTEM] Pandu sudah selesai: Rencana #${plan.no} "${plan.title}" sudah siap dan tampil di Kartu Rencana. Cek Vera: ${vera.badge}${vera.ok ? '' : ` (${(vera.issues || []).map((i) => i.text).join('; ')})`}. Ringkasan: ${JSON.stringify({ tanggal: s.tanggal, total: s.total_biaya, utama: s._utama, rincian: s.rincian.slice(0, 5), jadwal: s.jadwal.slice(0, 4) })}. Sampaikan dengan antusias tapi SINGKAT (2–3 kalimat): sebut nomor rencana, total biaya, dan 1–2 hal utama${vera.ok ? '' : ', lalu jujur sebut catatan Vera'}.${extra}`,
+    announce(`[SISTEM] Pandu sudah selesai: Rencana #${plan.no} "${plan.title}" sudah siap dan tampil di Kartu Rencana. Cek Vera: ${vera.badge}${vera.ok ? '' : ` (${(vera.issues || []).map((i) => i.text).join('; ')})`}. Ringkasan: ${JSON.stringify({ jenis: s.jenis, tanggal: s.tanggal, total: s.total_biaya, utama: s._utama, transportasi: s.transportasi.slice(0, 2), kuliner: s.kuliner.slice(0, 2), tujuan: s.tujuan, fitur: s.fitur.slice(0, 3), rincian: s.rincian.slice(0, 5), jadwal: s.jadwal.slice(0, 3) })}. Sampaikan dengan antusias tapi SINGKAT (2–3 kalimat): sebut nomor rencana, total biaya, dan 1–2 hal utama (misal maskapai & hotel, atau fitur utama untuk proyek); boleh sebut bahwa kartunya bisa disimpan ke HP${vera.ok ? '' : ', lalu jujur sebut catatan Vera'}.${extra}`,
     { title: `Rencana #${plan.no} siap`, body: `${plan.title}${s.total_biaya ? ` · total ${s.total_biaya}` : ''}` });
   } catch (e) {
     console.warn('[Gaby] Pandu gagal:', e);
@@ -2071,26 +2080,25 @@ function showPlanCard(no) {
   const p = memory.getPlan(no);
   if (!p) return false;
   const d = p.data || {};
-  const badge = p.vera ? p.vera.badge : '';
+  const h = planHeader(p);
+  const sections = planSections(p);
   const list = (items) => `<ul>${items.map((x) => `<li>${x}</li>`).join('')}</ul>`;
-  const sec = (title, inner) => (inner ? `<div class="plan-sec"><b>${title}</b>${inner}</div>` : '');
-  const tempat = (d.tempat || []).map((t) => `${esc(t.nama)}${t.area ? `, ${esc(t.area)}` : ''}${t.harga ? ` · ${esc(t.harga)}` : ''}`);
-  const jadwal = (d.jadwal || []).map((j) => `<b>${esc(j.waktu)}</b> ${esc(j.kegiatan)}`);
+  const sec = (s, lines, more = false) => `<div class="plan-sec"><b>${esc(s.title)}</b>${s.total ? `<div class="plan-total">${esc(s.total)}</div>` : ''}${lines.length ? list(lines) : ''}${more ? '<i>…lihat detail</i>' : ''}</div>`;
+  const lineHtml = (s) => s.lines.map((t, i) => (s.links && s.links[i] ? `<a href="${esc(s.links[i])}" data-ext="1">${esc(t)}</a>` : esc(t)));
+  const badge = h.badge;
   const main = [
     `<h4>${esc(p.title)}</h4>`,
-    `<p class="plan-meta">${[esc(d.tanggal), p.parent ? `turunan dari #${p.parent}` : '', badge ? `<span class="${badge.startsWith('✅') ? 'ok' : badge.startsWith('⚠️') ? 'warn' : ''}">${esc(badge)}</span>` : ''].filter(Boolean).join(' · ')}</p>`,
-    d.ringkasan ? `<p>${esc(d.ringkasan)}</p>` : '',
-    d.total_biaya ? sec('💰 Biaya', `<div class="plan-total">Total ± ${fmtRp(d.total_biaya)}</div>${list((d.rincian_biaya || []).map((r) => `${esc(r.item)}: ${fmtRp(r.biaya)}`))}`) : '',
-    tempat.length ? sec(`${/hotel/i.test((d.tempat[0] || {}).jenis) ? '🏨 Hotel / tempat' : '📍 Tempat'}`, list(tempat.slice(0, 3))) : '',
-    jadwal.length ? sec('📅 Jadwal', list(jadwal.slice(0, 4)) + (jadwal.length > 4 ? '<i>…lihat detail</i>' : '')) : '',
+    `<p class="plan-meta">${[esc(JENIS[d.jenis] || JENIS.lainnya), esc(d.tanggal), p.parent ? `turunan dari #${p.parent}` : '', badge ? `<span class="${badge.startsWith('✅') ? 'ok' : badge.startsWith('⚠️') ? 'warn' : ''}">${esc(badge)}</span>` : ''].filter(Boolean).join(' · ')}</p>`,
+    h.intro ? `<p>${esc(h.intro)}</p>` : '',
+    ...sections.filter((s) => s.main).map((s) => {
+      const lines = lineHtml(s);
+      const lim = s.limit || lines.length;
+      return sec(s, lines.slice(0, lim), lines.length > lim);
+    }),
   ].join('');
   const detail = [
-    jadwal.length > 4 ? sec('📅 Jadwal lengkap', list(jadwal)) : '',
-    d.checklist && d.checklist.length ? sec('✅ Persiapan', list(d.checklist.map(esc))) : '',
-    d.pengingat && d.pengingat.length ? sec('⏰ Pengingat usulan', list(d.pengingat.map((r) => `${esc(r.tanggal)} ${esc(r.jam)} — ${esc(r.pesan)}`))) : '',
-    d.catatan && d.catatan.length ? sec('📌 Catatan', list(d.catatan.map(esc))) : '',
-    p.vera && p.vera.notes && p.vera.notes.length ? sec('🔍 Catatan Vera', list(p.vera.notes.map(esc))) : '',
-    d.sumber && d.sumber.length ? sec('🔗 Sumber', list(d.sumber.map((x) => `<a href="${esc(x.url)}" data-ext="1">${esc(x.title)}</a>`))) : '',
+    ...sections.filter((s) => s.main && s.limit && s.lines.length > s.limit).map((s) => sec({ title: `${s.title} (lengkap)` }, lineHtml(s))),
+    ...sections.filter((s) => !s.main).map((s) => sec(s, lineHtml(s))),
     `<p class="plan-meta">Permintaan: “${esc(p.request)}” · dibuat ${fmtDay(p.created)}</p>`,
   ].join('');
   const canTodo = (d.checklist && d.checklist.length) || (d.pengingat && d.pengingat.length);
@@ -2098,10 +2106,122 @@ function showPlanCard(no) {
     <div class="plan-actions">
       <button class="btn" data-act="detail">📋 Lihat detail</button>
       ${canTodo ? `<button class="btn primary" data-act="todo">📝 Masukkan ke catatan & pengingat</button>` : ''}
+      <button class="btn" data-act="save">💾 Simpan ke HP</button>
+      <button class="btn" data-act="text">📤 Kirim teks</button>
     </div>`;
   showPlanCardShell('rencana', `🗺️ Kartu Rencana #${p.no}`, html);
   $('plan-body').dataset.no = String(p.no);
+  $('plan-body').dataset.cmp = '';
   return true;
+}
+
+// ---------- Simpan kartu ke HP ----------
+// Gambar rapi dari kartu → Galeri Gaby + HP (APK: menu Bagikan Android; iPhone/browser: menu Bagikan
+// atau unduhan). Teks → Bagikan / salin. Menu Bagikan di browser butuh ketukan, jadi dari perintah
+// suara Gaby menampilkan satu tombol untuk diketuk.
+
+function cardTarget() {
+  const kind = $('plancard').dataset.kind;
+  if (kind === 'rencana') {
+    const p = memory.getPlan(Number($('plan-body').dataset.no));
+    return p ? { kind, plans: [p], name: `rencana-${p.no}`, label: `Rencana #${p.no}: ${p.title}` } : null;
+  }
+  if (kind === 'perbandingan') {
+    const plans = String($('plan-body').dataset.cmp || '').split(',').map(Number).map((n) => memory.getPlan(n)).filter(Boolean);
+    return plans.length ? { kind, plans, name: `perbandingan-${plans.map((p) => p.no).join('-')}`, label: `Perbandingan ${plans.map((p) => `#${p.no}`).join(' vs ')}` } : null;
+  }
+  return null;
+}
+
+async function cardImage(t) {
+  if (t.kind === 'rencana') return renderImage(planHeader(t.plans[0]), planSections(t.plans[0]).filter((s) => s.key !== 'vera'));
+  return renderImage({ title: t.label, subtitle: 'Gaby · Pandu', badge: '', intro: '' }, compareSections(t.plans));
+}
+
+const blobToB64 = (blob) => new Promise((ok) => {
+  const r = new FileReader();
+  r.onload = () => ok(String(r.result).split(',')[1]);
+  r.onerror = () => ok(null);
+  r.readAsDataURL(blob);
+});
+
+// fromTap = dipanggil dari ketukan pengguna (boleh membuka menu Bagikan browser).
+async function saveCardToPhone(t, { fromTap = false } = {}) {
+  if (!t) return { error: 'Tidak ada Kartu Rencana / Perbandingan yang terbuka.' };
+  const blob = await cardImage(t);
+  if (!blob) return { error: 'Gagal membuat gambar.' };
+  const filename = `gaby-${t.name}.png`;
+  try { await gallery.add(blob, t.label); } catch {}
+  // APK: menu Bagikan Android (Simpan ke Galeri / Drive / WhatsApp).
+  if (isNativeApp) {
+    const res = await nativeShareFile(await blobToB64(blob), filename, { title: t.label });
+    if (res === 'ok' || res === 'batal') return { ok: true, cara: 'menu Bagikan HP', galeri_gaby: true };
+    if (res === 'tidak_ada') {
+      maybeCheckApkUpdate({ force: true });
+      return { ok: true, galeri_gaby: true, catatan: 'Gambar sudah tersimpan di Galeri Gaby. Untuk menyimpan langsung ke HP, aplikasi Android perlu di-update dulu (kartu update akan muncul / Pengaturan → Fitur → Cek update aplikasi).' };
+    }
+  }
+  const file = new File([blob], filename, { type: 'image/png' });
+  if (fromTap && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: t.label }); return { ok: true, cara: 'menu Bagikan', galeri_gaby: true }; } catch (e) {
+      if (e && e.name === 'AbortError') return { ok: true, cara: 'dibatalkan', galeri_gaby: true };
+    }
+  }
+  if (fromTap) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return { ok: true, cara: 'unduhan', galeri_gaby: true };
+  }
+  // Dari perintah suara di browser: menu Bagikan butuh ketukan → tampilkan tombol.
+  document.querySelectorAll('.toast.big').forEach((x) => x.remove());
+  const el = toast('', 'info big', 30000);
+  const b = document.createElement('button');
+  b.className = 'big-btn';
+  b.textContent = '💾 Ketuk untuk simpan ke HP';
+  b.onclick = () => { el.remove(); saveCardToPhone(t, { fromTap: true }); };
+  const x = document.createElement('button');
+  x.className = 'icon-btn';
+  x.textContent = '✕';
+  x.onclick = () => el.remove();
+  el.append(b, x);
+  return { ok: true, galeri_gaby: true, catatan: 'Gambar sudah masuk Galeri Gaby. Minta pengguna mengetuk tombol "Simpan ke HP" di layar sekali.' };
+}
+
+async function sendCardText(t, { fromTap = false } = {}) {
+  if (!t) return { error: 'Tidak ada Kartu Rencana / Perbandingan yang terbuka.' };
+  const text = t.kind === 'rencana' ? planText(t.plans[0]) : compareText(t.plans);
+  if (isNativeApp) {
+    const res = await nativeShareText(text, t.label);
+    if (res === 'ok' || res === 'batal') return { ok: true, cara: 'menu Bagikan HP' };
+  }
+  if (fromTap && navigator.share) {
+    try { await navigator.share({ title: t.label, text }); return { ok: true, cara: 'menu Bagikan' }; } catch (e) {
+      if (e && e.name === 'AbortError') return { ok: true, cara: 'dibatalkan' };
+    }
+  }
+  try { await navigator.clipboard.writeText(text); toast('📋 Teks rencana disalin. Tempel di WhatsApp / Catatan.'); return { ok: true, cara: 'disalin' }; } catch {}
+  if (isNativeApp) {
+    maybeCheckApkUpdate({ force: true });
+    return { error: 'Untuk mengirim teks, aplikasi Android perlu di-update dulu (Pengaturan → Fitur → Cek update aplikasi).' };
+  }
+  return { error: 'Tidak bisa membagikan teks di perangkat ini.' };
+}
+
+// Alat suara: "simpan rencana 3 ke HP", "kirim rencananya sebagai teks".
+async function savePlanTool({ nomor, bentuk }) {
+  let t = cardTarget();
+  if (nomor) {
+    if (!showPlanCard(Number(nomor))) return { error: `Rencana #${nomor} tidak ada.`, rencana_tersimpan: memory.listPlans().map((p) => `#${p.no} ${p.title}`) };
+    t = cardTarget();
+  }
+  if (!t) return { error: 'Sebutkan nomor rencananya, atau buka kartunya dulu.' };
+  return bentuk === 'teks' ? sendCardText(t) : saveCardToPhone(t);
 }
 
 function showPlanList() {
@@ -2123,11 +2243,15 @@ function showCompareCard(plans) {
       ${row('💰 Total', (s) => esc(s.total_biaya))}
       ${row('📍 Utama', (s, p) => esc((p.data.tempat || [])[0] ? [p.data.tempat[0].nama, p.data.tempat[0].area].filter(Boolean).join(', ') : ''))}
       ${row('💵 Harga', (s, p) => esc((p.data.tempat || [])[0] ? p.data.tempat[0].harga : ''))}
+      ${row('🚆 Transport', (s, p) => esc((p.data.transportasi || [])[0] ? [p.data.transportasi[0].nama, p.data.transportasi[0].harga].filter(Boolean).join(', ') : ''))}
+      ${row('🍽️ Kuliner', (s, p) => esc((p.data.kuliner || [])[0] ? p.data.kuliner[0].nama : ''))}
       ${row('📅 Tanggal', (s) => esc(s.tanggal))}
       ${row('🗓️ Jadwal', (s) => (s.jadwal.length ? `${s.jadwal.length} kegiatan` : ''))}
       ${row('✅ Cek Vera', (s) => esc(s.cek_vera))}
     </tbody></table>`;
-  showPlanCardShell('perbandingan', `📊 Kartu Perbandingan ${plans.map((p) => `#${p.no}`).join(' vs ')}`, html);
+  showPlanCardShell('perbandingan', `📊 Kartu Perbandingan ${plans.map((p) => `#${p.no}`).join(' vs ')}`, `${html}
+    <div class="plan-actions"><button class="btn" data-act="save">💾 Simpan ke HP</button><button class="btn" data-act="text">📤 Kirim teks</button></div>`);
+  $('plan-body').dataset.cmp = plans.map((p) => p.no).join(',');
 }
 
 $('plan-close').addEventListener('click', () => hidePlanCard());
@@ -2145,6 +2269,15 @@ $('plan-body').addEventListener('click', (e) => {
   } else if (act.dataset.act === 'todo') {
     const r = planToTodos(Number($('plan-body').dataset.no));
     toast(r.error || r.pesan, r.error ? 'warn' : 'info', 6000);
+  } else if (act.dataset.act === 'save') {
+    act.disabled = true;
+    saveCardToPhone(cardTarget(), { fromTap: true }).then((r) => {
+      act.disabled = false;
+      if (r.error) toast(r.error, 'warn');
+      else toast(r.catatan || `💾 Tersimpan di Galeri Gaby${r.cara && r.cara !== 'dibatalkan' ? ` · ${r.cara}` : ''}`, 'info', 6000);
+    });
+  } else if (act.dataset.act === 'text') {
+    sendCardText(cardTarget(), { fromTap: true }).then((r) => { if (r.error) toast(r.error, 'warn'); });
   }
 });
 
@@ -2713,8 +2846,21 @@ $('viewer-del').addEventListener('click', async () => {
   if (left.length) showViewer(left[0]);
   else $('viewer').hidden = true;
 });
+// APK: tautan unduh biasa tidak jalan di WebView Android → pakai menu Bagikan (bisa "Simpan ke Galeri").
+$('viewer-save').addEventListener('click', async (e) => {
+  if (!isNativeApp || !viewerItem || !viewerItem.blob) return;
+  e.preventDefault();
+  if (!nativeShareAvailable()) { toast('Untuk menyimpan ke HP, update aplikasi Android dulu (Pengaturan → Fitur → Cek update aplikasi).', 'warn', 8000); return; }
+  await nativeShareFile(await blobToB64(viewerItem.blob), $('viewer-save').download || 'gaby.png', { title: 'Gambar dari Gaby' });
+});
+
 $('viewer-share').addEventListener('click', async () => {
   if (!viewerItem) return;
+  // APK: menu Bagikan Android asli (WebView tidak mendukung menu Bagikan dari halaman web).
+  if (isNativeApp && viewerItem.blob && nativeShareAvailable()) {
+    const res = await nativeShareFile(await blobToB64(viewerItem.blob), $('viewer-save').download || 'gaby.png', { title: 'Gambar dari Gaby' });
+    if (res === 'ok' || res === 'batal') return;
+  }
   if (!viewerItem.blob) {
     if (navigator.share) navigator.share({ url: viewerItem.url, title: 'Gambar dari Gaby' }).catch(() => {});
     else window.open(viewerItem.url, '_blank', 'noopener');

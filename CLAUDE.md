@@ -36,6 +36,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/research.js` | **Rara**, agen riset internet `cari_info`: bertingkat Groq GPT-OSS 120B + browser_search → Gemini 3.x → 2.5 (+ Google Search), catat jatah habis & alasan, mode pencarian cepat |
 | `js/pandu.js` | **Pandu**, perencana: agen Groq GPT-OSS 120B dengan alat (langkah, Rara, cuaca, jarak, laci, jadwal, simpan_rencana), `normalizePlan` |
 | `js/vera.js` | **Vera**, pemeriksa: `checkFacts` (Rara), `checkImage` (Lukas, model penglihatan), `checkPlan` (Pandu: cek pasti + Qwen3) |
+| `js/planexport.js` | Isi rencana per bagian (`planSections`) — satu sumber untuk Kartu Rencana, gambar PNG (`renderImage`, canvas) & teks (`planText`) |
 | `js/teamboard.js` | Papan kerja tim di bawah status (siapa bekerja, bar, langkah; ketuk untuk detail) |
 | `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS 120B + `browser_search`) & Lukas (Qwen3 32B → Llama 3.3 70B → …), pilih model pengganti dari daftar model Groq |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
@@ -104,6 +105,13 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Pandu hemat token: maks 4 pencarian, alat ringkas (±900 token), hasil alat lama dipadatkan, minta panggil beberapa alat sekaligus,
   Rara di dalam Pandu memakai GPT-OSS **20B** (jatah terpisah dari Pandu 120B), Pandu pindah model untuk satu giliran kalau 120B harus
   menunggu > 8 dtk. Satu misi ±10–15 ribu token → wajar 1–3 menit. Awas: `/20b/` juga cocok dengan "120b" — pakai `/gpt-oss-20b/`.
+- Rencana v1.19: `jenis` (perjalanan/proyek/acara/belajar/kesehatan/belanja/lainnya) + bagian `transportasi` (nama maskapai/kereta,
+  "cek ulang saat pesan"), `kuliner` (nama resto), `tujuan`, `fitur` (wajib/nanti), `alat`, `risiko`. Vera menolak perjalanan tanpa
+  transportasi/kuliner bernama dan proyek tanpa tujuan/fitur. Pandu merencanakan proyek (misal bikin aplikasi), BUKAN membuatnya.
+  Simpan ke HP: tombol 💾 / 📤 di Kartu Rencana & Perbandingan, alat `simpan_rencana_hp` (gambar/teks). Gambar selalu masuk Galeri Gaby.
+  APK: plugin `@capacitor/share` + `@capacitor/filesystem` (tulis ke CACHE → menu Bagikan Android; `FileProvider` sudah ada);
+  APK lama tanpa plugin → saran update. Browser: menu Bagikan/unduhan butuh ketukan → dari suara tampil tombol "Ketuk untuk simpan ke HP".
+  Tombol Simpan/Bagikan di Galeri juga memakai menu Bagikan Android di APK.
 - Kunci belum diisi (v1.18.2): prompt punya "STATUS TEMAN SAAT INI" (`friendStatus` di `persona.js`). Teman yang belum bisa →
   Gaby bilang santai sekali per obrolan ("Wah, Rara belum bisa dimintai tolong nih, kunci Groq-nya belum dimasukin…") lalu kerjakan
   sendiri sebisanya (Rara → pencarian cepat / pengetahuan sendiri tanpa mengarang angka; Lukas → draf Gaby; Vera → "belum dicek").
@@ -119,14 +127,14 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`.
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`.
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.18.2, APK #6) — per 1 Nov 2026
+## Status saat ini (v1.19.0, APK #6 → #7 dirakit saat terbit) — per 1 Nov 2026
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
   ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
@@ -142,6 +150,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - v1.15: `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
 - v1.16: cerita update sekali per versi, Pengaturan → ✨ Apa yang baru, "ulang dengan perubahan" untuk gambar.
 - v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya" / "tutup semua" pakai suara (`tutup_kartu`).
+- **v1.19.0:** belum dicoba di HP (simpan ke HP di APK butuh APK #7). Kartu Rencana punya jenis, transportasi & kuliner.
 - **v1.18.0 (baru terbit, belum dicoba di HP):** Pandu (rencana bernomor, kartu, arsip, bandingkan, hapus/batal, ke catatan &
   pengingat, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja tim, kartu bernama + tutup per nama.
   Belum pasti di dunia nyata: model penglihatan Llama 4 masih ada di Groq? batas token per menit Groq saat Pandu bekerja panjang
@@ -154,6 +163,7 @@ Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.19.0 | Pandu: jenis rencana (proyek, acara, belajar, dll.), transportasi & kuliner bernama; simpan kartu ke HP (gambar/teks); APK + plugin Share & Filesystem (android-app 1.0.4) |
 | 1.18.2 | Gaby memberi tahu dengan santai kalau teman belum bisa karena kunci belum diisi, lalu mengerjakan sendiri sebisanya (quiet) |
 | 1.18.1 | Penjaga batas token per menit Groq, Pandu lebih hemat token, Rara 20B saat dipanggil Pandu; papan kerja bisa ditutup (✕ / suara). "Perbaikan bug kecil" (quiet) |
 | 1.18.0 | Teman baru Pandu (perencana) & Vera (pemeriksa), papan kerja tim, kartu bernama + `tutup_kartu` per nama, rencana bernomor (buka/bandingkan/hapus/batal/ke catatan), kabar otomatis + notifikasi HP |

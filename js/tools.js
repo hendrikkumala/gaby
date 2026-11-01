@@ -276,6 +276,11 @@ export const TOOL_DEFS = [
     parameters: { type: 'object', properties: {} },
   },
   {
+    name: 'simpan_rencana_hp',
+    description: 'Simpan Kartu Rencana (atau Kartu Perbandingan yang sedang terbuka) ke HP sebagai gambar rapi untuk referensi ("simpan rencana 3 ke HP"), atau kirim sebagai teks ("kirim rencananya ke WhatsApp" → bentuk teks). Gambar juga masuk Galeri Gaby.',
+    parameters: { type: 'object', properties: { nomor: { type: 'number', description: 'Nomor rencana; kosongkan untuk kartu yang sedang terbuka' }, bentuk: { type: 'string', enum: ['gambar', 'teks'] } } },
+  },
+  {
     name: 'rencana_ke_catatan',
     description: 'Masukkan persiapan (checklist) rencana ke catatan/to-do dan pasang pengingat usulannya, kalau pengguna setuju ("boleh, masukin ke catatan").',
     parameters: { type: 'object', properties: { nomor: { type: 'number' } }, required: ['nomor'] },
@@ -487,6 +492,9 @@ export async function runTool(name, args, ui) {
 
       case 'batal_hapus_rencana':
         return ui.undoDelete();
+
+      case 'simpan_rencana_hp':
+        return await ui.savePlan({ nomor: args.nomor ? Number(args.nomor) : null, bentuk: args.bentuk === 'teks' ? 'teks' : 'gambar' });
 
       case 'rencana_ke_catatan': {
         const r = ui.planToTodos(Number(args.nomor));

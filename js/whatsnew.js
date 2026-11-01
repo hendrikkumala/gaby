@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.19.0',
+    items: [
+      'Pandu makin rinci: rencana perjalanan sekarang lengkap dengan nama maskapai atau kereta, hotel, dan rekomendasi tempat makan',
+      'Pandu bisa merencanakan banyak hal, bukan cuma liburan: bikin aplikasi atau usaha, acara, belajar, olahraga, sampai bandingkan barang',
+      'Kartu rencana bisa disimpan ke HP sebagai gambar rapi atau dikirim sebagai teks ke WhatsApp; bilang "simpan rencana 1 ke HP"',
+    ],
+  },
+  {
     version: '1.18.2',
     quiet: true,
     items: ['Kalau ada teman yang belum bisa membantu karena kuncinya belum diisi, aku kasih tahu dan kerjakan sendiri sebisaku'],

@@ -190,6 +190,14 @@ function localPlanIssues(plan) {
   for (const h of [...new Map(hits.map((x) => [x.fact, x])).values()]) {
     issues.push({ serius: true, text: `Ada saran yang bertentangan dengan "${h.fact}" (kata "${h.w}"). Ganti dengan pilihan lain.` });
   }
+  // Kelengkapan sesuai jenis rencana.
+  if (plan.jenis === 'perjalanan') {
+    if (!(plan.transportasi || []).length) issues.push({ serius: true, text: 'Rencana perjalanan belum punya transportasi: tambahkan pilihan maskapai/kereta/bus dengan nama, rute, perkiraan jam, dan harga.' });
+    if (!(plan.kuliner || []).length) issues.push({ serius: true, text: 'Belum ada rekomendasi tempat makan: tambahkan nama resto/warung (area & kisaran harga) di kuliner.' });
+  }
+  if (plan.jenis === 'proyek' && !(plan.fitur || []).length && !(plan.tujuan || '').trim()) {
+    issues.push({ serius: true, text: 'Rencana proyek belum punya tujuan & fitur utama: tambahkan.' });
+  }
   const today = new Date().toLocaleDateString('sv-SE');
   for (const r of plan.pengingat || []) {
     if (r.tanggal < today) issues.push({ serius: true, text: `Pengingat "${r.pesan}" bertanggal ${r.tanggal}, sudah lewat. Pakai tanggal di masa depan atau hapus.` });
