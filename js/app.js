@@ -1102,9 +1102,9 @@ function fillNews() {
 function newsCue() {
   const seen = memory.get().seenVersion;
   if (!memory.get().nickname || cmpVersion(VERSION, seen) <= 0) return '';
-  const items = newsSince(seen, 3);
+  const items = newsSince(seen, 4);
   if (!items.length) { memory.setSeenVersion(VERSION); return ''; }
-  return `[SISTEM] Kamu baru saja di-update ke versi ${VERSION}. Setelah menyapa, ceritakan dengan antusias tapi SINGKAT (maksimal 3 kalimat, gaya ngobrol, tanpa nomor urut) bahwa kamu baru upgrade, dan sebut hal-hal baru ini: ${items.map((t) => `"${t}"`).join('; ')}. Tutup dengan satu ajakan singkat untuk mencoba.`;
+  return `[SISTEM] Kamu baru saja di-update ke versi ${VERSION}. Setelah menyapa, ceritakan dengan antusias tapi SINGKAT (maksimal 4 kalimat, gaya ngobrol, tanpa nomor urut) bahwa kamu baru upgrade, dan sebut hal-hal baru ini sesuai urutannya: ${items.map((t) => `"${t}"`).join('; ')}. Tutup dengan satu ajakan singkat untuk mencoba.`;
 }
 
 function fillSettings() {

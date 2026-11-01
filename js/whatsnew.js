@@ -8,7 +8,7 @@ export const WHATS_NEW = [
     version: '1.17.1',
     quiet: true,
     items: [
-      'Kartu sumber Rara sekarang langsung berganti (tidak menumpuk), dan bisa ditutup pakai suara: "tutup beritanya" atau "tutup semua"',
+      'Perbaikan bug kecil',
     ],
   },
   {
@@ -49,7 +49,14 @@ export function cmpVersion(a, b) {
   return 0;
 }
 
-// Hal baru sejak versi `seen` (yang terbaru dulu), maksimal `max` item.
-export function newsSince(seen, max = 3) {
-  return WHATS_NEW.filter((v) => !v.quiet && cmpVersion(v.version, seen) > 0).flatMap((v) => v.items).slice(0, max);
+// Hal baru sejak versi `seen`, maksimal `max` item, diurutkan dari versi LAMA ke BARU supaya
+// ceritanya runtut (kenalan dengan Rara dulu, baru "Rara bisa pakai Groq").
+// Hal terpenting (item pertama) tiap versi selalu ikut; sisa tempat diisi item lain.
+export function newsSince(seen, max = 4) {
+  const versions = WHATS_NEW.filter((v) => !v.quiet && cmpVersion(v.version, seen) > 0); // terbaru dulu
+  const picked = new Map(versions.map((v) => [v.version, []]));
+  let room = max;
+  for (const v of versions) if (room > 0 && v.items.length) { picked.get(v.version).push(v.items[0]); room--; }
+  for (const v of versions) for (const it of v.items.slice(1)) if (room > 0) { picked.get(v.version).push(it); room--; }
+  return versions.slice().reverse().flatMap((v) => picked.get(v.version));
 }
