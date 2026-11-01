@@ -239,6 +239,15 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'tutup_kartu',
+    description: 'Tutup kartu di layar dengan suara: "tutup beritanya", "tutup sumbernya" → sumber (kartu sumber Rara + tombol buka situs); "tutup semua", "bersihkan layar" → semua (sumber, peta, catatan, gambar, galeri). Untuk gambar yang belum disimpan, tanya dulu atau pakai gambar_aksi.',
+    parameters: {
+      type: 'object',
+      properties: { jenis: { type: 'string', enum: ['sumber', 'semua'] } },
+      required: ['jenis'],
+    },
+  },
+  {
     name: 'peta_aksi',
     description: 'Tindakan untuk kartu peta yang sedang tampil: buka di Google Maps (pengguna bilang "buka di Google Maps", "navigasi ke sana", "oke berangkat"), atau tutup kartunya ("tutup petanya").',
     parameters: {
@@ -416,6 +425,9 @@ export async function runTool(name, args, ui) {
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
         return ui.openExternal(url, `↗ ${args.label || 'Buka'}`);
       }
+
+      case 'tutup_kartu':
+        return ui.closeCards(args.jenis === 'semua' ? 'semua' : 'sumber');
 
       case 'peta_aksi':
         return ui.mapAction(args.aksi === 'tutup' ? 'tutup' : 'buka');

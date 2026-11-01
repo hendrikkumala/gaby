@@ -5,6 +5,13 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.17.1',
+    quiet: true,
+    items: [
+      'Kartu sumber Rara sekarang langsung berganti (tidak menumpuk), dan bisa ditutup pakai suara: "tutup beritanya" atau "tutup semua"',
+    ],
+  },
+  {
     version: '1.17.0',
     items: [
       'Rara dan Lukas sekarang bisa pakai kunci Groq gratis, jadi makin cepat dan semangat kerja! Rara langsung browsing internet sendiri, Lukas makin kilat nulis perintah gambar. Isi kuncinya di Pengaturan, bagian Otak Gaby',

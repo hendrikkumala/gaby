@@ -160,6 +160,7 @@ function openExternal(url, label) {
 // universal link iPhone) supaya HP membukanya di aplikasi, bukan di browser.
 function bigButton(url, label, { sameTab = false } = {}) {
   document.querySelectorAll('.toast.big').forEach((t) => t.remove());
+  hideSources(); // satu hal saja di layar: tombol baru menggantikan kartu sumber
   const el = toast('', 'info big', 30000);
   el.textContent = '';
   const a = document.createElement('a');
@@ -416,6 +417,7 @@ const ui = {
   },
   isNativeApp,
   showSources: (q, sources, queries) => showSources(q, sources, queries),
+  closeCards: (jenis) => closeCards(jenis),
   switchToQuickSearch: (q) => switchToQuickSearch(q),
   sleepAfterSpeech() {
     sleepRequestedAt = Date.now();
@@ -1761,6 +1763,8 @@ function showSources(query, sources, queries = []) {
   // Peta (misal dari cari_tempat) lebih berguna: jangan ditutup oleh kartu sumber.
   if (!$('mapcard').hidden) return;
   hideCards('src');
+  // Kartu baru menggantikan yang lama (termasuk tombol "Buka" situs sebelumnya), bukan menumpuk.
+  document.querySelectorAll('.toast.big').forEach((t) => t.remove());
   $('src-query').textContent = `“${query}”`;
   const ul = $('src-list');
   ul.innerHTML = '';
@@ -1778,11 +1782,33 @@ function showSources(query, sources, queries = []) {
   // Kata kunci yang dicari Google (bisa diketuk untuk melihat sendiri hasilnya).
   for (const q of queries) add(`🔍 ${q}`, `https://www.google.com/search?q=${encodeURIComponent(q)}`, 'q');
   const card = $('srccard');
+  // Animasi ulang supaya jelas kartunya berganti.
+  card.classList.remove('show');
   card.hidden = false;
+  void card.offsetWidth;
   requestAnimationFrame(() => card.classList.add('show'));
   clearTimeout(srcTimer);
-  srcTimer = setTimeout(() => { card.classList.remove('show'); card.hidden = true; }, 60000);
+  srcTimer = setTimeout(hideSources, 60000);
   touch();
+}
+
+function hideSources() {
+  clearTimeout(srcTimer);
+  $('srccard').classList.remove('show');
+  $('srccard').hidden = true;
+}
+
+// Alat suara tutup_kartu: "tutup beritanya", "tutup semua kartu".
+function closeCards(jenis) {
+  const had = !$('srccard').hidden || document.querySelectorAll('.toast.big').length > 0;
+  document.querySelectorAll('.toast.big').forEach((t) => t.remove());
+  if (jenis === 'sumber') {
+    hideSources();
+    return { ok: true, ditutup: had ? 'kartu sumber' : 'tidak ada kartu sumber yang terbuka' };
+  }
+  hideCards();
+  $('viewer').hidden = true;
+  return { ok: true, ditutup: 'semua kartu' };
 }
 
 $('set-research-retry').addEventListener('click', () => {
@@ -1793,7 +1819,7 @@ $('set-research-retry').addEventListener('click', () => {
   if (wasQuick && phase === 'active') restartSession(); // sambung ulang supaya Gaby kembali memakai Rara
 });
 
-$('src-close').addEventListener('click', () => { clearTimeout(srcTimer); hideCards(); });
+$('src-close').addEventListener('click', hideSources);
 
 // Jatah agen riset habis: setelah Gaby selesai bicara, sambung ulang diam-diam dengan
 // Google Search bawaan menyala, lalu jawab pertanyaan tadi. Hanya untuk Gemini.

@@ -73,7 +73,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Jatah habis dicatat di `localStorage['gaby.research']` sampai 08:00 UTC (harian) / tgl 1 bulan depan (bulanan).
   Dua-duanya habis → `switchToQuickSearch` di `app.js` menyambung ulang setelah Gaby selesai bicara dengan Google Search bawaan
   ("pencarian cepat", `cari_info` disembunyikan) lalu menjawab pertanyaan tadi lewat `pendingCue`. Kartu sumber `#srccard` (atas, 60 dtk),
-  tidak tampil kalau kartu peta terbuka. Hasil pencarian tidak disimpan ke ingatan. Status di Pengaturan → Fitur → "Pencarian internet (Rara)".
+  tidak tampil kalau kartu peta terbuka; kartu baru menggantikan yang lama dan tombol besar "↗ Buka" (`bigButton`) saling menggantikan
+  dengan kartu sumber (v1.17.1). Alat suara `tutup_kartu` (sumber / semua). Hasil pencarian tidak disimpan ke ingatan. Status di Pengaturan → Fitur → "Pencarian internet (Rara)".
   Alasan penolakan disimpan (`st.why`, gangguan di `st.lastFail`) dan tampil di Pengaturan → Fitur + tombol "🔄 Coba Rara lagi" (`resetResearch`);
   "limit: 0" = kunci tidak diberi jatah (`nofree`). Kunci Gemini gratis pemilik ditolak Google Search grounding (1 Nov 2026) → solusi v1.17: Groq.
 - Teman AI Gaby (v1.16), dikenal Gaby lewat bagian "TEMAN-TEMANMU" di prompt: **Rara** (internet, `cari_info`),
@@ -97,7 +98,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.17.0, APK #6)
+## Status saat ini (v1.17.1, APK #6)
 Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan hologram), kamera/layar, gambar (gratis & galeri),
 lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
 APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
@@ -110,8 +111,8 @@ pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android 
   ulang dengan perubahan); nama teman di prompt & layar; cerita update sekali + Pengaturan → ✨ Apa yang baru. Belum pasti apakah kunci gratis
   pemilik boleh memakai Google Search grounding dan berapa jatahnya (halaman harga Google tidak bisa dibuka dari sesi cloud).
   1 Nov 2026: pemilik melapor Lukas lebih presisi ✅; Rara via Gemini tetap gagal (jatah/izin Google) → v1.17.0: kunci Groq.
-- v1.17.0: kunci Groq di Pengaturan → Rara GPT-OSS 120B + browser_search, Lukas Qwen3 32B. Belum pasti: browser_search Groq masih gratis?
-  dan apakah Groq mengizinkan dipanggil langsung dari browser/APK (CORS) — kalau gagal, alasannya tampil di Pengaturan → Fitur.
+- v1.17.0 ✅ diuji pemilik 1 Nov 2026: kunci Groq → Rara (GPT-OSS 120B + browser_search) memberi kartu sumber berita, Lukas (Qwen3) "aman banget".
+- v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya"/"tutup semua" pakai suara (alat `tutup_kartu`).
 Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
