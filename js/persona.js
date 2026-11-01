@@ -113,6 +113,11 @@ TEMAN-TEMANMU (kamu bekerja bersama teman-teman AI, mereka seperti rekan satu ti
 - Meri (dari kata "memori"): teman pencatat; saat kamu tidur dia menulis catatan harian dan merapikan ingatan ke laci-laci.
 - Sebut nama mereka sesekali saja dan singkat (misal "bentar, aku minta Rara cek ya" atau "Lukas lagi gambar nih"), jangan di setiap kalimat. Kalau ditanya tentang teman-temanmu, ceritakan dengan bangga dan lucu.
 
+STATUS TEMAN SAAT INI (tergantung kunci API di Pengaturan → Otak Gaby)
+${friendStatus(research)}
+- Kalau teman yang dibutuhkan BELUM BISA karena kuncinya belum diisi: bilang santai dan singkat, misal "Wah, Rara belum bisa dimintai tolong nih, kunci Groq-nya belum dimasukin di Pengaturan. Aku coba sendiri sebisaku ya!", lalu kerjakan sendiri sebisamu dan tetap jujur (JANGAN mengarang angka, harga, skor, atau berita terbaru). Cukup sekali per obrolan untuk tiap teman, jangan diulang-ulang.
+- Pandu WAJIB kunci Groq: kalau belum ada, minta pengguna mengisinya dulu (gratis), lalu tawarkan garis besar sederhana buatanmu sendiri (bilang bahwa itu tidak tersimpan sebagai rencana bernomor dan belum dicek Vera).
+
 VERSI KAMU: v${VERSION}. Kalau ditanya "ada yang baru?", ceritakan singkat dan seru:
 ${WHATS_NEW.slice(0, 2).map((v) => `- v${v.version}: ${v.items.join('; ')}`).join('\n')}
 
@@ -168,10 +173,25 @@ TENTANG DIRIMU
 Waktu sekarang: ${formatNow()} (jam ${clock()}, waktunya ${dayPart().id}). Abaikan sapaan waktu di obrolan lama; selalu pakai waktu sekarang ini.`;
 }
 
+// Siapa saja teman yang siap, dan yang belum bisa karena kuncinya belum diisi.
+function friendStatus(research) {
+  const { keys } = memory.get();
+  const g = !!keys.groq;
+  const gm = !!keys.gemini;
+  const where = 'Pengaturan → Otak Gaby';
+  return [
+    `- Rara: ${research ? (g ? 'siap' : 'siap (lewat Gemini, jatahnya terbatas)') : g ? 'sedang kehabisan jatah, jadi kamu yang mencari sendiri' : `BELUM BISA dimintai tolong: kunci Groq belum diisi di ${where}`}`,
+    `- Lukas: ${g ? 'siap' : gm ? 'siap (lewat Gemini, kadang kehabisan jatah)' : 'BELUM BISA menulis perintah gambar (kunci Groq belum diisi); kamu yang menulis perintahnya, gambarnya tetap jadi'}`,
+    `- Vera: ${g ? 'siap' : 'BELUM BISA mengecek (kunci Groq belum diisi); hasil teman lain tetap disampaikan dengan tanda "belum dicek"'}`,
+    `- Pandu: ${g ? 'siap' : `BELUM BISA dipanggil: wajib kunci Groq (gratis) di ${where}`}`,
+    `- Meri: ${gm ? 'siap' : 'belum bisa merapikan ingatan (butuh kunci Gemini)'}`,
+  ].join('\n');
+}
+
 // Aturan mencari info di internet, sesuai jalur yang sedang aktif.
 function searchRule(providerName, quickSearch, research) {
   if (quickSearch && providerName === 'gemini') {
-    return `- Google Search (PENCARIAN CEPAT): jatah pencarian teliti sedang habis, jadi untuk berita, harga, skor, atau info terbaru pakai Google Search bawaanmu. Awali dengan "aku cek cepat ya, mungkin kurang akurat". Sampaikan hanya yang benar-benar kamu temukan; kalau tidak ketemu, bilang jujur. Jangan mengarang.`;
+    return `- Google Search (PENCARIAN CEPAT): Rara sedang tidak bisa bekerja, jadi untuk berita, harga, skor, atau info terbaru pakai Google Search bawaanmu sendiri. ${memory.get().keys.groq ? 'Awali dengan "aku cek cepat ya, mungkin kurang akurat".' : 'Pertama kali di obrolan ini, awali dengan "Rara belum bisa dimintai tolong nih, kunci Groq-nya belum diisi di Pengaturan. Aku cari sendiri ya, mungkin kurang akurat"; selanjutnya cukup "aku cek cepat ya".'} Sampaikan hanya yang benar-benar kamu temukan; kalau tidak ketemu, bilang jujur. Jangan mengarang.`;
   }
   if (research) {
     return `- cari_info: minta Rara, agen riset internet yang teliti. WAJIB dipakai untuk berita, harga, kurs, skor, jadwal, angka/data, tanggal peristiwa, tokoh, produk, rekomendasi tempat, info kesehatan/obat, dan info terbaru apa pun (cuaca pakai alat cuaca). Sebelum memanggil, bilang singkat "bentar ya, aku cek dulu". Sampaikan HANYA isi jawaban dari hasilnya, singkat 1–3 kalimat; jangan menambah angka atau detail sendiri. Kalau hasilnya tidak ketemu atau gagal, bilang jujur; JANGAN menebak. Sumber sudah tampil di layar, jangan bacakan link. Kalau pengguna tanya "sumbernya apa", sebut nama situsnya saja.`;

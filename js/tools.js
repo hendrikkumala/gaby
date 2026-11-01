@@ -564,7 +564,7 @@ async function searchTool(args, ui) {
   if (!q) return { error: 'Pertanyaannya kosong' };
   const { keys } = memory.get();
   if (!keys.groq && !keys.gemini) {
-    return { error: 'tidak_bisa', catatan: 'Rara butuh kunci Groq (gratis) atau Gemini. Bilang jujur kamu tidak bisa mengecek internet sekarang dan sarankan mengisi kunci Groq di Pengaturan; JANGAN menebak.' };
+    return { error: 'rara_belum_bisa', catatan: 'Rara belum bisa dimintai tolong: kunci Groq belum diisi. Bilang santai, misal "Wah, Rara belum bisa dimintai tolong nih, kunci Groq-nya belum dimasukin di Pengaturan → Otak Gaby. Aku jawab sendiri sebisaku ya." Lalu jawab dari pengetahuanmu sendiri dengan hati-hati, bilang mungkin bukan info terbaru, dan JANGAN mengarang angka, harga, skor, atau berita terbaru.' };
   }
   const health = !!args.kesehatan || guessCats(q).includes('kesehatan');
   // Papan kerja tim: Rara mencari → Vera mengecek.
@@ -583,7 +583,9 @@ async function searchTool(args, ui) {
       cocok: r.support >= 2 ? 'Sudah dicek Vera dan cocok dengan sumber.' : 'Dicek Vera, tapi baru didukung 1 sumber; bilang singkat bahwa infonya baru dari satu sumber.',
       beda: 'Vera menemukan sumber berbeda-beda: sampaikan sebagai kisaran dan bilang sumbernya berbeda.',
       lemah: 'Vera: sebagian info belum terbukti; sampaikan hanya yang ada di jawaban ini dan bilang kamu belum yakin sepenuhnya.',
-    }[r.status] || 'Belum sempat dicek Vera; sampaikan dengan hati-hati.';
+    }[r.status] || (keys.groq
+      ? 'Belum sempat dicek Vera; sampaikan dengan hati-hati.'
+      : 'Vera belum bisa mengecek karena kunci Groq belum diisi (sebut singkat sekali saja per obrolan); sampaikan dengan hati-hati.');
     return {
       jawaban: r.text,
       jumlah_sumber: r.sources.length,
@@ -608,9 +610,11 @@ async function searchTool(args, ui) {
     }
     return {
       jatah_habis: true,
-      catatan: r.nofree
-        ? `Google belum memberi Rara jatah pencarian untuk kunci ini. Ucapkan SATU kalimat saja: "Rara belum dapat izin dari Google, aku pakai pencarian cepat ya, sebentar."${keys.groq ? '' : ' Boleh tambahkan singkat: Rara bisa semangat lagi kalau diberi kunci Groq gratis di Pengaturan.'} Jangan menjawab pertanyaannya sekarang.`
-        : `Jatah pencarian teliti sedang habis. Ucapkan SATU kalimat saja: "Jatah cek Rara habis, aku pindah ke pencarian cepat ya, sebentar."${keys.groq ? '' : ' Boleh tambahkan singkat: Rara bisa semangat lagi kalau diberi kunci Groq gratis di Pengaturan.'} Jangan menjawab pertanyaannya sekarang.`,
+      catatan: !keys.groq
+        ? 'Rara belum bisa dimintai tolong karena kunci Groq belum diisi. Ucapkan SATU kalimat saja: "Wah, Rara belum bisa dimintai tolong nih, kunci Groq-nya belum dimasukin di Pengaturan. Aku cari sendiri sebisaku ya, sebentar." Jangan menjawab pertanyaannya sekarang.'
+        : r.nofree
+          ? 'Google belum memberi izin pencarian untuk kunci ini. Ucapkan SATU kalimat saja: "Rara lagi nggak bisa nyari, aku cari sendiri dulu ya, sebentar." Jangan menjawab pertanyaannya sekarang.'
+          : 'Jatah pencarian Rara sedang habis. Ucapkan SATU kalimat saja: "Jatah Rara lagi habis, aku cari sendiri dulu ya, sebentar." Jangan menjawab pertanyaannya sekarang.',
     };
   }
   if (r.reason === 'auth') {

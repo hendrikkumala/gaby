@@ -104,6 +104,10 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Pandu hemat token: maks 4 pencarian, alat ringkas (±900 token), hasil alat lama dipadatkan, minta panggil beberapa alat sekaligus,
   Rara di dalam Pandu memakai GPT-OSS **20B** (jatah terpisah dari Pandu 120B), Pandu pindah model untuk satu giliran kalau 120B harus
   menunggu > 8 dtk. Satu misi ±10–15 ribu token → wajar 1–3 menit. Awas: `/20b/` juga cocok dengan "120b" — pakai `/gpt-oss-20b/`.
+- Kunci belum diisi (v1.18.2): prompt punya "STATUS TEMAN SAAT INI" (`friendStatus` di `persona.js`). Teman yang belum bisa →
+  Gaby bilang santai sekali per obrolan ("Wah, Rara belum bisa dimintai tolong nih, kunci Groq-nya belum dimasukin…") lalu kerjakan
+  sendiri sebisanya (Rara → pencarian cepat / pengetahuan sendiri tanpa mengarang angka; Lukas → draf Gaby; Vera → "belum dicek").
+  Pandu wajib Groq: minta isi kunci + tawarkan garis besar sederhana buatan Gaby (tidak tersimpan, tidak bernomor).
 - Papan kerja bisa ditutup (✕ / `tutup_kartu` jenis `papan` / "tutup semua"); teman tetap bekerja, papan muncul lagi saat ada pekerjaan
   baru. Pekerjaan yang macet > 6 menit dihapus dari papan.
 - Uji: mikrofon tiruan Chromium berbunyi "bip" sehingga `vad.active` sering true; pakai `--use-file-for-fake-audio-capture=<wav hening>`.
@@ -115,14 +119,14 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`.
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`.
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.18.1, APK #6) — per 1 Nov 2026
+## Status saat ini (v1.18.2, APK #6) — per 1 Nov 2026
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
   ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
@@ -150,6 +154,7 @@ Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.18.2 | Gaby memberi tahu dengan santai kalau teman belum bisa karena kunci belum diisi, lalu mengerjakan sendiri sebisanya (quiet) |
 | 1.18.1 | Penjaga batas token per menit Groq, Pandu lebih hemat token, Rara 20B saat dipanggil Pandu; papan kerja bisa ditutup (✕ / suara). "Perbaikan bug kecil" (quiet) |
 | 1.18.0 | Teman baru Pandu (perencana) & Vera (pemeriksa), papan kerja tim, kartu bernama + `tutup_kartu` per nama, rencana bernomor (buka/bandingkan/hapus/batal/ke catatan), kabar otomatis + notifikasi HP |
 | 1.17.1 | Kartu sumber tidak menumpuk, `tutup_kartu` pakai suara; cerita update runtut (maks 4 hal, urut lama → baru). "Perbaikan bug kecil" (quiet) |

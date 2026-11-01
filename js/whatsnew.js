@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.18.2',
+    quiet: true,
+    items: ['Kalau ada teman yang belum bisa membantu karena kuncinya belum diisi, aku kasih tahu dan kerjakan sendiri sebisaku'],
+  },
+  {
     version: '1.18.1',
     quiet: true,
     items: ['Perbaikan bug kecil'],

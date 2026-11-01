@@ -1981,7 +1981,10 @@ function startPlan({ permintaan, dari_nomor }) {
   const request = String(permintaan || '').trim().slice(0, 400);
   if (!request) return { error: 'Permintaannya kosong. Tanyakan mau direncanakan apa.' };
   if (!memory.get().keys.groq) {
-    return { error: 'butuh_groq', catatan: 'Pandu butuh kunci Groq gratis. Bilang singkat: isi kunci Groq di Pengaturan → Otak Gaby, lalu coba lagi.' };
+    return {
+      error: 'pandu_belum_bisa',
+      catatan: 'Pandu belum bisa dipanggil: dia wajib pakai kunci Groq (gratis). Bilang santai, misal "Wah, Pandu belum bisa diminta tolong nih, kunci Groq-nya belum dimasukin. Isi dulu di Pengaturan → Otak Gaby ya, gratis kok." Lalu tawarkan garis besar sederhana buatanmu sendiri sekarang (bilang bahwa itu tidak tersimpan sebagai rencana bernomor dan belum dicek Vera).',
+    };
   }
   if (planRunning) {
     return { error: 'sibuk', catatan: `Pandu masih mengerjakan "${planRunning.request}". Bilang singkat dan minta pengguna menunggu sebentar.` };
@@ -2594,6 +2597,14 @@ async function makeImage(draft, useCam, { request = '', shape = '', change = '',
     job.done(check ? check.badge : 'Selesai');
     if (out.base64) brain.sendImage(out.base64, out.blob ? out.blob.type : 'image/png'); // supaya Gaby bisa melihat hasilnya
     const notes = ['Gambar sudah tampil di layar (Kartu Gambar). Komentari singkat, lalu tanya mau disimpan, diulang, atau dibuang. Kalau pengguna ingin ada yang diubah, pakai gambar_aksi ulang dengan isi perubahan.'];
+    if (!lukas && !reuse) {
+      notes.push(keys.groq || keys.gemini
+        ? 'Lukas lagi kehabisan jatah, jadi perintah gambarnya memakai draf darimu (sebut singkat saja).'
+        : 'Lukas belum bisa dimintai tolong karena kunci Groq belum diisi di Pengaturan; perintah gambarnya memakai draf darimu (sebut singkat sekali saja per obrolan).');
+    }
+    if (veraOn && check && !check.checked && !keys.groq) {
+      notes.push('Vera belum bisa mengecek gambar karena kunci Groq belum diisi (sebut singkat sekali saja per obrolan).');
+    }
     if (check && check.checked) {
       notes.push(check.pass
         ? 'Vera sudah mengecek: semua yang diminta ada. Boleh sebut singkat "sudah dicek Vera".'
