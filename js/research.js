@@ -35,9 +35,11 @@ function nextReset(period, now = new Date()) {
   return t > now.getTime() ? t : t + 86400000;
 }
 
-function markExhausted(id, period) {
+// why: alasan asli dari Google (disimpan supaya bisa dilihat di Pengaturan).
+function markExhausted(id, period, why = '') {
   const st = loadState();
   st[id] = nextReset(period);
+  st.why = { ...(st.why || {}), [id]: { text: String(why || '').slice(0, 240), at: Date.now() } };
   saveState(st);
 }
 
@@ -59,8 +61,17 @@ export function researchStatus() {
   return `Cepat — jatah teliti habis sampai ${fmt(until)}`;
 }
 
+// Alasan terakhir tiap tingkat ditolak, untuk Pengaturan. [{ label, text }]
+export function researchReasons() {
+  const st = loadState();
+  return TIERS.filter((t) => isExhausted(t.id, st) && st.why && st.why[t.id])
+    .map((t) => ({ label: t.label, text: st.why[t.id].text }));
+}
+
+// Lupakan semua catatan "habis" (tombol "Coba Rara lagi").
 export function resetResearch() {
   saveState({});
+  models = null;
 }
 
 // Pilih nama model yang tersedia untuk kunci ini.
@@ -92,6 +103,8 @@ async function pickModels(key) {
 // Kelompokkan penolakan dari Google.
 function classifyError(status, err) {
   const text = `${err?.message || ''} ${JSON.stringify(err?.details || [])}`;
+  // "limit: 0" = kunci ini tidak diberi jatah sama sekali (biasanya paket gratis tanpa akses fitur ini).
+  if (/limit:\s*0\b/i.test(text)) return 'nofree';
   if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(text)) {
     if (/PerMinute|per minute|PerSecond/i.test(text)) return 'minute';
     if (/PerMonth|per month|monthly/i.test(text)) return 'month';
@@ -170,15 +183,16 @@ async function ask(model, key, question) {
 // Cari jawaban. Hasil:
 //   { ok: true, found: true, text, sources, queries, tier }
 //   { ok: true, found: false }              → tidak ketemu di internet
-//   { ok: false, reason: 'habis' }          → semua jatah teliti habis (pindah ke pencarian cepat)
+//   { ok: false, reason: 'habis', nofree }  → semua jatah teliti habis / tidak diberi (pindah ke pencarian cepat)
 //   { ok: false, reason: 'auth' | 'gagal' } → kunci ditolak / gangguan
 export async function research(question, key) {
   const list = await pickModels(key);
   let failed = false;
+  let nofree = false;
   for (const tier of TIERS) {
     if (isExhausted(tier.id)) continue;
     const model = list[tier.id];
-    if (!model) { markExhausted(tier.id, 'week'); continue; } // model belum ada untuk kunci ini
+    if (!model) { markExhausted(tier.id, 'week', 'Model ini belum tersedia untuk kunci Gemini kamu'); continue; }
     let r = await ask(model, key, question);
     if (r.error === 'minute') {
       await sleep(retryDelay(r.raw));
@@ -190,12 +204,14 @@ export async function research(question, key) {
     }
     console.warn('[Gaby] cari_info', tier.id, model, r.error, r.raw?.message || '');
     if (r.error === 'auth') return { ok: false, reason: 'auth' };
-    if (['day', 'month', 'hour'].includes(r.error)) markExhausted(tier.id, r.error);
-    else if (r.error === 'minute') markExhausted(tier.id, 'hour');
-    else if (r.error === 'model') markExhausted(tier.id, 'week');
-    else if (r.error === 'nosearch') markExhausted(tier.id, 'day');
+    const why = `${model}: ${r.raw?.message || r.error}`;
+    if (['day', 'month', 'hour'].includes(r.error)) markExhausted(tier.id, r.error, why);
+    else if (r.error === 'minute') markExhausted(tier.id, 'hour', why);
+    else if (r.error === 'model') markExhausted(tier.id, 'week', why);
+    else if (r.error === 'nosearch') markExhausted(tier.id, 'day', why);
+    else if (r.error === 'nofree') { nofree = true; markExhausted(tier.id, 'day', why); }
     else failed = true; // gangguan jaringan / server: coba tingkat berikutnya, jangan tandai habis
   }
-  if (!failed && quickSearchMode()) return { ok: false, reason: 'habis' };
+  if (!failed && quickSearchMode()) return { ok: false, reason: 'habis', nofree };
   return { ok: false, reason: 'gagal' };
 }

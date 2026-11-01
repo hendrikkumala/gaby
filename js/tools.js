@@ -508,7 +508,9 @@ async function searchTool(args, ui) {
     }
     return {
       jatah_habis: true,
-      catatan: 'Jatah pencarian teliti sedang habis. Ucapkan SATU kalimat saja: "Jatah cek telitiku habis, aku pindah ke pencarian cepat ya, sebentar." Jangan menjawab pertanyaannya sekarang.',
+      catatan: r.nofree
+        ? 'Google belum memberi Rara jatah pencarian untuk kunci ini. Ucapkan SATU kalimat saja: "Rara belum dapat izin dari Google, aku pakai pencarian cepat ya, sebentar." Jangan menjawab pertanyaannya sekarang.'
+        : 'Jatah pencarian teliti sedang habis. Ucapkan SATU kalimat saja: "Jatah cek Rara habis, aku pindah ke pencarian cepat ya, sebentar." Jangan menjawab pertanyaannya sekarang.',
     };
   }
   if (r.reason === 'auth') {

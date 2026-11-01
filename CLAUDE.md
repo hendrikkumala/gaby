@@ -71,7 +71,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Jatah habis dicatat di `localStorage['gaby.research']` sampai 08:00 UTC (harian) / tgl 1 bulan depan (bulanan).
   Dua-duanya habis → `switchToQuickSearch` di `app.js` menyambung ulang setelah Gaby selesai bicara dengan Google Search bawaan
   ("pencarian cepat", `cari_info` disembunyikan) lalu menjawab pertanyaan tadi lewat `pendingCue`. Kartu sumber `#srccard` (atas, 60 dtk),
-  tidak tampil kalau kartu peta terbuka. Hasil pencarian tidak disimpan ke ingatan. Status di Pengaturan → Fitur → "Pencarian internet".
+  tidak tampil kalau kartu peta terbuka. Hasil pencarian tidak disimpan ke ingatan. Status di Pengaturan → Fitur → "Pencarian internet (Rara)".
+  v1.16.1: alasan asli penolakan Google disimpan (`st.why`) dan tampil di Pengaturan + tombol "🔄 Coba Rara lagi" (`resetResearch`);
+  "limit: 0" = kunci tidak diberi jatah (`nofree`), Gaby bilang "Rara belum dapat izin dari Google".
 - Teman AI Gaby (v1.16), dikenal Gaby lewat bagian "TEMAN-TEMANMU" di prompt: **Rara** (internet, `cari_info`),
   **Lukas** (gambar: `writeImagePrompt` di `imagegen.js`, model teks 2.5 Flash → Flash-Lite, terima kata-kata pengguna + draf Gaby +
   isi laci yang nyambung + foto kamera; pilih bentuk persegi/tegak/mendatar; `gambar_aksi ulang` + `perubahan` = Lukas memperbaiki
@@ -79,7 +81,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Penjaga laci mengenali akhiran -ku/-mu/-nya/-lah/-kah ("kucingku" → laci keluarga).
 - Cerita update: `newsCue` di `app.js` sekali per versi saat dibuka biasa (tap/wake/open, bukan resume/pengingat), maks 3 item dari
   `WHATS_NEW`; `memory.seenVersion` (pengguna baru langsung = VERSION, pengguna lama tanpa catatan = 1.14.0).
-  **Setiap rilis: tambahkan entri di `js/whatsnew.js`** (bahasa santai, sudut pandang Gaby, item terpenting dulu).
+  **Setiap rilis: tambahkan entri di `js/whatsnew.js`** (bahasa santai, sudut pandang Gaby, item terpenting dulu;
+  `quiet: true` untuk perbaikan kecil = hanya di Pengaturan, tidak diceritakan).
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
@@ -90,7 +93,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.16.0, APK #6)
+## Status saat ini (v1.16.1, APK #6)
 Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan hologram), kamera/layar, gambar (gratis & galeri),
 lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
 APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
@@ -102,6 +105,8 @@ pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android 
 - v1.16.0: Rara (agen riset internet `cari_info`) + kartu sumber + pencarian cepat saat jatah habis; Lukas (prompt gambar rinci,
   ulang dengan perubahan); nama teman di prompt & layar; cerita update sekali + Pengaturan → ✨ Apa yang baru. Belum pasti apakah kunci gratis
   pemilik boleh memakai Google Search grounding dan berapa jatahnya (halaman harga Google tidak bisa dibuka dari sesi cloud).
+  1 Nov 2026: pemilik melapor Lukas lebih presisi ✅; Rara langsung "jatah habis" di percobaan pertama → v1.16.1 menampilkan
+  alasan Google di Pengaturan untuk didiagnosis (dugaan: paket gratis "limit: 0" atau jatah 2.5 Flash yang kecil dipakai bersama Lukas).
 Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
 ## Ide berikutnya (belum disetujui / belum dimulai)

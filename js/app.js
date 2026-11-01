@@ -5,7 +5,7 @@ import { memory, CATEGORIES, RASA } from './memory.js';
 import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
-import { researchStatus } from './research.js';
+import { researchStatus, researchReasons, resetResearch, quickSearchMode } from './research.js';
 import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
@@ -1101,6 +1101,10 @@ function fillSettings() {
   $('set-journal-count').textContent = st.journal.length;
   $('set-todo-count').textContent = st.todos.filter((t) => !t.done).length;
   $('set-research').textContent = st.keys.gemini ? researchStatus() : 'Butuh kunci Gemini';
+  // Kalau Rara ditolak Google: tampilkan alasan aslinya + tombol coba lagi.
+  const reasons = st.keys.gemini ? researchReasons() : [];
+  $('set-research-box').hidden = !reasons.length;
+  $('set-research-why').textContent = reasons.map((r) => `${r.label} ditolak Google: ${r.text}`).join('\n\n');
   fillNews();
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
@@ -1746,6 +1750,14 @@ function showSources(query, sources, queries = []) {
   srcTimer = setTimeout(() => { card.classList.remove('show'); card.hidden = true; }, 60000);
   touch();
 }
+
+$('set-research-retry').addEventListener('click', () => {
+  const wasQuick = quickSearchMode();
+  resetResearch();
+  fillSettings();
+  toast('Rara siap dicoba lagi. Tanya Gaby sesuatu, misal harga emas hari ini.');
+  if (wasQuick && phase === 'active') restartSession(); // sambung ulang supaya Gaby kembali memakai Rara
+});
 
 $('src-close').addEventListener('click', () => { clearTimeout(srcTimer); hideCards(); });
 

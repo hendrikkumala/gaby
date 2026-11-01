@@ -1,8 +1,16 @@
 // Daftar "apa yang baru" per versi. Gaby menceritakannya SEKALI setelah update
 // (lihat newsCue di app.js); daftar lengkap tampil di Pengaturan → ✨ Apa yang baru.
 // Tulis dengan bahasa santai dari sudut pandang Gaby. Item pertama = paling penting.
+// quiet: true = perbaikan kecil; hanya tampil di Pengaturan, tidak diceritakan Gaby.
 
 export const WHATS_NEW = [
+  {
+    version: '1.16.1',
+    quiet: true,
+    items: [
+      'Kalau Rara ditolak Google, alasannya sekarang kelihatan di Pengaturan, dan ada tombol "Coba Rara lagi"',
+    ],
+  },
   {
     version: '1.16.0',
     items: [
@@ -37,5 +45,5 @@ export function cmpVersion(a, b) {
 
 // Hal baru sejak versi `seen` (yang terbaru dulu), maksimal `max` item.
 export function newsSince(seen, max = 3) {
-  return WHATS_NEW.filter((v) => cmpVersion(v.version, seen) > 0).flatMap((v) => v.items).slice(0, max);
+  return WHATS_NEW.filter((v) => !v.quiet && cmpVersion(v.version, seen) > 0).flatMap((v) => v.items).slice(0, max);
 }
