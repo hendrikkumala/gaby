@@ -5,7 +5,7 @@ import { buildPersona } from './persona.js';
 import { TOOL_DEFS } from './tools.js';
 import { GeminiLive, listLiveModels, FALLBACK_MODELS, LEVEL_COUNT } from './gemini.js';
 import { OpenAIRealtime } from './openai.js';
-import { quickSearchMode } from './research.js';
+import { quickSearchMode, canResearch as researchReady } from './research.js';
 
 const EXHAUST_PAUSE = 60 * 60 * 1000; // coba lagi penyedia yang habis kuota setelah 1 jam
 
@@ -83,9 +83,8 @@ export class Brain {
       for (const level of p.kind === 'gemini' ? [...Array(LEVEL_COUNT).keys()].filter((l) => l >= start) : [0]) {
         // Pencarian internet: agen riset teliti (cari_info), atau Google Search bawaan
         // ("pencarian cepat") kalau jatah agen sedang habis.
-        const exhausted = quickSearchMode();
-        const quick = p.kind === 'gemini' && exhausted;
-        const canResearch = !!memory.get().keys.gemini && !exhausted;
+        const quick = p.kind === 'gemini' && quickSearchMode();
+        const canResearch = researchReady();
         const prov = this.makeProvider(p, level, quick);
         this.wire(prov, p);
         try {

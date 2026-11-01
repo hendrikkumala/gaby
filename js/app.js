@@ -6,6 +6,7 @@ import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
 import { researchStatus, researchReasons, resetResearch, quickSearchMode } from './research.js';
+import { groqLabel } from './groq.js';
 import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
@@ -1068,6 +1069,16 @@ function openSettings(group) {
   if (group) setTimeout(() => $(group).scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
+// Model yang terakhir dipakai Lukas untuk menulis perintah gambar.
+function lukasStatus() {
+  const { keys } = memory.get();
+  if (!keys.groq && !keys.gemini) return 'Butuh kunci Groq atau Gemini';
+  let m = '';
+  try { m = localStorage.getItem('gaby.lukasModel') || ''; } catch {}
+  if (!m) return keys.groq ? 'Groq (belum pernah menggambar)' : 'Gemini (belum pernah menggambar)';
+  return m.startsWith('groq:') ? `Groq ${groqLabel(m.slice(5))}` : `Gemini ${m.replace(/^gemini-/, '').replace(/-/g, ' ')}`;
+}
+
 // Pengaturan → ✨ Apa yang baru.
 function fillNews() {
   const box = $('set-news');
@@ -1104,7 +1115,7 @@ function fillSettings() {
   // Kalau Rara ditolak Google: tampilkan alasan aslinya + tombol coba lagi.
   const reasons = st.keys.gemini ? researchReasons() : [];
   $('set-research-box').hidden = !reasons.length;
-  $('set-research-why').textContent = reasons.map((r) => `${r.label} ditolak Google: ${r.text}`).join('\n\n');
+  $('set-research-why').textContent = reasons.map((r) => `${r.label} — ${r.text}`).join('\n\n');
   fillNews();
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
@@ -1131,6 +1142,9 @@ function fillSettings() {
   if (document.activeElement !== $('set-gemini')) $('set-gemini').value = st.keys.gemini;
   if (document.activeElement !== $('set-openai')) $('set-openai').value = st.keys.openai;
   if (document.activeElement !== $('set-poll')) $('set-poll').value = st.keys.pollinations || '';
+  if (document.activeElement !== $('set-groq')) $('set-groq').value = st.keys.groq || '';
+  $('set-groq-rara').textContent = researchStatus();
+  $('set-groq-lukas').textContent = lukasStatus();
   document.querySelectorAll('input[name="imgengine"]').forEach((r) => { r.checked = r.value === (st.settings.imageEngine || 'free'); });
 }
 
@@ -1267,20 +1281,40 @@ function deleteKey(which, label) {
 }
 $('set-del-gemini').addEventListener('click', () => deleteKey('gemini', 'Gemini'));
 $('set-del-openai').addEventListener('click', () => deleteKey('openai', 'OpenAI'));
+$('set-del-groq').addEventListener('click', () => {
+  if (!memory.get().keys.groq) { toast('Belum ada key Groq.'); return; }
+  if (!confirm('Hapus API key Groq dari perangkat ini? Rara & Lukas kembali memakai Gemini.')) return;
+  memory.setKeys({ groq: '' });
+  $('set-groq').value = '';
+  resetResearch();
+  fillSettings();
+  toast('Key Groq sudah dihapus.');
+  if (phase === 'active') restartSession();
+});
 
 $('set-save-keys').addEventListener('click', async () => {
   const gemini = $('set-gemini').value.trim();
   const openai = $('set-openai').value.trim();
   const pollinations = $('set-poll').value.trim();
+  const groq = $('set-groq').value.trim();
   if (gemini && gemini !== memory.get().keys.gemini) {
     const err = await checkGeminiKey(gemini);
     if (err) { toast(err, 'err'); return; }
   }
-  memory.setKeys({ gemini, openai, pollinations });
+  if (groq && !/^gsk_/.test(groq)) toast('Key Groq biasanya diawali "gsk_". Cek lagi kalau Rara gagal.', 'warn', 7000);
+  const groqChanged = groq !== (memory.get().keys.groq || '');
+  memory.setKeys({ gemini, openai, pollinations, groq });
   for (const id of Object.keys(memory.get().exhausted)) memory.clearExhausted(id);
   brain.models = null;
-  toast('Key tersimpan ✓');
+  // Kunci Groq baru: Rara langsung dicoba lagi, dan Gaby disambung ulang supaya kenal Rara yang aktif.
+  if (groqChanged) {
+    resetResearch();
+    try { localStorage.removeItem('gaby.lukasModel'); } catch {}
+    if (phase === 'active') restartSession();
+  }
+  toast(groqChanged && groq ? 'Key tersimpan ✓ Rara & Lukas sekarang pakai Groq ⚡' : 'Key tersimpan ✓');
   fillChain();
+  fillSettings();
 });
 
 $('set-rename').addEventListener('click', () => {
@@ -1997,14 +2031,15 @@ async function makeImage(draft, useCam, { request = '', shape = '', change = '',
   let lukas = false;
   request = String(request || '').trim() || draft;
   try {
-    if (!reuse && st.keys.gemini) {
+    if (!reuse && (st.keys.gemini || st.keys.groq)) {
       try {
-        const w = await writeImagePrompt(st.keys.gemini, {
+        const w = await writeImagePrompt({ gemini: st.keys.gemini, groq: st.keys.groq }, {
           request, draft, hints: imageHints(request), photo, engine, previous, change, shape,
         });
         prompt = w.prompt;
         shape = w.bentuk;
         lukas = true;
+        try { localStorage.setItem('gaby.lukasModel', w.model); } catch {}
       } catch (e) {
         console.warn('[Gaby] Lukas gagal menulis perintah, pakai draf Gaby:', e.message);
       }

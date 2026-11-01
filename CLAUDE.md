@@ -33,7 +33,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/location.js`, `map.js` | GPS, cari tempat, rute (OSRM), kartu peta (Leaflet) |
 | `js/apps.js` | Buka WhatsApp/YouTube/dll. (Android intent, iOS universal link) |
 | `js/whatsnew.js` | Daftar "apa yang baru" per versi (Gaby cerita sekali setelah update; Pengaturan → ✨ Apa yang baru) |
-| `js/research.js` | **Rara**, agen riset internet `cari_info`: Gemini teks + Google Search bertingkat (3.x → 2.5), catat jatah habis, mode pencarian cepat |
+| `js/research.js` | **Rara**, agen riset internet `cari_info`: bertingkat Groq GPT-OSS 120B + browser_search → Gemini 3.x → 2.5 (+ Google Search), catat jatah habis & alasan, mode pencarian cepat |
+| `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS 120B + `browser_search`) & Lukas (Qwen3 32B → Llama 3.3 70B → …), pilih model pengganti dari daftar model Groq |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
 | `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (**Lukas** menulis prompt via Gemini teks, lalu Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
 | `sw.js` | Service worker: tetap bisa dibuka walau GitHub down |
@@ -66,19 +67,22 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   (penjaga laci = pencocokan kata kunci lokal, tanpa AI). Ingatan lama dipindah otomatis (kata kunci) lalu dipilah ulang AI sekali (`needResort`).
   Penyisipan konteks di tengah sesi Live sengaja tidak dipakai (bisa memotong Gaby bicara); pakai alat saja.
 - Anti muter-muter: prompt punya bagian "CARA MEMAKAI INGATAN", catatan harian yang dibawa hanya 5 terakhir.
-- Internet (v1.16): Google Search bawaan Gaby **dimatikan**; semua info faktual lewat alat `cari_info` (`js/research.js`) memakai kunci Gemini yang sama.
-  Tingkat: Gemini 3.x Flash (jatah bulanan) → Gemini 2.5 Flash (jatah harian). Batas per menit = coba lagi sekali, bukan habis.
+- Internet (v1.16/1.17): Google Search bawaan Gaby **dimatikan**; semua info faktual lewat alat `cari_info` (`js/research.js`).
+  Tingkat (yang tak punya kunci dilewati): Groq GPT-OSS 120B + `browser_search` (kunci Groq `keys.groq`, diisi pemilik di Pengaturan → Otak Gaby)
+  → Gemini 3.x Flash (jatah bulanan) → Gemini 2.5 Flash (jatah harian). Kunci Groq salah (401) / gangguan jaringan → lanjut Gemini, alasan tampil. Batas per menit = coba lagi sekali, bukan habis.
   Jatah habis dicatat di `localStorage['gaby.research']` sampai 08:00 UTC (harian) / tgl 1 bulan depan (bulanan).
   Dua-duanya habis → `switchToQuickSearch` di `app.js` menyambung ulang setelah Gaby selesai bicara dengan Google Search bawaan
   ("pencarian cepat", `cari_info` disembunyikan) lalu menjawab pertanyaan tadi lewat `pendingCue`. Kartu sumber `#srccard` (atas, 60 dtk),
   tidak tampil kalau kartu peta terbuka. Hasil pencarian tidak disimpan ke ingatan. Status di Pengaturan → Fitur → "Pencarian internet (Rara)".
-  v1.16.1: alasan asli penolakan Google disimpan (`st.why`) dan tampil di Pengaturan + tombol "🔄 Coba Rara lagi" (`resetResearch`);
-  "limit: 0" = kunci tidak diberi jatah (`nofree`), Gaby bilang "Rara belum dapat izin dari Google".
+  Alasan penolakan disimpan (`st.why`, gangguan di `st.lastFail`) dan tampil di Pengaturan → Fitur + tombol "🔄 Coba Rara lagi" (`resetResearch`);
+  "limit: 0" = kunci tidak diberi jatah (`nofree`). Kunci Gemini gratis pemilik ditolak Google Search grounding (1 Nov 2026) → solusi v1.17: Groq.
 - Teman AI Gaby (v1.16), dikenal Gaby lewat bagian "TEMAN-TEMANMU" di prompt: **Rara** (internet, `cari_info`),
-  **Lukas** (gambar: `writeImagePrompt` di `imagegen.js`, model teks 2.5 Flash → Flash-Lite, terima kata-kata pengguna + draf Gaby +
+  **Lukas** (gambar: `writeImagePrompt` di `imagegen.js`: Groq Qwen3 32B kalau ada kunci Groq & tanpa foto; foto kamera / tanpa Groq →
+  Gemini 2.5 Flash → Flash-Lite; status model terakhir di `localStorage['gaby.lukasModel']`; terima kata-kata pengguna + draf Gaby +
   isi laci yang nyambung + foto kamera; pilih bentuk persegi/tegak/mendatar; `gambar_aksi ulang` + `perubahan` = Lukas memperbaiki
   prompt lama; gagal → draf Gaby), **Meri** (catatan harian & perapian ingatan). Penjaga laci (kata kunci) bukan AI.
   Penjaga laci mengenali akhiran -ku/-mu/-nya/-lah/-kah ("kucingku" → laci keluarga).
+- OpenRouter belum dipakai: model gratisnya tidak bisa browsing gratis (pencarian berbayar). Pertimbangkan kalau Groq berhenti gratis.
 - Cerita update: `newsCue` di `app.js` sekali per versi saat dibuka biasa (tap/wake/open, bukan resume/pengingat), maks 3 item dari
   `WHATS_NEW`; `memory.seenVersion` (pengguna baru langsung = VERSION, pengguna lama tanpa catatan = 1.14.0).
   **Setiap rilis: tambahkan entri di `js/whatsnew.js`** (bahasa santai, sudut pandang Gaby, item terpenting dulu;
@@ -86,14 +90,14 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`.
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`.
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.16.1, APK #6)
+## Status saat ini (v1.17.0, APK #6)
 Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan hologram), kamera/layar, gambar (gratis & galeri),
 lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
 APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
@@ -105,8 +109,9 @@ pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android 
 - v1.16.0: Rara (agen riset internet `cari_info`) + kartu sumber + pencarian cepat saat jatah habis; Lukas (prompt gambar rinci,
   ulang dengan perubahan); nama teman di prompt & layar; cerita update sekali + Pengaturan → ✨ Apa yang baru. Belum pasti apakah kunci gratis
   pemilik boleh memakai Google Search grounding dan berapa jatahnya (halaman harga Google tidak bisa dibuka dari sesi cloud).
-  1 Nov 2026: pemilik melapor Lukas lebih presisi ✅; Rara langsung "jatah habis" di percobaan pertama → v1.16.1 menampilkan
-  alasan Google di Pengaturan untuk didiagnosis (dugaan: paket gratis "limit: 0" atau jatah 2.5 Flash yang kecil dipakai bersama Lukas).
+  1 Nov 2026: pemilik melapor Lukas lebih presisi ✅; Rara via Gemini tetap gagal (jatah/izin Google) → v1.17.0: kunci Groq.
+- v1.17.0: kunci Groq di Pengaturan → Rara GPT-OSS 120B + browser_search, Lukas Qwen3 32B. Belum pasti: browser_search Groq masih gratis?
+  dan apakah Groq mengizinkan dipanggil langsung dari browser/APK (CORS) — kalau gagal, alasannya tampil di Pengaturan → Fitur.
 Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
 ## Ide berikutnya (belum disetujui / belum dimulai)

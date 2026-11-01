@@ -1,3 +1,5 @@
+import { groqModels, groqChat, cleanText } from './groq.js';
+
 // LUKAS, teman pelukis Gaby: menulis perintah gambar yang rinci (writeImagePrompt), lalu
 // menggambar dengan mesin gratis (Pollinations) atau model gambar Gemini ("Nano Banana").
 // Catatan: model gambar Google di banyak akun butuh billing (bukan kuota gratis).
@@ -194,17 +196,62 @@ Balas JSON: {"prompt": "...", "bentuk": "persegi|tegak|mendatar"}`);
   return parts.join('\n\n');
 }
 
-// Hasil: { prompt, bentuk }. Gagal → lempar error (pemanggil memakai draf Gaby).
-export async function writeImagePrompt(key, opts) {
+function parseLukas(raw, opts) {
+  const text = cleanText(raw);
+  const json = text.match(/\{[\s\S]*\}/);
+  const out = JSON.parse(json ? json[0] : text);
+  const prompt = String(out.prompt || '').trim();
+  if (prompt.length < 15) throw new Error('prompt kosong');
+  const bentuk = SHAPES[opts.shape] ? opts.shape : (SHAPES[out.bentuk] ? out.bentuk : 'persegi');
+  return { prompt: prompt.slice(0, 1500), bentuk };
+}
+
+// Lukas lewat Groq (Qwen3 32B dkk.). Hanya teks; foto kamera ditangani Gemini.
+async function lukasGroq(key, opts) {
+  const text = lukasPrompt({ ...opts, hasPhoto: false });
+  let lastErr = null;
+  for (const model of await groqModels(key, 'lukas')) {
+    const body = {
+      model,
+      messages: [{ role: 'user', content: text }],
+      temperature: 0.6,
+      max_completion_tokens: 1024,
+      response_format: { type: 'json_object' },
+    };
+    if (/qwen3/.test(model)) body.reasoning_effort = 'none'; // langsung menulis, tanpa "berpikir"
+    else if (/gpt-oss/.test(model)) body.reasoning_effort = 'low';
+    const r = await groqChat(key, body, 15000);
+    if (r.error) { lastErr = new Error(`${model}: ${r.message}`); if (r.error === 'auth') break; continue; }
+    try {
+      return { ...parseLukas(r.data.choices?.[0]?.message?.content, opts), model: `groq:${model}` };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Groq tidak bisa dipakai Lukas');
+}
+
+// keys: { groq, gemini }. Hasil: { prompt, bentuk, model }. Gagal → lempar error (pemanggil memakai draf Gaby).
+// Urutan: Groq (kalau ada kunci & tanpa foto) → Gemini 2.5 Flash → Flash-Lite.
+export async function writeImagePrompt(keys, opts) {
+  let lastErr = null;
+  if (keys.groq && !opts.photo) {
+    try {
+      return await lukasGroq(keys.groq, opts);
+    } catch (e) {
+      lastErr = e;
+      console.warn('[Gaby] Lukas via Groq gagal, coba Gemini:', e.message);
+    }
+  }
+  if (!keys.gemini) throw lastErr || new Error('Lukas butuh kunci Groq atau Gemini');
   const text = lukasPrompt({ ...opts, hasPhoto: !!opts.photo });
   const parts = [{ text }];
   if (opts.photo) parts.push({ inline_data: { mime_type: 'image/jpeg', data: opts.photo } });
-  let lastErr = null;
   for (const model of TEXT_MODELS) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
     try {
-      const res = await fetch(`${REST}/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+      const res = await fetch(`${REST}/models/${model}:generateContent?key=${encodeURIComponent(keys.gemini)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: ctrl.signal,
@@ -216,11 +263,7 @@ export async function writeImagePrompt(key, opts) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { lastErr = new Error(data.error?.message || `HTTP ${res.status}`); continue; }
       const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
-      const out = JSON.parse(raw);
-      const prompt = String(out.prompt || '').trim();
-      if (prompt.length < 15) { lastErr = new Error('prompt kosong'); continue; }
-      const bentuk = SHAPES[opts.shape] ? opts.shape : (SHAPES[out.bentuk] ? out.bentuk : 'persegi');
-      return { prompt: prompt.slice(0, 1500), bentuk, model };
+      return { ...parseLukas(raw, opts), model };
     } catch (e) {
       lastErr = e;
     } finally {

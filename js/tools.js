@@ -482,12 +482,12 @@ export async function runTool(name, args, ui) {
 async function searchTool(args, ui) {
   const q = String(args.pertanyaan || '').trim();
   if (!q) return { error: 'Pertanyaannya kosong' };
-  const key = memory.get().keys.gemini;
-  if (!key) {
-    return { error: 'tidak_bisa', catatan: 'Pencarian internet butuh kunci Gemini. Bilang jujur kamu tidak bisa mengecek internet sekarang; JANGAN menebak.' };
+  const { keys } = memory.get();
+  if (!keys.groq && !keys.gemini) {
+    return { error: 'tidak_bisa', catatan: 'Rara butuh kunci Groq (gratis) atau Gemini. Bilang jujur kamu tidak bisa mengecek internet sekarang dan sarankan mengisi kunci Groq di Pengaturan; JANGAN menebak.' };
   }
   const health = !!args.kesehatan || guessCats(q).includes('kesehatan');
-  const r = await research(q, key);
+  const r = await research(q);
   if (r.ok && r.found) {
     if (r.sources.length) ui.showSources(q, r.sources, r.queries);
     return {
@@ -509,8 +509,8 @@ async function searchTool(args, ui) {
     return {
       jatah_habis: true,
       catatan: r.nofree
-        ? 'Google belum memberi Rara jatah pencarian untuk kunci ini. Ucapkan SATU kalimat saja: "Rara belum dapat izin dari Google, aku pakai pencarian cepat ya, sebentar." Jangan menjawab pertanyaannya sekarang.'
-        : 'Jatah pencarian teliti sedang habis. Ucapkan SATU kalimat saja: "Jatah cek Rara habis, aku pindah ke pencarian cepat ya, sebentar." Jangan menjawab pertanyaannya sekarang.',
+        ? `Google belum memberi Rara jatah pencarian untuk kunci ini. Ucapkan SATU kalimat saja: "Rara belum dapat izin dari Google, aku pakai pencarian cepat ya, sebentar."${keys.groq ? '' : ' Boleh tambahkan singkat: Rara bisa semangat lagi kalau diberi kunci Groq gratis di Pengaturan.'} Jangan menjawab pertanyaannya sekarang.`
+        : `Jatah pencarian teliti sedang habis. Ucapkan SATU kalimat saja: "Jatah cek Rara habis, aku pindah ke pencarian cepat ya, sebentar."${keys.groq ? '' : ' Boleh tambahkan singkat: Rara bisa semangat lagi kalau diberi kunci Groq gratis di Pengaturan.'} Jangan menjawab pertanyaannya sekarang.`,
     };
   }
   if (r.reason === 'auth') {

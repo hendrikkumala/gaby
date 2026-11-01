@@ -5,10 +5,9 @@
 
 export const WHATS_NEW = [
   {
-    version: '1.16.1',
-    quiet: true,
+    version: '1.17.0',
     items: [
-      'Kalau Rara ditolak Google, alasannya sekarang kelihatan di Pengaturan, dan ada tombol "Coba Rara lagi"',
+      'Rara dan Lukas sekarang bisa pakai kunci Groq gratis, jadi makin cepat dan semangat kerja! Rara langsung browsing internet sendiri, Lukas makin kilat nulis perintah gambar. Isi kuncinya di Pengaturan, bagian Otak Gaby',
     ],
   },
   {

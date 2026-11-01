@@ -100,7 +100,7 @@ const DEFAULTS = {
   reminders: [],     // [{ id, text, due, done, todoId }]
   todos: [],         // [{ id, text, done, doneAt, createdAt, date, reminderId }] — catatan/to-do
   pinOk: false,
-  keys: { gemini: '', openai: '', pollinations: '' },
+  keys: { gemini: '', openai: '', pollinations: '', groq: '' },
   settings: {
     mode: null,      // 'wake' | 'always' | 'tap' (null = pilih otomatis)
     voice: 'Aoede',
