@@ -5,6 +5,7 @@ import { buildPersona } from './persona.js';
 import { TOOL_DEFS } from './tools.js';
 import { GeminiLive, listLiveModels, FALLBACK_MODELS, LEVEL_COUNT } from './gemini.js';
 import { OpenAIRealtime } from './openai.js';
+import { quickSearchMode } from './research.js';
 
 const EXHAUST_PAUSE = 60 * 60 * 1000; // coba lagi penyedia yang habis kuota setelah 1 jam
 
@@ -54,10 +55,10 @@ export class Brain {
     return list.map((p) => (p.kind === 'openai' ? 'OpenAI' : p.model)).join(' → ') || '(belum ada key)';
   }
 
-  makeProvider(p, level) {
+  makeProvider(p, level, quickSearch = false) {
     const { keys, settings } = memory.get();
     return p.kind === 'gemini'
-      ? new GeminiLive({ key: keys.gemini, model: p.model, voice: settings.voice, level, localVad: settings.vadMode !== 'server' })
+      ? new GeminiLive({ key: keys.gemini, model: p.model, voice: settings.voice, level, localVad: settings.vadMode !== 'server', quickSearch })
       : new OpenAIRealtime({ key: keys.openai });
   }
 
@@ -80,10 +81,18 @@ export class Brain {
       // Tingkat 0 = "merasakan nada suara" (eksperimental); dilewati bila dimatikan.
       const start = Math.max(this.levels[p.id] || 0, memory.get().settings.affective === false ? 1 : 0);
       for (const level of p.kind === 'gemini' ? [...Array(LEVEL_COUNT).keys()].filter((l) => l >= start) : [0]) {
-        const prov = this.makeProvider(p, level);
+        // Pencarian internet: agen riset teliti (cari_info), atau Google Search bawaan
+        // ("pencarian cepat") kalau jatah agen sedang habis.
+        const exhausted = quickSearchMode();
+        const quick = p.kind === 'gemini' && exhausted;
+        const canResearch = !!memory.get().keys.gemini && !exhausted;
+        const prov = this.makeProvider(p, level, quick);
         this.wire(prov, p);
         try {
-          await prov.connect({ system: buildPersona(prov.name), tools: TOOL_DEFS });
+          await prov.connect({
+            system: buildPersona(prov.name, { quickSearch: quick, research: canResearch }),
+            tools: canResearch ? TOOL_DEFS : TOOL_DEFS.filter((t) => t.name !== 'cari_info'),
+          });
           this.provider = prov;
           this.current = p;
           if (this.levels[p.id] !== level) {

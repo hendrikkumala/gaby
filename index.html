@@ -89,6 +89,16 @@
     <p id="todo-empty" class="hint center">Belum ada catatan. Bilang "Gaby, catat …"</p>
   </div>
 
+  <!-- Kartu sumber hasil cari_info -->
+  <div id="srccard" class="mapcard srccard" hidden>
+    <div class="mapcard-head">
+      <b>🔎 Sumber</b>
+      <button id="src-close" class="icon-btn" aria-label="Tutup sumber">✕</button>
+    </div>
+    <p id="src-query" class="src-query"></p>
+    <ul id="src-list" class="src-list"></ul>
+  </div>
+
   <!-- Kartu peta: rute / tempat sekitar -->
   <div id="mapcard" class="mapcard" hidden>
     <div class="mapcard-head">
@@ -230,6 +240,7 @@
             <option value="spotify">Spotify</option>
           </select></div>
         <div class="row"><span>Catatan / to-do belum selesai</span><b id="set-todo-count">0</b></div>
+        <div class="row"><span>Pencarian internet</span><b id="set-research">–</b></div>
         <div id="set-apk" hidden>
           <div class="row"><span>Versi aplikasi Android</span><b id="set-apk-version">–</b></div>
           <div class="btn-row"><button id="set-check-update" class="btn">📦 Cek update aplikasi</button></div>

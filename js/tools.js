@@ -1,6 +1,7 @@
 // Kemampuan Gaby: nama, ingatan, emosi, waktu, cuaca, pengingat, buka situs.
 
-import { memory, CATEGORIES } from './memory.js';
+import { memory, CATEGORIES, guessCats } from './memory.js';
+import { research, quickSearchMode } from './research.js';
 import { getPosition, describePosition, shortPlace } from './location.js';
 import { LANGS } from './persona.js';
 
@@ -41,6 +42,18 @@ export const TOOL_DEFS = [
       type: 'object',
       properties: { topik: { type: 'string', description: 'Topik atau nama laci, misal "makanan", "film", "rencana liburan ke Bali", "Joni"' } },
       required: ['topik'],
+    },
+  },
+  {
+    name: 'cari_info',
+    description: 'Agen riset internet (cari di Google dengan teliti, pakai sumber). WAJIB dipakai untuk info faktual yang bisa berubah atau harus tepat: berita, harga, kurs, skor & jadwal pertandingan, data/angka, tanggal peristiwa, tokoh, produk, rekomendasi tempat, info kesehatan/obat, aturan/hukum. Hasilnya jawaban + sumber yang tampil di layar. Butuh beberapa detik.',
+    parameters: {
+      type: 'object',
+      properties: {
+        pertanyaan: { type: 'string', description: 'Pertanyaan lengkap dan jelas, sertakan nama kota/tanggal kalau perlu, misal "harga emas Antam hari ini" atau "skor Persib tadi malam"' },
+        kesehatan: { type: 'boolean', description: 'true kalau tentang kesehatan, penyakit, obat, atau medis' },
+      },
+      required: ['pertanyaan'],
     },
   },
   {
@@ -165,7 +178,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'cari_tempat',
-    description: 'Cari tempat di sekitar pengguna (misal "toko mochi", "bengkel", "apotek 24 jam"). Menampilkan peta lokasi pengguna dan tombol Google Maps. Setelah itu pakai Google Search dengan nama daerah yang dikembalikan untuk menyebut beberapa rekomendasi.',
+    description: 'Cari tempat di sekitar pengguna (misal "toko mochi", "bengkel", "apotek 24 jam"). Menampilkan peta lokasi pengguna dan tombol Google Maps. Setelah itu cari rekomendasi dengan nama daerah yang dikembalikan (ikuti catatan di hasilnya).',
     parameters: {
       type: 'object',
       properties: { kata_kunci: { type: 'string', description: 'Jenis tempat yang dicari' } },
@@ -334,6 +347,9 @@ export async function runTool(name, args, ui) {
         return { laci, ...(cocok.length ? { ingatan_lain_yang_cocok: cocok } : {}) };
       }
 
+      case 'cari_info':
+        return await searchTool(args, ui);
+
       case 'lupakan':
         return { ok: true, dihapus: memory.forget(args.kata_kunci) };
 
@@ -427,7 +443,7 @@ export async function runTool(name, args, ui) {
         ui.showPlaces(String(args.kata_kunci || ''), pos, area);
         return {
           daerah_pengguna: area || shortPlace(place),
-          catatan: `Peta & tombol Google Maps sudah tampil. Sekarang cari dengan Google Search: "${args.kata_kunci} enak dekat ${area}" lalu sebut 2–3 rekomendasi singkat beserta perkiraan jaraknya.`,
+          catatan: `Peta & tombol Google Maps sudah tampil. Sekarang cari dengan ${quickSearchMode() ? 'Google Search' : 'cari_info'}: "${args.kata_kunci} terbaik dekat ${area}" lalu sebut 2–3 rekomendasi singkat beserta perkiraan jaraknya.`,
         };
       }
 
@@ -452,4 +468,43 @@ export async function runTool(name, args, ui) {
   } catch (e) {
     return { error: String(e.message || e) };
   }
+}
+
+// Agen riset internet. Hasil pencarian TIDAK disimpan ke ingatan (cepat basi).
+async function searchTool(args, ui) {
+  const q = String(args.pertanyaan || '').trim();
+  if (!q) return { error: 'Pertanyaannya kosong' };
+  const key = memory.get().keys.gemini;
+  if (!key) {
+    return { error: 'tidak_bisa', catatan: 'Pencarian internet butuh kunci Gemini. Bilang jujur kamu tidak bisa mengecek internet sekarang; JANGAN menebak.' };
+  }
+  const health = !!args.kesehatan || guessCats(q).includes('kesehatan');
+  const r = await research(q, key);
+  if (r.ok && r.found) {
+    if (r.sources.length) ui.showSources(q, r.sources, r.queries);
+    return {
+      jawaban: r.text,
+      jumlah_sumber: r.sources.length,
+      catatan: (r.sources.length
+        ? 'Sampaikan HANYA isi jawaban ini dengan singkat (1–3 kalimat), jangan menambah angka atau detail sendiri. Sumbernya sudah tampil di layar; jangan membacakan link.'
+        : 'Tidak ada sumber yang mendukung jawaban ini; sampaikan dengan hati-hati bahwa kamu belum yakin.')
+        + (health ? ' Tutup dengan pesan singkat: tetap konsultasi ke dokter ya.' : ''),
+    };
+  }
+  if (r.ok) {
+    return { ketemu: false, catatan: 'Info ini tidak ditemukan di internet. Bilang jujur kamu tidak menemukannya; JANGAN menebak atau mengarang.' };
+  }
+  if (r.reason === 'habis') {
+    if (!ui.switchToQuickSearch(q)) {
+      return { error: 'jatah_habis', catatan: 'Jatah pencarian internet hari ini habis. Bilang jujur kamu belum bisa mengecek sekarang; JANGAN menebak.' };
+    }
+    return {
+      jatah_habis: true,
+      catatan: 'Jatah pencarian teliti sedang habis. Ucapkan SATU kalimat saja: "Jatah cek telitiku habis, aku pindah ke pencarian cepat ya, sebentar." Jangan menjawab pertanyaannya sekarang.',
+    };
+  }
+  if (r.reason === 'auth') {
+    return { error: 'kunci_ditolak', catatan: 'Kunci Gemini ditolak untuk pencarian. Bilang jujur kamu tidak bisa mengecek sekarang; JANGAN menebak.' };
+  }
+  return { error: 'gangguan', catatan: 'Pencarian sedang gangguan. Bilang jujur kamu belum bisa mengecek sekarang dan tawarkan coba lagi sebentar lagi; JANGAN menebak.' };
 }

@@ -57,7 +57,7 @@ export const isSlowModel = (n) => /thinking|dialog/.test(n);
 //   thinkingOff = langsung bicara tanpa berpikir dulu
 //   background  = simpan ingatan tanpa membuat Gaby berhenti bicara
 //   manual      = Gaby (perangkat) yang menentukan kapan kamu selesai bicara
-//   extras      = Google Search + sesi panjang
+//   extras      = sesi panjang (+ Google Search bawaan hanya saat pencarian cepat)
 //   affective   = Gemini merasakan nada suara pengguna (eksperimental, v1alpha)
 const LEVELS = [
   { affective: true, thinkingOff: true, background: true, manual: true, extras: true },
@@ -83,7 +83,7 @@ function toGeminiSchema(s) {
 }
 
 export class GeminiLive {
-  constructor({ key, model, voice, level = 0, localVad = true }) {
+  constructor({ key, model, voice, level = 0, localVad = true, quickSearch = false }) {
     this.key = key;
     this.model = model;
     this.voice = voice;
@@ -91,6 +91,8 @@ export class GeminiLive {
     this.features = LEVELS[level] || {};
     // Kalau true, perangkat yang memberi tahu Gemini kapan kamu mulai & selesai bicara.
     this.manual = !!(this.features.manual && localVad);
+    // Google Search bawaan hanya dinyalakan kalau jatah agen riset (cari_info) habis.
+    this.quickSearch = quickSearch;
     this.toolScheduling = new Map(); // alat latar → kapan hasilnya disampaikan
     this.name = 'gemini';
     this.label = `Gemini (${model})`;
@@ -159,7 +161,7 @@ export class GeminiLive {
           };
         }
         if (this.features.extras) {
-          setup.tools.push({ googleSearch: {} });
+          if (this.quickSearch) setup.tools.push({ googleSearch: {} });
           setup.contextWindowCompression = { slidingWindow: {} };
         }
         ws.send(JSON.stringify({ setup }));

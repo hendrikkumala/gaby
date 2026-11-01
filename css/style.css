@@ -617,6 +617,15 @@ mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px;
 
 /* ---------- Kartu catatan / to-do ---------- */
 .todocard { width: min(92vw, 420px); }
+/* Kartu sumber: kecil, di atas (di bawah status) supaya teks ucapan Gaby di bawah tetap terbaca. */
+.srccard { top: calc(76px + var(--safe-top, 0px)); width: min(92vw, 400px); padding: 10px 12px; transform: translate(-50%, 0) scale(.9); }
+.srccard.show { transform: translate(-50%, 0) scale(1); }
+.src-query { margin: 0 0 6px; font-size: 13px; opacity: .75; }
+.src-list { list-style: none; margin: 0; padding: 0; max-height: 24vh; overflow-y: auto; }
+.src-list li { padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.src-list li:last-child { border-bottom: none; }
+.src-list a { color: var(--accent); text-decoration: none; word-break: break-word; }
+.src-list li.q a { opacity: .8; }
 .todo-list { list-style: none; margin: 4px 0 0; padding: 0; max-height: min(52vh, 380px); overflow-y: auto; }
 .todo-list li {
   display: flex;

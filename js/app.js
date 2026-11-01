@@ -5,6 +5,7 @@ import { memory, CATEGORIES, RASA } from './memory.js';
 import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
+import { researchStatus } from './research.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
 import {
@@ -412,6 +413,8 @@ const ui = {
     }
   },
   isNativeApp,
+  showSources: (q, sources, queries) => showSources(q, sources, queries),
+  switchToQuickSearch: (q) => switchToQuickSearch(q),
   sleepAfterSpeech() {
     sleepRequestedAt = Date.now();
   },
@@ -1066,6 +1069,7 @@ function fillSettings() {
   $('set-mem-count').textContent = st.profile.length;
   $('set-journal-count').textContent = st.journal.length;
   $('set-todo-count').textContent = st.todos.filter((t) => !t.done).length;
+  $('set-research').textContent = st.keys.gemini ? researchStatus() : 'Butuh kunci Gemini';
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
   $('set-music').value = st.settings.musicApp || 'ytmusic';
@@ -1622,6 +1626,7 @@ function hideCards(except) {
   if (except !== 'map') hideMapCard();
   if (except !== 'todo') { $('todocard').classList.remove('show'); $('todocard').hidden = true; }
   if (except !== 'image') { $('preview').hidden = true; $('preview').classList.remove('show'); }
+  if (except !== 'src') { $('srccard').classList.remove('show'); $('srccard').hidden = true; }
 }
 
 function showTodoCard(flashIds = []) {
@@ -1676,6 +1681,60 @@ function todoAction(aksi, items) {
 
 $('todo-close').addEventListener('click', () => hideCards());
 $('set-open-todo').addEventListener('click', () => { $('settings').hidden = true; showTodoCard(); });
+
+// ---------- Pencarian internet (cari_info) ----------
+
+let srcTimer = 0;
+
+// Kartu kecil berisi sumber jawaban; hilang sendiri setelah 60 detik.
+function showSources(query, sources, queries = []) {
+  // Peta (misal dari cari_tempat) lebih berguna: jangan ditutup oleh kartu sumber.
+  if (!$('mapcard').hidden) return;
+  hideCards('src');
+  $('src-query').textContent = `“${query}”`;
+  const ul = $('src-list');
+  ul.innerHTML = '';
+  const add = (label, url, cls = '') => {
+    const li = document.createElement('li');
+    if (cls) li.className = cls;
+    const a = document.createElement('a');
+    a.href = url;
+    a.textContent = label;
+    a.onclick = (e) => { e.preventDefault(); openExternal(url, label); };
+    li.appendChild(a);
+    ul.appendChild(li);
+  };
+  sources.forEach((s, i) => add(`${i + 1}. ${s.title}`, s.url));
+  // Kata kunci yang dicari Google (bisa diketuk untuk melihat sendiri hasilnya).
+  for (const q of queries) add(`🔍 ${q}`, `https://www.google.com/search?q=${encodeURIComponent(q)}`, 'q');
+  const card = $('srccard');
+  card.hidden = false;
+  requestAnimationFrame(() => card.classList.add('show'));
+  clearTimeout(srcTimer);
+  srcTimer = setTimeout(() => { card.classList.remove('show'); card.hidden = true; }, 60000);
+  touch();
+}
+
+$('src-close').addEventListener('click', () => { clearTimeout(srcTimer); hideCards(); });
+
+// Jatah agen riset habis: setelah Gaby selesai bicara, sambung ulang diam-diam dengan
+// Google Search bawaan menyala, lalu jawab pertanyaan tadi. Hanya untuk Gemini.
+let quickSwitch = null;
+function switchToQuickSearch(query) {
+  if (!brain.current || brain.current.kind !== 'gemini') return false;
+  fillSettings();
+  quickSwitch = query;
+  const attempt = (tries = 0) => {
+    if (!quickSwitch || phase !== 'active') { quickSwitch = null; return; }
+    if ((audio.isSpeaking() || thinking > 0) && tries < 25) { setTimeout(() => attempt(tries + 1), 400); return; }
+    const q = quickSwitch;
+    quickSwitch = null;
+    pendingCue = `[SISTEM] Kamu baru disambung ulang dengan pencarian cepat (Google Search bawaan). Pertanyaan pengguna tadi: "${q}". Cari dengan Google Search lalu jawab singkat, awali dengan "aku cek cepat ya, mungkin kurang akurat". Kalau tidak ketemu, bilang jujur; jangan mengarang.`;
+    restartSession();
+  };
+  setTimeout(() => attempt(), 1500);
+  return true;
+}
 
 // ---------- Musik ----------
 
