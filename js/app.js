@@ -1162,6 +1162,8 @@ function fillSettings() {
   if (document.activeElement !== $('set-groq')) $('set-groq').value = st.keys.groq || '';
   $('set-groq-rara').textContent = researchStatus();
   $('set-groq-lukas').textContent = lukasStatus();
+  $('set-groq-vera').textContent = st.keys.groq ? 'Groq Qwen3 32B (fakta & rencana) · Llama 4 (gambar)' : 'Butuh kunci Groq (tanpa itu hasil tetap tampil, bertanda "belum dicek")';
+  $('set-groq-pandu').textContent = st.keys.groq ? 'Groq GPT-OSS 120B' : 'Butuh kunci Groq';
   document.querySelectorAll('input[name="imgengine"]').forEach((r) => { r.checked = r.value === (st.settings.imageEngine || 'free'); });
 }
 

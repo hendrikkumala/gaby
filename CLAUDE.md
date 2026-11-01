@@ -34,6 +34,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/apps.js` | Buka WhatsApp/YouTube/dll. (Android intent, iOS universal link) |
 | `js/whatsnew.js` | Daftar "apa yang baru" per versi (Gaby cerita sekali setelah update; Pengaturan → ✨ Apa yang baru) |
 | `js/research.js` | **Rara**, agen riset internet `cari_info`: bertingkat Groq GPT-OSS 120B + browser_search → Gemini 3.x → 2.5 (+ Google Search), catat jatah habis & alasan, mode pencarian cepat |
+| `js/pandu.js` | **Pandu**, perencana: agen Groq GPT-OSS 120B dengan alat (langkah, Rara, cuaca, jarak, laci, jadwal, simpan_rencana), `normalizePlan` |
+| `js/vera.js` | **Vera**, pemeriksa: `checkFacts` (Rara), `checkImage` (Lukas, model penglihatan), `checkPlan` (Pandu: cek pasti + Qwen3) |
+| `js/teamboard.js` | Papan kerja tim di bawah status (siapa bekerja, bar, langkah; ketuk untuk detail) |
 | `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS 120B + `browser_search`) & Lukas (Qwen3 32B → Llama 3.3 70B → …), pilih model pengganti dari daftar model Groq |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
 | `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (**Lukas** menulis prompt via Gemini teks, lalu Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
@@ -83,6 +86,19 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   isi laci yang nyambung + foto kamera; pilih bentuk persegi/tegak/mendatar; `gambar_aksi ulang` + `perubahan` = Lukas memperbaiki
   prompt lama; gagal → draf Gaby), **Meri** (catatan harian & perapian ingatan). Penjaga laci (kata kunci) bukan AI.
   Penjaga laci mengenali akhiran -ku/-mu/-nya/-lah/-kah ("kucingku" → laci keluarga).
+- Tim v1.18 (semua lewat satu kunci Groq): **Vera** (Qwen3 32B berpikir; sengaja beda keluarga dari GPT-OSS) mengecek
+  Rara (`researchChecked`: bukti dari browsing Groq / groundingSupports Gemini; lemah → Rara cari ulang sekali; balasan Vera tak jelas =
+  "belum dicek", BUKAN dibuang), Lukas (Llama 4 penglihatan → cadangan Gemini; kurang → Lukas memperbaiki sekali; Pengaturan → Fitur
+  "Vera mengecek gambar Lukas"), dan Pandu (cek pasti: hal 👎, bentrok tanggal; Qwen3: masuk akal; ditolak → Pandu memperbaiki sekali).
+  **Pandu** jalan di belakang layar (`startPlan`/`runPlanJob` di `app.js`), satu misi sekaligus; selesai → `memory.addPlan` (nomor
+  urut, tidak dipakai ulang; hapus semua → mulai #1), Kartu Rencana, lalu `announce()`: Gaby bicara sendiri saat jeda (tidak memotong:
+  cek `audio.isSpeaking`, `thinking`, `vad.active`), atau disimpan di `planNews` + notifikasi HP (`nativeNotifyNow`) kalau Gaby tidur.
+  Pengingat bertanggal lampau dibuang otomatis; total = jumlah rincian (dihitung ulang). Papan kerja menahan Gaby supaya tidak tertidur.
+- Kartu bernama & satu kartu tampil sekaligus (`hideCards`): Kartu Berita (`#srccard`), Kartu Rencana / Perbandingan / Daftar Rencana
+  (`#plancard`, `dataset.kind`), Kartu Catatan, Kartu Peta, Kartu Gambar, Galeri. `tutup_kartu` per nama; gambar belum disimpan ditanya dulu.
+  Alat rencana: `buat_rencana` (+`dari_nomor` = turunan), `buka_rencana`, `daftar_rencana` (>5 → kartu daftar), `bandingkan_rencana`
+  (2–3), `hapus_rencana` (langsung, tombol/ucapan "batal" 1 menit → `batal_hapus_rencana`), `rencana_ke_catatan`.
+- Uji: mikrofon tiruan Chromium berbunyi "bip" sehingga `vad.active` sering true; pakai `--use-file-for-fake-audio-capture=<wav hening>`.
 - OpenRouter belum dipakai: model gratisnya tidak bisa browsing gratis (pencarian berbayar). Pertimbangkan kalau Groq berhenti gratis.
 - Cerita update: `newsCue` di `app.js` sekali per versi saat dibuka biasa (tap/wake/open, bukan resume/pengingat), maks 4 item dari
   `WHATS_NEW` (`newsSince`: item pertama tiap versi yang terlewat pasti ikut, diceritakan urut dari versi lama ke baru); `memory.seenVersion` (pengguna baru langsung = VERSION, pengguna lama tanpa catatan = 1.14.0).
@@ -98,7 +114,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.17.1, APK #6) — per 1 Nov 2026
+## Status saat ini (v1.18.0, APK #6) — per 1 Nov 2026
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
   ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
@@ -114,14 +130,19 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - v1.15: `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
 - v1.16: cerita update sekali per versi, Pengaturan → ✨ Apa yang baru, "ulang dengan perubahan" untuk gambar.
 - v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya" / "tutup semua" pakai suara (`tutup_kartu`).
+- **v1.18.0 (baru terbit, belum dicoba di HP):** Pandu (rencana bernomor, kartu, arsip, bandingkan, hapus/batal, ke catatan &
+  pengingat, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja tim, kartu bernama + tutup per nama.
+  Belum pasti di dunia nyata: model penglihatan Llama 4 masih ada di Groq? batas token per menit Groq saat Pandu bekerja panjang
+  (Pandu menunggu & pindah model kalau kena batas); kualitas rencana GPT-OSS untuk harga Indonesia.
 - Pencarian cepat (Google Search bawaan) saat semua jatah Rara habis.
 
-Kalau pemilik melaporkan masalah: pengingat/alarm → `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`;
+Kalau pemilik melaporkan masalah: Pandu/rencana → `js/pandu.js`, `runPlanJob`/`announce` di `js/app.js`; Vera → `js/vera.js`; pengingat/alarm → `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`;
 Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + `js/research.js`, `js/groq.js`; Lukas → `js/imagegen.js`.
 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.18.0 | Teman baru Pandu (perencana) & Vera (pemeriksa), papan kerja tim, kartu bernama + `tutup_kartu` per nama, rencana bernomor (buka/bandingkan/hapus/batal/ke catatan), kabar otomatis + notifikasi HP |
 | 1.17.1 | Kartu sumber tidak menumpuk, `tutup_kartu` pakai suara; cerita update runtut (maks 4 hal, urut lama → baru). "Perbaikan bug kecil" (quiet) |
 | 1.17.0 | Kunci Groq di Pengaturan → Otak Gaby: Rara GPT-OSS 120B + browser_search, Lukas Qwen3 32B; catatan v1.16.1 dihapus dari Apa yang baru |
 | 1.16.1 | Alasan penolakan Google tampil di Pengaturan + tombol "Coba Rara lagi" |

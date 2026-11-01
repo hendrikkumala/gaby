@@ -25,16 +25,31 @@ Gaby bekerja bersama tiga teman AI, dan dia kenal mereka (tanya saja: *"teman-te
 | 🔎 **Rara** | Riset internet dengan teliti: berita, harga, skor, kurs, info kesehatan. Sumbernya tampil di kartu kecil di layar | Kunci **Groq** (GPT-OSS 120B + browsing). Cadangan: Gemini, lalu pencarian cepat Gaby |
 | 🎨 **Lukas** | Menulis perintah gambar yang rinci dari kata-katamu, lalu menggambar | Kunci **Groq** (Qwen3 32B). Foto kamera & cadangan: Gemini |
 | 📝 **Meri** | Menulis catatan harian dan merapikan ingatan ke laci-laci saat Gaby tidur | Gemini |
+| 🗺️ **Pandu** | Menyusun rencana berlangkah (liburan, acara, diet, belanja, bandingkan produk) dengan bantuan Rara | Kunci **Groq** (GPT-OSS 120B) |
+| ✅ **Vera** | Mengecek hasil Rara (fakta vs sumber), Lukas (gambar vs permintaan), dan Pandu (hitungan, tanggal, pantangan) | Kunci **Groq** (Qwen3 32B, Llama 4 untuk gambar) |
+
+Saat teman-teman bekerja, **papan kerja** di bawah status menunjukkan siapa yang sedang bekerja dan langkahnya (ketuk untuk detail).
 
 **Membuat kunci Groq (gratis):** buka https://console.groq.com/keys → masuk pakai akun Google → **Create API Key** →
 salin kunci (diawali `gsk_`) → tempel di Pengaturan → Otak Gaby → **Simpan key**. Kunci hanya tersimpan di HP-mu.
 Kalau Rara gagal, alasannya tampil di Pengaturan → Fitur → *Pencarian internet (Rara)*, lengkap dengan tombol **Coba Rara lagi**.
 
+## Rencana bersama Pandu
+- *"Rencanakan liburan 3 hari ke Bali bulan Desember, budget 5 juta"* → Pandu bekerja ±1–2 menit, dicek Vera, lalu muncul
+  **Kartu Rencana #N** (biaya, hotel, jadwal; *Lihat detail*, *Masukkan ke catatan & pengingat*) dan Gaby mengabarkan sendiri.
+  Kalau Gaby sedang tidur, kabarnya disampaikan saat dibuka lagi (di aplikasi Android juga muncul notifikasi).
+- Semua rencana **bernomor dan tersimpan**: *"buka rencana 3"*, *"rencana Bali kemarin budgetnya berapa?"*,
+  *"ganti hotel rencana 1 yang dekat pantai"* (jadi rencana baru, yang lama tetap ada), *"bandingin rencana 1 dengan 3"*,
+  *"ada berapa rencana?"*, *"hapus rencana 2"*, *"hapus semua rencana"* (langsung; bilang *"eh batal"* dalam 1 menit untuk mengembalikan).
+- Daftar juga ada di Pengaturan → 🗺️ Rencana.
+
 ## Yang bisa Gaby lakukan
 - Ngobrol santai, dengan emosi (warna cahaya ikut berubah)
 - Ingat nama panggilan dan hal penting tentang kamu (tersimpan di perangkat masing-masing)
 - Jam & tanggal, cuaca, cari info terbaru lewat **Rara** (kartu sumber muncul di atas layar;
-  bilang *"tutup beritanya"* atau *"tutup semua"* untuk menutup kartu)
+  sudah dicek Vera: ✅ cocok, ⚠️ sumber berbeda, ❓ belum pasti)
+- 🗂️ **Kartu bernama**: Kartu Berita, Kartu Rencana, Kartu Perbandingan, Kartu Daftar Rencana, Kartu Catatan, Kartu Peta,
+  Kartu Gambar, Galeri. Tutup dengan suara: *"tutup kartu berita"*, *"tutup semua kartu"*.
 - Pengingat / timer ("Gaby, ingatkan aku 10 menit lagi angkat jemuran"). Di aplikasi Android berbunyi dengan nada notifikasi HP, juga saat HP terkunci (cek Pengaturan → Fitur → Pengingat sekali).
 - ⏰ **Alarm sungguhan** ("Gaby, pasang alarm jam 5 pagi", "bangunkan aku tiap hari kerja jam 6"):
   Android (aplikasi) langsung dipasang di aplikasi **Jam** HP; iPhone lewat tombol + Pintasan **"Gaby Alarm"**
@@ -87,6 +102,7 @@ Kalau Rara gagal, alasannya tampil di Pengaturan → Fitur → *Pencarian intern
 - Kepribadian Gaby: `js/persona.js`
 - Kemampuan (alat): `js/tools.js`
 - Rara (riset internet): `js/research.js`, `js/groq.js` · Lukas (gambar): `js/imagegen.js` · Meri: `js/journal.js`
+- Pandu (perencana): `js/pandu.js` · Vera (pemeriksa): `js/vera.js` · Papan kerja tim: `js/teamboard.js`
 - Laci ingatan: `js/memory.js` · Daftar "apa yang baru" (isi setiap rilis): `js/whatsnew.js`
 - Tampilan bola cahaya: `js/visual.js`
 - PIN: `js/config.js`

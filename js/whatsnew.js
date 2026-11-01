@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.18.0',
+    items: [
+      'Teman baru, Pandu si perencana: bilang "rencanakan liburan ke Bali 3 hari, budget 5 juta", nanti dia susun rencana bernomor lengkap dengan biaya, hotel, dan jadwal. Rencananya tersimpan, bisa dibuka lagi, dibandingkan, atau dihapus',
+      'Teman baru, Vera si pemeriksa: dia mengecek fakta dari Rara, gambar Lukas, dan rencana Pandu sebelum aku sampaikan, jadi makin bisa dipercaya',
+      'Sekarang ada papan kerja di atas layar supaya kamu tahu siapa yang lagi bekerja, dan tiap kartu punya nama, jadi tinggal bilang "tutup kartu berita" atau "tutup semua kartu"',
+    ],
+  },
+  {
     version: '1.17.1',
     quiet: true,
     items: [

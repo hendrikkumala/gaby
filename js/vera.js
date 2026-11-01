@@ -74,8 +74,11 @@ Balas HANYA JSON:
 {"status": "cocok" | "beda" | "lemah", "jawaban": "jawaban final bahasa Indonesia 1–3 kalimat, hanya yang didukung bukti; kosongkan kalau tidak ada yang didukung", "sumber_pendukung": 0, "catatan": "catatan singkat untuk Gaby"}
 status: cocok = semua fakta utama didukung bukti; beda = sumber saling berbeda (sebut kisarannya); lemah = sebagian/semua fakta utama tidak ada di bukti.`;
   const v = await askVera(prompt);
-  if (!v) return { status: 'skip', answer, support: n, note: 'Vera sedang tidak bisa mengecek.', badge: '❓ belum dicek Vera' };
-  const status = ['cocok', 'beda', 'lemah'].includes(v.status) ? v.status : 'lemah';
+  // Vera tidak bisa / balasannya tidak jelas: jawaban Rara tetap dipakai, ditandai "belum dicek".
+  if (!v || !['cocok', 'beda', 'lemah'].includes(v.status)) {
+    return { status: 'skip', answer, support: n, note: 'Vera sedang tidak bisa mengecek.', badge: '❓ belum dicek Vera' };
+  }
+  const status = v.status;
   const support = Math.max(0, Math.min(n || 0, parseInt(v.sumber_pendukung, 10) || 0)) || (status === 'cocok' ? Math.min(n, 1) : 0);
   const final = String(v.jawaban || '').trim();
   let badge;
@@ -215,7 +218,8 @@ Jangan rewel soal selera; laporkan hanya masalah NYATA.
 
 Balas HANYA JSON:
 {"status": "ok" | "perlu_perbaikan", "masalah": ["masalah singkat bahasa Indonesia"], "perbaikan": "instruksi singkat untuk Pandu (kosong kalau ok)"}`;
-  const v = await askVera(prompt, { timeout: 30000 });
+  const raw = await askVera(prompt, { timeout: 30000 });
+  const v = raw && ['ok', 'perlu_perbaikan'].includes(raw.status) ? raw : null; // balasan tidak jelas = belum dicek
   const llmIssues = v && v.status === 'perlu_perbaikan'
     ? (Array.isArray(v.masalah) ? v.masalah : []).map((t) => ({ serius: true, text: String(t).slice(0, 200) })).slice(0, 5)
     : [];
@@ -225,7 +229,7 @@ Balas HANYA JSON:
     ? [...serious.map((i) => i.text), v && v.perbaikan ? String(v.perbaikan).slice(0, 300) : ''].filter(Boolean).join(' ')
     : '';
   let badge;
-  if (!v && !local.length) badge = '❓ belum dicek Vera';
+  if (!v && !serious.length) badge = '❓ belum dicek Vera';
   else if (serious.length) badge = `⚠️ Vera: ${serious[0].text.slice(0, 70)}`;
   else badge = '✅ dicek Vera';
   return { ok: !serious.length, feedback, badge, issues, notes: [...fixes, ...issues.filter((i) => !i.serius).map((i) => i.text)], model: v && v._model };
