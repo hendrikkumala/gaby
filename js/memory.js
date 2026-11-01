@@ -1,5 +1,7 @@
 // Semua data Gaby disimpan di perangkat ini saja (localStorage).
 
+import { VERSION } from './config.js';
+
 const KEY = 'gaby.v1';
 
 // Laci-laci ingatan tentang pengguna. Urutan ini juga urutan tampil di Pengaturan.
@@ -64,8 +66,12 @@ const TOPIC_LIST = Object.fromEntries(Object.entries(TOPIC_WORDS).map(([cat, lis
 const words = (s) => String(s || '').toLowerCase().match(/[a-z0-9]+(?:-[a-z0-9]+)*/g) || [];
 
 // Laci yang cocok dengan sebuah teks (ucapan pengguna atau topik).
+// Akhiran milik/penegas bahasa Indonesia: "kucingku" → "kucing", "mobilnya" → "mobil".
+const stem = (w) => w.replace(/(nya|ku|mu|lah|kah)$/, '');
+
 export function guessCats(text) {
-  const t = ` ${words(text).join(' ')} `;
+  const ws = words(text);
+  const t = ` ${[...ws, ...ws.map(stem).filter((w, i) => w !== ws[i] && w.length > 2)].join(' ')} `;
   return Object.keys(TOPIC_LIST).filter((cat) => TOPIC_LIST[cat].some((w) => t.includes(` ${w} `)));
 }
 
@@ -87,6 +93,7 @@ const DEFAULTS = {
   profile: [],       // [{ id, cat, text, rasa, at }] — ingatan tentang pengguna, per laci
   profileVer: 2,     // versi susunan laci (2 = laci lengkap + tanda 👍/👎)
   needResort: false, // true = minta AI memilah ulang semua ingatan ke laci yang pas
+  seenVersion: null, // versi terakhir yang "apa yang baru"-nya sudah diceritakan Gaby
   journal: [],       // [{ id, date: 'YYYY-MM-DD', at, text }] — catatan harian ringkasan obrolan
   lastTidy: 0,       // kapan profil terakhir dirapikan
   history: [],       // [{ who: 'user' | 'gaby', text, at }]
@@ -116,7 +123,7 @@ let state = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return structuredClone(DEFAULTS);
+    if (!raw) return { ...structuredClone(DEFAULTS), seenVersion: VERSION }; // pengguna baru: tidak perlu cerita update
     const data = JSON.parse(raw);
     const st = {
       ...structuredClone(DEFAULTS),
@@ -145,6 +152,8 @@ function load() {
       st.profileVer = 2;
       st.needResort = st.profile.length > 0;
     }
+    // Pengguna lama sebelum fitur ini: anggap terakhir kenal v1.14.0. Belum kenalan: tidak perlu cerita update.
+    if (!st.seenVersion) st.seenVersion = st.nickname ? '1.14.0' : VERSION;
     for (const m of st.profile) {
       m.rasa = cleanRasa(m.rasa);
       if (!CATEGORIES[m.cat]) m.cat = 'lain';
@@ -406,6 +415,11 @@ export const memory = {
 
   setSetting(name, value) {
     state.settings[name] = value;
+    save();
+  },
+
+  setSeenVersion(v) {
+    state.seenVersion = v;
     save();
   },
 

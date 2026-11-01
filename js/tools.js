@@ -161,14 +161,16 @@ export const TOOL_DEFS = [
   {
     name: 'buat_gambar',
     background: 'idle',
-    description: 'Buat gambar baru, atau gambar berdasarkan benda di kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Butuh 5–20 detik; sambil menunggu, bilang singkat bahwa kamu sedang menggambar. Gambar tampil di layar dan pengguna memilih simpan, ulang, atau buang.',
+    description: 'Minta LUKAS (teman pelukismu) membuat gambar baru, atau gambar berdasarkan benda di kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Lukas menulis perintah gambar yang rinci sendiri. Butuh 5–25 detik; sambil menunggu, bilang singkat bahwa Lukas sedang menggambar. Gambar tampil di layar dan pengguna memilih simpan, ulang, atau buang.',
     parameters: {
       type: 'object',
       properties: {
-        perintah: { type: 'string', description: 'Deskripsi gambar yang detail dalam bahasa Inggris. Kalau pakai_kamera, SELALU deskripsikan juga benda di kamera secara rinci (bentuk, warna, bahan, latar), karena mesin gratis menggambar ulang dari deskripsi.' },
+        permintaan: { type: 'string', description: 'WAJIB: permintaan pengguna PERSIS dengan kata-katanya sendiri (bahasa aslinya), lengkap dengan semua detail yang dia sebut' },
+        perintah: { type: 'string', description: 'Draf singkat gambar dalam bahasa Inggris (Lukas yang menyempurnakan)' },
+        ukuran: { type: 'string', enum: ['persegi', 'tegak', 'mendatar'], description: 'Isi hanya kalau pengguna menyebut bentuk: tegak (wallpaper HP/poster), mendatar (wallpaper laptop/pemandangan lebar), persegi' },
         pakai_kamera: { type: 'boolean', description: 'true untuk mengedit gambar dari kamera saat ini' },
       },
-      required: ['perintah'],
+      required: ['permintaan', 'perintah'],
     },
   },
   {
@@ -247,10 +249,13 @@ export const TOOL_DEFS = [
   },
   {
     name: 'gambar_aksi',
-    description: 'Tindakan untuk kartu gambar yang sedang tampil: simpan ke galeri (kartu tertutup), ulang (gambar lagi dengan perintah sama), atau buang/tutup (kartu tertutup tanpa disimpan).',
+    description: 'Tindakan untuk kartu gambar yang sedang tampil: simpan ke galeri (kartu tertutup), ulang (gambar lagi; isi perubahan kalau pengguna minta ada yang diubah, misal "kucingnya lebih gemuk"), atau buang/tutup (kartu tertutup tanpa disimpan).',
     parameters: {
       type: 'object',
-      properties: { aksi: { type: 'string', enum: ['simpan', 'ulang', 'buang', 'tutup'] } },
+      properties: {
+        aksi: { type: 'string', enum: ['simpan', 'ulang', 'buang', 'tutup'] },
+        perubahan: { type: 'string', description: 'Untuk ulang: apa yang ingin diubah pengguna, dengan kata-katanya. Kosongkan kalau cuma ingin versi lain.' },
+      },
       required: ['aksi'],
     },
   },
@@ -428,7 +433,10 @@ export async function runTool(name, args, ui) {
         return ui.playMusic(String(args.lagu || ''));
 
       case 'buat_gambar':
-        return await ui.makeImage(String(args.perintah || ''), !!args.pakai_kamera);
+        return await ui.makeImage(String(args.perintah || args.permintaan || ''), !!args.pakai_kamera, {
+          request: String(args.permintaan || ''),
+          shape: ['persegi', 'tegak', 'mendatar'].includes(args.ukuran) ? args.ukuran : '',
+        });
 
       case 'lokasi_saya': {
         const pos = await getPosition();
@@ -453,7 +461,7 @@ export async function runTool(name, args, ui) {
       }
 
       case 'gambar_aksi':
-        return await ui.imageAction(args.aksi === 'tutup' ? 'buang' : args.aksi);
+        return await ui.imageAction(args.aksi === 'tutup' ? 'buang' : args.aksi, String(args.perubahan || ''));
 
       case 'galeri':
         return await ui.gallery(args.aksi === 'tutup' ? 'tutup' : 'buka');

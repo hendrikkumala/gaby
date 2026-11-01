@@ -1,5 +1,6 @@
-// Membuat & mengedit gambar dengan model gambar Gemini ("Nano Banana").
-// Catatan: di banyak akun fitur ini butuh billing Google (bukan kuota gratis).
+// LUKAS, teman pelukis Gaby: menulis perintah gambar yang rinci (writeImagePrompt), lalu
+// menggambar dengan mesin gratis (Pollinations) atau model gambar Gemini ("Nano Banana").
+// Catatan: model gambar Google di banyak akun butuh billing (bukan kuota gratis).
 
 const REST = 'https://generativelanguage.googleapis.com/v1beta';
 const FALLBACK = ['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview'];
@@ -37,10 +38,18 @@ function explain(status, message) {
   return { kind: 'lain', pesan: message || `Gagal (HTTP ${status})` };
 }
 
-// prompt: teks perintah. photo: JPEG base64 (opsional) untuk diedit.
-export async function generateImage(key, prompt, photo) {
+// Bentuk gambar → ukuran (mesin gratis) dan rasio (mesin Google).
+export const SHAPES = {
+  persegi: { width: 1024, height: 1024, ratio: '1:1', en: 'square 1:1' },
+  tegak: { width: 768, height: 1344, ratio: '9:16', en: 'vertical portrait 9:16' },
+  mendatar: { width: 1344, height: 768, ratio: '16:9', en: 'horizontal landscape 16:9' },
+};
+const shapeOf = (s) => SHAPES[s] || SHAPES.persegi;
+
+// prompt: teks perintah. photo: JPEG base64 (opsional) untuk diedit. shape: persegi/tegak/mendatar.
+export async function generateImage(key, prompt, photo, shape = 'persegi') {
   const models = await imageModels(key);
-  const parts = [{ text: prompt }];
+  const parts = [{ text: shape !== 'persegi' ? `${prompt}\nImage format: ${shapeOf(shape).en}.` : prompt }];
   if (photo) parts.push({ inline_data: { mime_type: 'image/jpeg', data: photo } });
   let last = null;
   for (const model of models.slice(0, 3)) {
@@ -96,9 +105,10 @@ function blobToBase64(blob) {
   });
 }
 
-export async function generateFree(prompt, key = '') {
+export async function generateFree(prompt, key = '', shape = 'persegi') {
   const seed = Math.floor(Math.random() * 1e9);
-  const q = new URLSearchParams({ width: '1024', height: '1024', nologo: 'true', seed: String(seed) });
+  const { width, height } = shapeOf(shape);
+  const q = new URLSearchParams({ width: String(width), height: String(height), nologo: 'true', seed: String(seed) });
   const p = encodeURIComponent(prompt);
 
   // 1) Dengan key: kirim lewat header (tersembunyi), supaya key tidak muncul di alamat gambar.
@@ -148,4 +158,74 @@ export async function generateFree(prompt, key = '') {
     ? 'Layanan gambar gratis sedang menolak atau sibuk. Coba lagi sebentar lagi.'
     : 'Layanan gambar gratis sekarang wajib daftar. Ambil key gratis di enter.pollinations.ai lalu isi di Pengaturan.');
   throw Object.assign(err, { kind: key ? 'sibuk' : 'butuh_key', pesan: err.message });
+}
+
+// ---------- Lukas: penulis perintah gambar ----------
+// Memakai model teks Gemini (jatah teks biasa, terpisah dari jatah pencarian Rara).
+
+const TEXT_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+
+function lukasPrompt({ request, draft, hints, hasPhoto, engine, previous, change, shape }) {
+  const parts = [`Kamu LUKAS, pelukis dan penulis prompt gambar untuk asisten suara Gaby. Tulis SATU prompt gambar dalam bahasa Inggris yang membuat hasilnya PERSIS sesuai permintaan pengguna.
+
+Permintaan pengguna (kata-katanya sendiri): "${request}"
+Draf singkat dari Gaby: "${draft}"`];
+  if (hints.length) {
+    parts.push(`Ingatan tentang pengguna yang MUNGKIN relevan (pakai hanya kalau permintaan memang menyinggungnya, misal "kucingku", "aku", "istriku"; jangan menambah hal yang tidak diminta):\n${hints.map((h) => `- ${h}`).join('\n')}`);
+  }
+  if (previous) {
+    parts.push(`Ini PERBAIKAN gambar sebelumnya. Prompt sebelumnya: "${previous}"\nPerubahan yang diminta: "${change}"\nPertahankan semua hal lain yang tidak diminta berubah.`);
+  }
+  if (hasPhoto) {
+    parts.push(engine === 'google'
+      ? 'Foto dari kamera pengguna terlampir dan mesin gambar JUGA menerima foto ini. Tulis instruksi edit yang dimulai "Using the provided photo, ..." lalu jelaskan perubahan yang diminta, dan sebut detail penting foto yang harus tetap sama.'
+      : 'Foto dari kamera pengguna terlampir, tetapi mesin gambar TIDAK melihat foto: ia menggambar ulang hanya dari teks. Jadi deskripsikan isi foto dengan sangat rinci (benda, bentuk, warna, bahan, posisi, latar, cahaya), lalu terapkan perubahan yang diminta.');
+  }
+  parts.push(`Aturan prompt:
+- Mulai dari subjek utama dan SEMUA detail yang diminta (jumlah, warna, pakaian, ekspresi, aksi, tempat). Jangan menghilangkan satu pun permintaan pengguna.
+- Sebut gaya visual yang jelas (photorealistic photo, cartoon, anime, watercolor painting, 3D render, pixel art, dll.). Kalau pengguna tidak menyebut gaya, pilih yang paling cocok.
+- Tambahkan komposisi/sudut kamera, pencahayaan, palet warna, suasana, dan latar.
+- Hal khas Indonesia (makanan, pakaian adat, bangunan, tempat) jelaskan wujudnya secara visual, misal rendang = "dark brown slow-cooked beef chunks coated in thick dry coconut-chili paste".
+- Tulisan di dalam gambar hanya kalau diminta: maksimal 3 kata, di dalam tanda kutip.
+- 50–120 kata, satu paragraf, tanpa penjelasan.
+Pilih "bentuk": "tegak" (potret, wallpaper HP, poster), "mendatar" (pemandangan lebar, banner, wallpaper laptop), atau "persegi" (lainnya).${shape ? ` Pengguna sudah memilih bentuk "${shape}", pakai itu.` : ' Ikuti kalau pengguna menyebutnya.'}
+
+Balas JSON: {"prompt": "...", "bentuk": "persegi|tegak|mendatar"}`);
+  return parts.join('\n\n');
+}
+
+// Hasil: { prompt, bentuk }. Gagal → lempar error (pemanggil memakai draf Gaby).
+export async function writeImagePrompt(key, opts) {
+  const text = lukasPrompt({ ...opts, hasPhoto: !!opts.photo });
+  const parts = [{ text }];
+  if (opts.photo) parts.push({ inline_data: { mime_type: 'image/jpeg', data: opts.photo } });
+  let lastErr = null;
+  for (const model of TEXT_MODELS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(`${REST}/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { lastErr = new Error(data.error?.message || `HTTP ${res.status}`); continue; }
+      const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+      const out = JSON.parse(raw);
+      const prompt = String(out.prompt || '').trim();
+      if (prompt.length < 15) { lastErr = new Error('prompt kosong'); continue; }
+      const bentuk = SHAPES[opts.shape] ? opts.shape : (SHAPES[out.bentuk] ? out.bentuk : 'persegi');
+      return { prompt: prompt.slice(0, 1500), bentuk, model };
+    } catch (e) {
+      lastErr = e;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw lastErr || new Error('Lukas tidak bisa menulis perintah');
 }

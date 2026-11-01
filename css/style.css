@@ -626,6 +626,9 @@ mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px;
 .src-list li:last-child { border-bottom: none; }
 .src-list a { color: var(--accent); text-decoration: none; word-break: break-word; }
 .src-list li.q a { opacity: .8; }
+.news h4 { margin: 10px 0 4px; font-size: 14px; }
+.news ul { margin: 0; padding-left: 18px; }
+.news li { margin: 3px 0; line-height: 1.35; }
 .todo-list { list-style: none; margin: 4px 0 0; padding: 0; max-height: min(52vh, 380px); overflow-y: auto; }
 .todo-list li {
   display: flex;

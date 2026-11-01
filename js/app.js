@@ -6,6 +6,7 @@ import { showMapCard, hideMapCard } from './map.js';
 import { getPosition, describePosition, shortPlace, geocode, route, googleDirections, googleSearchNear } from './location.js';
 import { summarizeSession, tidyProfile } from './journal.js';
 import { researchStatus } from './research.js';
+import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
 import {
@@ -23,7 +24,7 @@ import { GEMINI_VOICES, listLiveModels, isSlowModel } from './gemini.js';
 import { LocalVad } from './vad.js';
 import { Camera } from './camera.js';
 import { gallery } from './gallery.js';
-import { generateImage, generateFree } from './imagegen.js';
+import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -382,8 +383,8 @@ const ui = {
   linkToast,
   calendarToast,
   camera: (aksi, kamera) => cameraTool(aksi, kamera),
-  makeImage: (prompt, useCam) => makeImage(prompt, useCam),
-  imageAction: (aksi) => imageAction(aksi),
+  makeImage: (prompt, useCam, opts) => makeImage(prompt, useCam, opts),
+  imageAction: (aksi, change) => imageAction(aksi, change),
   gallery: async (aksi) => {
     if (aksi === 'tutup') { $('viewer').hidden = true; return { ok: true }; }
     const count = (await gallery.list()).length;
@@ -575,9 +576,13 @@ async function activate(reason, spoken = '') {
   }
   const missedCue = takeMissedCue();
   if (missedCue) cue = cue ? `${cue}\n${missedCue}` : missedCue;
+  // Update baru: diceritakan sekali, hanya saat dibuka biasa (bukan karena pengingat/ucapan langsung).
+  const news = !spoken && ['tap', 'wake', 'open'].includes(reason) ? newsCue() : '';
+  if (news) cue = cue ? `${cue}\n${news}` : news;
   if (cue) {
     brain.sendText(cue);
     if (daily) daily.commit();
+    if (news) memory.setSeenVersion(VERSION);
   }
   // Cek update APK setelah sapaan selesai, supaya tidak memotong Gaby.
   if (isNativeApp && reason !== 'resume') setTimeout(() => maybeCheckApkUpdate(), 8000);
@@ -1063,6 +1068,32 @@ function openSettings(group) {
   if (group) setTimeout(() => $(group).scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
+// Pengaturan → ✨ Apa yang baru.
+function fillNews() {
+  const box = $('set-news');
+  if (box.childElementCount) return;
+  for (const v of WHATS_NEW) {
+    const h = document.createElement('h4');
+    h.textContent = `v${v.version}`;
+    const ul = document.createElement('ul');
+    for (const it of v.items) {
+      const li = document.createElement('li');
+      li.textContent = it;
+      ul.appendChild(li);
+    }
+    box.append(h, ul);
+  }
+}
+
+// Cerita update baru: sekali per versi, hanya saat Gaby dibuka (bukan sambung ulang).
+function newsCue() {
+  const seen = memory.get().seenVersion;
+  if (!memory.get().nickname || cmpVersion(VERSION, seen) <= 0) return '';
+  const items = newsSince(seen, 3);
+  if (!items.length) { memory.setSeenVersion(VERSION); return ''; }
+  return `[SISTEM] Kamu baru saja di-update ke versi ${VERSION}. Setelah menyapa, ceritakan dengan antusias tapi SINGKAT (maksimal 3 kalimat, gaya ngobrol, tanpa nomor urut) bahwa kamu baru upgrade, dan sebut hal-hal baru ini: ${items.map((t) => `"${t}"`).join('; ')}. Tutup dengan satu ajakan singkat untuk mencoba.`;
+}
+
 function fillSettings() {
   const st = memory.get();
   $('set-nick').textContent = st.nickname || 'belum ada';
@@ -1070,6 +1101,7 @@ function fillSettings() {
   $('set-journal-count').textContent = st.journal.length;
   $('set-todo-count').textContent = st.todos.filter((t) => !t.done).length;
   $('set-research').textContent = st.keys.gemini ? researchStatus() : 'Butuh kunci Gemini';
+  fillNews();
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
   $('set-music').value = st.settings.musicApp || 'ytmusic';
@@ -1569,15 +1601,15 @@ $('mem-search').addEventListener('input', renderMemories);
 $('mem-tidy').addEventListener('click', async () => {
   const b = $('mem-tidy');
   b.disabled = true;
-  b.textContent = '🧹 Merapikan…';
+  b.textContent = '🧹 Meri merapikan…';
   try {
     const n = await tidyProfile(true);
-    toast(n ? `Ingatan dirapikan (${n} catatan) ✓` : 'Belum ada yang perlu dirapikan.');
+    toast(n ? `Meri sudah merapikan ingatan (${n} catatan) ✓` : 'Kata Meri: belum ada yang perlu dirapikan.');
   } catch (e) {
     toast(`Gagal merapikan: ${e.message}`, 'err');
   } finally {
     b.disabled = false;
-    b.textContent = '🧹 Rapikan sekarang';
+    b.textContent = '🧹 Minta Meri rapikan';
     renderMemories();
     fillSettings();
   }
@@ -1927,21 +1959,49 @@ let previewUrl = null;
 
 const imgSrc = (it) => (it.blob ? URL.createObjectURL(it.blob) : it.url);
 
-async function makeImage(prompt, useCam) {
+// Ingatan yang mungkin relevan untuk gambar ("kucingku", "aku", "istriku"), untuk Lukas.
+function imageHints(request) {
+  const { laci, cocok } = memory.recall(request);
+  const lines = [...Object.values(laci).flat(), ...cocok];
+  if (/\b(aku|saya|gue|gw|diriku|wajahku|fotoku)\b/i.test(request)) {
+    for (const m of memory.get().profile.filter((x) => x.cat === 'diri')) lines.push(m.text);
+  }
+  return [...new Set(lines)].slice(0, 12);
+}
+
+// draft: perintah singkat dari Gaby. opts: { request (kata-kata pengguna), shape, change, previous, reuse }.
+// Lukas menulis perintah yang rinci; kalau Lukas gagal, draf Gaby tetap dipakai.
+async function makeImage(draft, useCam, { request = '', shape = '', change = '', previous = '', reuse = false } = {}) {
   const st = memory.get();
   const photo = useCam ? camera.frame(1024, 0.85) : null;
   if (useCam && !photo) return { error: 'Kamera belum menyala. Minta pengguna menyalakan kamera dulu.' };
   painting++;
   visual.painting = true;
-  const note = toast('🎨 Gaby sedang menggambar…', 'info', 90000);
+  const note = toast('🎨 Lukas sedang menggambar…', 'info', 90000);
   let out = null;
   let engine = st.settings.imageEngine === 'google' ? 'google' : 'gratis';
   let switched = '';
+  let prompt = draft;
+  let lukas = false;
+  request = String(request || '').trim() || draft;
   try {
+    if (!reuse && st.keys.gemini) {
+      try {
+        const w = await writeImagePrompt(st.keys.gemini, {
+          request, draft, hints: imageHints(request), photo, engine, previous, change, shape,
+        });
+        prompt = w.prompt;
+        shape = w.bentuk;
+        lukas = true;
+      } catch (e) {
+        console.warn('[Gaby] Lukas gagal menulis perintah, pakai draf Gaby:', e.message);
+      }
+    }
+    if (!shape) shape = 'persegi';
     if (engine === 'google') {
       try {
         if (!st.keys.gemini) throw Object.assign(new Error('Belum ada key Gemini'), { kind: 'key' });
-        out = await generateImage(st.keys.gemini, prompt, photo);
+        out = await generateImage(st.keys.gemini, prompt, photo, shape);
       } catch (e) {
         if (e.kind === 'ditolak') throw e;
         // Billing belum aktif / kuota habis: tetap buatkan gambar dengan mesin gratis.
@@ -1950,15 +2010,15 @@ async function makeImage(prompt, useCam) {
         engine = 'gratis';
       }
     }
-    if (!out) out = await generateFree(prompt, st.keys.pollinations);
-    pendingImage = { blob: out.blob, url: out.url || null, prompt, useCam, engine };
+    if (!out) out = await generateFree(prompt, st.keys.pollinations, shape);
+    pendingImage = { blob: out.blob, url: out.url || null, prompt, request, useCam, engine, shape };
     showPreview();
     if (out.base64) brain.sendImage(out.base64, out.blob ? out.blob.type : 'image/png'); // supaya Gaby bisa melihat hasilnya
-    const notes = ['Gambar sudah tampil di layar. Komentari singkat, lalu tanya mau disimpan, diulang, atau dibuang.'];
+    const notes = ['Gambar sudah tampil di layar. Komentari singkat, lalu tanya mau disimpan, diulang, atau dibuang. Kalau pengguna ingin ada yang diubah, pakai gambar_aksi ulang dengan isi perubahan.'];
     if (engine === 'gratis' && useCam) notes.push('Ini gambar ulang yang mirip dari deskripsi, bukan edit foto asli.');
     if (switched) notes.push(`Mesin Google gagal (${switched}), jadi memakai mesin gratis.`);
     if (!out.base64) notes.push('Kamu tidak bisa melihat hasil gambarnya, jadi jangan mendeskripsikannya secara detail.');
-    return { ok: true, mesin: engine, catatan: notes.join(' ') };
+    return { ok: true, mesin: engine, ditulis_lukas: lukas, bentuk: shape, catatan: notes.join(' ') };
   } catch (e) {
     toast(`🎨 ${e.pesan || e.message}`, 'err', 12000);
     return { error: e.pesan || e.message, jenis: e.kind || 'lain' };
@@ -1987,10 +2047,11 @@ function hidePreview() {
   $('preview').classList.remove('show');
 }
 
-async function imageAction(aksi) {
+async function imageAction(aksi, change = '') {
   if (!pendingImage) return { error: 'Tidak ada gambar yang sedang tampil' };
   if (aksi === 'simpan') {
-    await gallery.add(pendingImage.blob, pendingImage.prompt, pendingImage.blob ? null : pendingImage.url);
+    // Keterangan di galeri: kata-kata pengguna (bahasa Indonesia), bukan perintah bahasa Inggris Lukas.
+    await gallery.add(pendingImage.blob, pendingImage.request || pendingImage.prompt, pendingImage.blob ? null : pendingImage.url);
     pendingImage = null;
     hidePreview();
     toast('💾 Tersimpan di galeri (kanan bawah)');
@@ -2002,9 +2063,14 @@ async function imageAction(aksi) {
     return { ok: true };
   }
   if (aksi === 'ulang') {
-    const { prompt, useCam } = pendingImage;
+    const { prompt, useCam, request, shape } = pendingImage;
+    change = String(change || '').trim();
     hidePreview();
-    return makeImage(prompt, useCam);
+    // Tanpa perubahan: gambar lagi dengan perintah yang sama (versi lain).
+    // Dengan perubahan: Lukas memperbaiki perintah sebelumnya.
+    return change
+      ? makeImage(prompt, useCam, { request: `${request} (perubahan: ${change})`, shape, change, previous: prompt })
+      : makeImage(prompt, useCam, { request, shape, reuse: true });
   }
   return { error: 'Aksi tidak dikenal' };
 }

@@ -29,12 +29,13 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/persona.js` | Prompt Gaby + daftar alat yang boleh dipakai |
 | `js/tools.js` | Alat yang dipanggil Gaby (ingat, catatan, pengingat, pasang_alarm, rute, buka_aplikasi, kamera, gambar, dll.) |
 | `js/memory.js` | Semua ingatan: profil per laci (18 kategori + tanda 👍/👎), penjaga laci `recall()`, jurnal, to-do, pengingat, pengaturan, key |
-| `js/daily.js`, `journal.js` | Briefing pagi/sapaan malam, ringkasan harian |
+| `js/daily.js`, `journal.js` | Briefing pagi/sapaan malam, ringkasan harian & perapi ingatan (**Meri**, jalan saat Gaby tidur) |
 | `js/location.js`, `map.js` | GPS, cari tempat, rute (OSRM), kartu peta (Leaflet) |
 | `js/apps.js` | Buka WhatsApp/YouTube/dll. (Android intent, iOS universal link) |
-| `js/research.js` | Agen riset internet `cari_info`: Gemini teks + Google Search bertingkat (3.x → 2.5), catat jatah habis, mode pencarian cepat |
+| `js/whatsnew.js` | Daftar "apa yang baru" per versi (Gaby cerita sekali setelah update; Pengaturan → ✨ Apa yang baru) |
+| `js/research.js` | **Rara**, agen riset internet `cari_info`: Gemini teks + Google Search bertingkat (3.x → 2.5), catat jatah habis, mode pencarian cepat |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
-| `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
+| `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (**Lukas** menulis prompt via Gemini teks, lalu Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
 | `sw.js` | Service worker: tetap bisa dibuka walau GitHub down |
 | `android-app/` | Cangkang Android (Capacitor 6). Memuat Gaby dari GitHub Pages; plugin native sendiri: `GabyAlarmPlugin.java` |
 | `.github/workflows/android-apk.yml` | Merakit APK otomatis & menerbitkannya di Releases `apk-terbaru` |
@@ -71,6 +72,14 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Dua-duanya habis → `switchToQuickSearch` di `app.js` menyambung ulang setelah Gaby selesai bicara dengan Google Search bawaan
   ("pencarian cepat", `cari_info` disembunyikan) lalu menjawab pertanyaan tadi lewat `pendingCue`. Kartu sumber `#srccard` (atas, 60 dtk),
   tidak tampil kalau kartu peta terbuka. Hasil pencarian tidak disimpan ke ingatan. Status di Pengaturan → Fitur → "Pencarian internet".
+- Teman AI Gaby (v1.16), dikenal Gaby lewat bagian "TEMAN-TEMANMU" di prompt: **Rara** (internet, `cari_info`),
+  **Lukas** (gambar: `writeImagePrompt` di `imagegen.js`, model teks 2.5 Flash → Flash-Lite, terima kata-kata pengguna + draf Gaby +
+  isi laci yang nyambung + foto kamera; pilih bentuk persegi/tegak/mendatar; `gambar_aksi ulang` + `perubahan` = Lukas memperbaiki
+  prompt lama; gagal → draf Gaby), **Meri** (catatan harian & perapian ingatan). Penjaga laci (kata kunci) bukan AI.
+  Penjaga laci mengenali akhiran -ku/-mu/-nya/-lah/-kah ("kucingku" → laci keluarga).
+- Cerita update: `newsCue` di `app.js` sekali per versi saat dibuka biasa (tap/wake/open, bukan resume/pengingat), maks 3 item dari
+  `WHATS_NEW`; `memory.seenVersion` (pengguna baru langsung = VERSION, pengguna lama tanpa catatan = 1.14.0).
+  **Setiap rilis: tambahkan entri di `js/whatsnew.js`** (bahasa santai, sudut pandang Gaby, item terpenting dulu).
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
@@ -90,7 +99,8 @@ pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android 
 
 **Belum dites langsung oleh pemilik:**
 - v1.15.0: laci ingatan baru + 👍/👎 + alat `buka_ingatan` + aturan anti muter-muter (hanya web, tanpa update APK).
-- v1.16.0: agen riset internet `cari_info` + kartu sumber + pencarian cepat saat jatah habis. Belum pasti apakah kunci gratis
+- v1.16.0: Rara (agen riset internet `cari_info`) + kartu sumber + pencarian cepat saat jatah habis; Lukas (prompt gambar rinci,
+  ulang dengan perubahan); nama teman di prompt & layar; cerita update sekali + Pengaturan → ✨ Apa yang baru. Belum pasti apakah kunci gratis
   pemilik boleh memakai Google Search grounding dan berapa jatahnya (halaman harga Google tidak bisa dibuka dari sesi cloud).
 Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
 
