@@ -107,10 +107,11 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - `pasang_alarm` di iPhone (1 Nov 2026): ketuk kartu alarm → app Jam → pemilik menekan Simpan sendiri (iOS tidak mengizinkan otomatis).
 - Lukas (v1.16, Groq Qwen3 di v1.17): gambar "lebih presisi sesuai permintaan", "aman banget, keren" (1 Nov 2026).
 - Rara via Groq GPT-OSS 120B + browser_search (v1.17.0): jalan dan memberi kartu sumber berita (1 Nov 2026).
+- Tanda 👍/👎 di Pengaturan → Ingatan sudah terlihat (v1.15, 1 Nov 2026).
   Catatan: kunci Gemini gratis pemilik **ditolak** Google Search grounding, jadi Rara bergantung pada kunci Groq.
 
 **Belum dites langsung oleh pemilik:**
-- v1.15: laci ingatan + 👍/👎 + `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
+- v1.15: `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
 - v1.16: cerita update sekali per versi, Pengaturan → ✨ Apa yang baru, "ulang dengan perubahan" untuk gambar.
 - v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya" / "tutup semua" pakai suara (`tutup_kartu`).
 - Pencarian cepat (Google Search bawaan) saat semua jatah Rara habis.
