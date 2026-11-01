@@ -618,9 +618,38 @@ mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px;
 /* ---------- Kartu catatan / to-do ---------- */
 .todocard { width: min(92vw, 420px); }
 /* Kartu sumber: kecil, di atas (di bawah status) supaya teks ucapan Gaby di bawah tetap terbaca. */
-.srccard { top: calc(76px + var(--safe-top, 0px)); width: min(92vw, 400px); padding: 10px 12px; transform: translate(-50%, 0) scale(.9); }
+.srccard { top: calc(76px + var(--safe-top, 0px) + var(--board-h, 0px)); width: min(92vw, 400px); padding: 10px 12px; transform: translate(-50%, 0) scale(.9); }
 .srccard.show { transform: translate(-50%, 0) scale(1); }
-.src-query { margin: 0 0 6px; font-size: 13px; opacity: .75; }
+.src-query { margin: 0 0 2px; font-size: 13px; opacity: .75; }
+.src-vera { margin: 0 0 6px; font-size: 12px; opacity: .85; }
+.src-vera.ok { color: #7dffb0; }
+.src-vera.warn { color: #ffd27a; }
+/* Papan kerja tim (di bawah status) */
+.teamboard {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: calc(66px + var(--safe-top, 0px));
+  width: min(92vw, 400px); z-index: 8;
+  padding: 6px 10px; border-radius: 14px;
+  background: rgba(6, 16, 28, .82); border: 1px solid var(--line);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  font-size: 12.5px; cursor: pointer;
+}
+.teamboard[hidden] { display: none; }
+.tb-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.tb-row b { white-space: nowrap; font-weight: 600; min-width: 64px; }
+.tb-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .9; }
+.teamboard.expanded .tb-text { white-space: normal; }
+.tb-bar { position: relative; width: 74px; height: 6px; flex: none; border-radius: 3px; background: rgba(127, 227, 255, .15); overflow: hidden; }
+.tb-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--accent); transition: width .4s; }
+.tb-bar.run i { width: 35%; animation: tb-run 1.2s ease-in-out infinite alternate; }
+@keyframes tb-run { from { left: 0; } to { left: 65%; } }
+.tb-row.done .tb-bar i { background: #7dffb0; }
+.tb-row.fail .tb-bar i { background: #ff8a9a; }
+.tb-steps { margin: 2px 0 6px 18px; padding: 0; list-style: none; font-size: 12px; opacity: .85; }
+.tb-steps li { padding: 1px 0; }
+.tb-more { font-size: 11.5px; opacity: .7; text-align: center; padding-top: 2px; }
+.preview-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 2px 6px; font-size: 14px; }
+.preview-vera { font-size: 12px; opacity: .85; text-align: right; }
 .src-list { list-style: none; margin: 0; padding: 0; max-height: 24vh; overflow-y: auto; }
 .src-list li { padding: 6px 2px; border-bottom: 1px solid var(--line); font-size: 14px; }
 .src-list li:last-child { border-bottom: none; }

@@ -7,6 +7,7 @@ import { getPosition, describePosition, shortPlace, geocode, route, googleDirect
 import { summarizeSession, tidyProfile } from './journal.js';
 import { researchStatus, researchReasons, resetResearch, quickSearchMode } from './research.js';
 import { groqLabel } from './groq.js';
+import { startJob, boardBusy } from './teamboard.js';
 import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
@@ -416,7 +417,8 @@ const ui = {
     }
   },
   isNativeApp,
-  showSources: (q, sources, queries) => showSources(q, sources, queries),
+  showSources: (q, sources, queries, badge) => showSources(q, sources, queries, badge),
+  startJob: (who, text, opts) => startJob(who, text, opts),
   closeCards: (jenis) => closeCards(jenis),
   switchToQuickSearch: (q) => switchToQuickSearch(q),
   sleepAfterSpeech() {
@@ -806,7 +808,7 @@ setInterval(() => {
     const quietFor = Date.now() - lastAudioAt;
     if (sleepRequestedAt && Date.now() - sleepRequestedAt > 2500 && !audio.isSpeaking() && quietFor > 1500) {
       goSleep();
-    } else if (currentMode() !== 'always' && !thinking && !painting
+    } else if (currentMode() !== 'always' && !thinking && !painting && !boardBusy()
       && Date.now() - lastActivity > (camera.active ? IDLE_MS * 2.5 : IDLE_MS)) {
       goSleep();
     }
@@ -1693,12 +1695,13 @@ function renderTodos(flashIds = []) {
   if (flashIds.length) setTimeout(() => ul.querySelectorAll('.flash').forEach((x) => x.classList.remove('flash')), 1200);
 }
 
-// Hanya satu kartu (peta / gambar / catatan) yang tampil dalam satu waktu.
+// Hanya satu kartu (peta / gambar / catatan / berita / rencana) yang tampil dalam satu waktu.
 function hideCards(except) {
   if (except !== 'map') hideMapCard();
   if (except !== 'todo') { $('todocard').classList.remove('show'); $('todocard').hidden = true; }
   if (except !== 'image') { $('preview').hidden = true; $('preview').classList.remove('show'); }
   if (except !== 'src') { $('srccard').classList.remove('show'); $('srccard').hidden = true; }
+  if (except !== 'plan') hidePlanCard();
 }
 
 function showTodoCard(flashIds = []) {
@@ -1759,13 +1762,15 @@ $('set-open-todo').addEventListener('click', () => { $('settings').hidden = true
 let srcTimer = 0;
 
 // Kartu kecil berisi sumber jawaban; hilang sendiri setelah 60 detik.
-function showSources(query, sources, queries = []) {
+function showSources(query, sources, queries = [], badge = '') {
   // Peta (misal dari cari_tempat) lebih berguna: jangan ditutup oleh kartu sumber.
   if (!$('mapcard').hidden) return;
   hideCards('src');
   // Kartu baru menggantikan yang lama (termasuk tombol "Buka" situs sebelumnya), bukan menumpuk.
   document.querySelectorAll('.toast.big').forEach((t) => t.remove());
   $('src-query').textContent = `“${query}”`;
+  $('src-vera').textContent = `dicari Rara${badge ? ` · ${badge}` : ''}`;
+  $('src-vera').className = `src-vera ${badge.startsWith('✅') ? 'ok' : badge.startsWith('⚠️') ? 'warn' : ''}`;
   const ul = $('src-list');
   ul.innerHTML = '';
   const add = (label, url, cls = '') => {
@@ -1798,17 +1803,72 @@ function hideSources() {
   $('srccard').hidden = true;
 }
 
-// Alat suara tutup_kartu: "tutup beritanya", "tutup semua kartu".
-function closeCards(jenis) {
-  const had = !$('srccard').hidden || document.querySelectorAll('.toast.big').length > 0;
-  document.querySelectorAll('.toast.big').forEach((t) => t.remove());
-  if (jenis === 'sumber') {
-    hideSources();
-    return { ok: true, ditutup: had ? 'kartu sumber' : 'tidak ada kartu sumber yang terbuka' };
+// Alat suara tutup_kartu: setiap kartu punya nama ("tutup kartu berita", "tutup semua kartu").
+const CARD_NAMES = {
+  berita: 'Kartu Berita',
+  rencana: 'Kartu Rencana',
+  perbandingan: 'Kartu Perbandingan',
+  daftar_rencana: 'Kartu Daftar Rencana',
+  catatan: 'Kartu Catatan',
+  peta: 'Kartu Peta',
+  gambar: 'Kartu Gambar',
+  galeri: 'Galeri',
+};
+
+function cardOpen(jenis) {
+  switch (jenis) {
+    case 'berita': return !$('srccard').hidden || document.querySelectorAll('.toast.big').length > 0;
+    case 'catatan': return !$('todocard').hidden;
+    case 'peta': return !$('mapcard').hidden;
+    case 'gambar': return !$('preview').hidden;
+    case 'galeri': return !$('viewer').hidden;
+    default: return planCardOpen(jenis);
   }
-  hideCards();
-  $('viewer').hidden = true;
-  return { ok: true, ditutup: 'semua kartu' };
+}
+
+function closeCard(jenis) {
+  switch (jenis) {
+    case 'berita': hideSources(); document.querySelectorAll('.toast.big').forEach((t) => t.remove()); break;
+    case 'catatan': $('todocard').classList.remove('show'); $('todocard').hidden = true; break;
+    case 'peta': hideMapCard(); break;
+    case 'gambar': hidePreview(); break;
+    case 'galeri': $('viewer').hidden = true; break;
+    default: hidePlanCard(jenis);
+  }
+}
+
+function closeCards(jenis) {
+  if (jenis === 'sumber') jenis = 'berita';
+  const unsavedImage = !!pendingImage && !$('preview').hidden;
+  if (jenis === 'semua') {
+    const closed = [];
+    for (const k of Object.keys(CARD_NAMES)) {
+      if (k === 'gambar' && unsavedImage) continue; // gambar belum disimpan: tanya dulu
+      if (cardOpen(k)) { closeCard(k); closed.push(CARD_NAMES[k]); }
+    }
+    const out = { ok: true, ditutup: closed.length ? closed : 'tidak ada kartu yang terbuka' };
+    if (unsavedImage) out.catatan = 'Kartu Gambar belum disimpan, jadi belum ditutup. Tanya pengguna mau disimpan atau dibuang, lalu pakai gambar_aksi.';
+    return out;
+  }
+  if (!CARD_NAMES[jenis]) return { error: 'Jenis kartu tidak dikenal' };
+  if (!cardOpen(jenis)) return { ok: true, ditutup: false, catatan: `${CARD_NAMES[jenis]} sedang tidak terbuka.` };
+  if (jenis === 'gambar' && unsavedImage) {
+    return { perlu_tanya: true, catatan: 'Gambar ini belum disimpan. Tanya dulu: mau disimpan ke galeri atau dibuang? Lalu pakai gambar_aksi.' };
+  }
+  closeCard(jenis);
+  return { ok: true, ditutup: CARD_NAMES[jenis] };
+}
+
+// Kartu rencana / perbandingan / daftar rencana (diisi di bagian Pandu).
+function planCardOpen(jenis) {
+  const c = $('plancard');
+  return !!c && !c.hidden && c.dataset.kind === jenis;
+}
+function hidePlanCard(jenis) {
+  const c = $('plancard');
+  if (!c || (jenis && c.dataset.kind !== jenis)) return;
+  c.classList.remove('show');
+  c.hidden = true;
 }
 
 $('set-research-retry').addEventListener('click', () => {

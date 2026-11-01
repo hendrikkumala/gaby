@@ -10,6 +10,7 @@
 
 import { memory } from './memory.js';
 import { groqModels, groqChat, groqSources, cleanText, groqLabel } from './groq.js';
+import { checkFacts } from './vera.js';
 
 const REST = 'https://generativelanguage.googleapis.com/v1beta';
 const STORE = 'gaby.research';
@@ -196,12 +197,30 @@ async function ask(model, key, question) {
       sources.push({ title, url: w.uri });
       if (sources.length >= 5) break;
     }
-    return { text, sources, queries: (meta.webSearchQueries || []).slice(0, 3) };
+    // Bukti untuk Vera: bagian jawaban yang didukung sumber (Gemini tidak memberi isi halamannya).
+    const evidence = (meta.groundingSupports || []).map((g) => {
+      const idx = [...new Set(g.groundingChunkIndices || [])];
+      const names = idx.map((i) => meta.groundingChunks?.[i]?.web?.title).filter(Boolean);
+      return g.segment?.text ? `• "${g.segment.text}" — didukung ${names.length} sumber (${names.join(', ')})` : '';
+    }).filter(Boolean).join('\n');
+    return { text, sources, queries: (meta.webSearchQueries || []).slice(0, 3), evidence };
   } catch (e) {
     return { error: e.name === 'AbortError' ? 'timeout' : 'network' };
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Bukti untuk Vera dari hasil browsing Groq: isi halaman/kutipan yang dibaca Rara.
+function groqEvidence(msg) {
+  const parts = [];
+  for (const t of msg.executed_tools || []) {
+    for (const r of t.search_results?.results || []) {
+      if (r.content) parts.push(`[${r.title || r.url}] ${String(r.content).slice(0, 1500)}`);
+    }
+    if (t.output) parts.push(String(t.output).slice(0, 4000));
+  }
+  return parts.join('\n\n').slice(0, 8000);
 }
 
 // Rara lewat Groq: GPT-OSS + browser_search.
@@ -232,7 +251,7 @@ async function askGroq(key, question) {
     const st = loadState();
     st.groqModel = model;
     saveState(st);
-    return { text: cleanText(msg.content), sources: groqSources(msg), queries: [], model };
+    return { text: cleanText(msg.content), sources: groqSources(msg), queries: [], model, evidence: groqEvidence(msg) };
   }
   return last;
 }
@@ -268,7 +287,7 @@ export async function research(question) {
       const st = loadState();
       if (st.lastFail && st.lastFail.label === tier.label) { delete st.lastFail; saveState(st); }
       if (!r.text || /^TIDAK_KETEMU\b/.test(r.text)) return { ok: true, found: false, tier: tier.id };
-      return { ok: true, found: true, text: r.text.replace(/TIDAK_KETEMU/g, '').trim(), sources: r.sources, queries: r.queries, tier: tier.id };
+      return { ok: true, found: true, text: r.text.replace(/TIDAK_KETEMU/g, '').trim(), sources: r.sources, queries: r.queries, evidence: r.evidence || '', tier: tier.id };
     }
     console.warn('[Gaby] cari_info', tier.id, model, r.error, r.raw?.message || '');
     const why = `${model}: ${r.raw?.message || r.error}`;
@@ -291,4 +310,29 @@ export async function research(question) {
   if (!failed && quickSearchMode()) return { ok: false, reason: 'habis', nofree };
   if (lastFail) console.warn('[Gaby] cari_info gagal:', lastFail);
   return { ok: false, reason: 'gagal' };
+}
+
+// Rara + Vera: cari, lalu dicek Vera. Kalau Vera menemukan klaim yang tidak didukung sumber,
+// Rara diminta mencari ulang SEKALI dengan catatan Vera, lalu dicek lagi.
+// onStage(siapa, keterangan) dipakai untuk papan kerja tim.
+// Hasil: sama seperti research(), ditambah { badge, status, note } kalau ketemu.
+export async function researchChecked(question, { onStage = () => {} } = {}) {
+  onStage('rara', `Mencari: ${question}`);
+  let r = await research(question);
+  if (!r.ok || !r.found) return r;
+  onStage('vera', 'Mengecek fakta dari sumber…');
+  let v = await checkFacts({ question, answer: r.text, sources: r.sources, evidence: r.evidence });
+  if (v.status === 'lemah') {
+    onStage('rara', 'Vera minta cek ulang, mencari lagi…');
+    const again = await research(`${question} (cari data resmi & terbaru; catatan pemeriksa: ${v.note || 'jawaban sebelumnya tidak didukung sumber'})`);
+    if (again.ok && again.found) {
+      onStage('vera', 'Mengecek ulang…');
+      const v2 = await checkFacts({ question, answer: again.text, sources: again.sources, evidence: again.evidence });
+      if (v2.status !== 'lemah' || (v2.answer && !v.answer)) { r = again; v = v2; }
+    }
+  }
+  if (v.status === 'lemah' && !v.answer) {
+    return { ok: true, found: false, tier: r.tier, note: v.note, checked: true };
+  }
+  return { ...r, text: v.answer || r.text, badge: v.badge, status: v.status, note: v.note, support: v.support };
 }

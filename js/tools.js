@@ -1,7 +1,7 @@
 // Kemampuan Gaby: nama, ingatan, emosi, waktu, cuaca, pengingat, buka situs.
 
 import { memory, CATEGORIES, guessCats } from './memory.js';
-import { research, quickSearchMode } from './research.js';
+import { researchChecked, quickSearchMode } from './research.js';
 import { getPosition, describePosition, shortPlace } from './location.js';
 import { LANGS } from './persona.js';
 
@@ -240,10 +240,12 @@ export const TOOL_DEFS = [
   },
   {
     name: 'tutup_kartu',
-    description: 'Tutup kartu di layar dengan suara: "tutup beritanya", "tutup sumbernya" → sumber (kartu sumber Rara + tombol buka situs); "tutup semua", "bersihkan layar" → semua (sumber, peta, catatan, gambar, galeri). Untuk gambar yang belum disimpan, tanya dulu atau pakai gambar_aksi.',
+    description: 'Tutup kartu di layar dengan menyebut namanya: Kartu Berita (hasil Rara), Kartu Rencana, Kartu Perbandingan, Kartu Daftar Rencana, Kartu Catatan, Kartu Peta, Kartu Gambar, Galeri, atau semua ("tutup semua kartu", "bersihkan layar"). "Tutup beritanya / sumbernya" = berita.',
     parameters: {
       type: 'object',
-      properties: { jenis: { type: 'string', enum: ['sumber', 'semua'] } },
+      properties: {
+        jenis: { type: 'string', enum: ['berita', 'rencana', 'perbandingan', 'daftar_rencana', 'catatan', 'peta', 'gambar', 'galeri', 'semua'] },
+      },
       required: ['jenis'],
     },
   },
@@ -427,7 +429,7 @@ export async function runTool(name, args, ui) {
       }
 
       case 'tutup_kartu':
-        return ui.closeCards(args.jenis === 'semua' ? 'semua' : 'sumber');
+        return ui.closeCards(String(args.jenis || 'semua'));
 
       case 'peta_aksi':
         return ui.mapAction(args.aksi === 'tutup' ? 'tutup' : 'buka');
@@ -499,21 +501,41 @@ async function searchTool(args, ui) {
     return { error: 'tidak_bisa', catatan: 'Rara butuh kunci Groq (gratis) atau Gemini. Bilang jujur kamu tidak bisa mengecek internet sekarang dan sarankan mengisi kunci Groq di Pengaturan; JANGAN menebak.' };
   }
   const health = !!args.kesehatan || guessCats(q).includes('kesehatan');
-  const r = await research(q);
+  // Papan kerja tim: Rara mencari → Vera mengecek.
+  const job = ui.startJob('rara', `Mencari: ${q}`);
+  let r;
+  try {
+    r = await researchChecked(q, { onStage: (who, text) => job.pass(who, text) });
+  } catch (e) {
+    job.fail('Gangguan saat mencari');
+    throw e;
+  }
   if (r.ok && r.found) {
-    if (r.sources.length) ui.showSources(q, r.sources, r.queries);
+    job.done(r.badge || 'Selesai');
+    if (r.sources.length) ui.showSources(q, r.sources, r.queries, r.badge);
+    const how = {
+      cocok: r.support >= 2 ? 'Sudah dicek Vera dan cocok dengan sumber.' : 'Dicek Vera, tapi baru didukung 1 sumber; bilang singkat bahwa infonya baru dari satu sumber.',
+      beda: 'Vera menemukan sumber berbeda-beda: sampaikan sebagai kisaran dan bilang sumbernya berbeda.',
+      lemah: 'Vera: sebagian info belum terbukti; sampaikan hanya yang ada di jawaban ini dan bilang kamu belum yakin sepenuhnya.',
+    }[r.status] || 'Belum sempat dicek Vera; sampaikan dengan hati-hati.';
     return {
       jawaban: r.text,
       jumlah_sumber: r.sources.length,
+      cek_vera: r.badge || 'belum dicek',
       catatan: (r.sources.length
-        ? 'Sampaikan HANYA isi jawaban ini dengan singkat (1–3 kalimat), jangan menambah angka atau detail sendiri. Sumbernya sudah tampil di layar; jangan membacakan link.'
-        : 'Tidak ada sumber yang mendukung jawaban ini; sampaikan dengan hati-hati bahwa kamu belum yakin.')
+        ? 'Sampaikan HANYA isi jawaban ini dengan singkat (1–3 kalimat), jangan menambah angka atau detail sendiri. Sumbernya sudah tampil di layar (Kartu Berita); jangan membacakan link. '
+        : 'Tidak ada sumber yang mendukung jawaban ini; sampaikan dengan hati-hati bahwa kamu belum yakin. ')
+        + how
         + (health ? ' Tutup dengan pesan singkat: tetap konsultasi ke dokter ya.' : ''),
     };
   }
   if (r.ok) {
-    return { ketemu: false, catatan: 'Info ini tidak ditemukan di internet. Bilang jujur kamu tidak menemukannya; JANGAN menebak atau mengarang.' };
+    job.fail(r.checked ? 'Vera: tidak ada yang terbukti' : 'Tidak ketemu');
+    return { ketemu: false, catatan: r.checked
+      ? 'Rara menemukan sesuatu, tetapi Vera tidak menemukan buktinya di sumber. Bilang jujur kamu belum menemukan info yang pasti; JANGAN menebak atau mengarang.'
+      : 'Info ini tidak ditemukan di internet. Bilang jujur kamu tidak menemukannya; JANGAN menebak atau mengarang.' };
   }
+  job.fail(r.reason === 'habis' ? 'Jatah habis' : r.reason === 'auth' ? 'Kunci ditolak' : 'Gangguan');
   if (r.reason === 'habis') {
     if (!ui.switchToQuickSearch(q)) {
       return { error: 'jatah_habis', catatan: 'Jatah pencarian internet hari ini habis. Bilang jujur kamu belum bisa mengecek sekarang; JANGAN menebak.' };

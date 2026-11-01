@@ -9,6 +9,12 @@ const API = 'https://api.groq.com/openai/v1';
 const PREFS = {
   rara: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'], // hanya GPT-OSS yang punya browser_search
   lukas: ['qwen/qwen3-32b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant'],
+  // Vera sengaja beda keluarga dari Rara & Pandu (GPT-OSS) supaya tidak "sepemikiran".
+  vera: ['qwen/qwen3-32b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'openai/gpt-oss-120b'],
+  // Vera melihat gambar: model penglihatan (Llama 4); dicari juga dari daftar model Groq.
+  vision: ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'],
+  // Pandu: perencana yang memakai alat (function calling).
+  pandu: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3-32b', 'llama-3.3-70b-versatile'],
 };
 
 export const GROQ_LABEL = {
@@ -17,6 +23,8 @@ export const GROQ_LABEL = {
   'qwen/qwen3-32b': 'Qwen3 32B',
   'llama-3.3-70b-versatile': 'Llama 3.3 70B',
   'llama-3.1-8b-instant': 'Llama 3.1 8B',
+  'meta-llama/llama-4-scout-17b-16e-instruct': 'Llama 4 Scout',
+  'meta-llama/llama-4-maverick-17b-128e-instruct': 'Llama 4 Maverick',
 };
 export const groqLabel = (m) => GROQ_LABEL[m] || m;
 
@@ -42,6 +50,11 @@ export async function groqModels(key, role) {
   const prefs = PREFS[role] || [];
   if (!names) return prefs;
   const ok = prefs.filter((m) => names.has(m));
+  if (role === 'vision') {
+    // Model penglihatan lain yang ada di akun (misal versi Llama 4 yang lebih baru).
+    for (const n of names) if (!ok.includes(n) && /llama-4|vision|-vl\b|scout|maverick/i.test(n)) ok.push(n);
+    return ok; // kosong = Groq tidak punya model penglihatan
+  }
   return ok.length ? ok : prefs.slice(0, 1);
 }
 
@@ -113,4 +126,19 @@ export function groqSources(message) {
   }
   for (const u of String(message?.content || '').match(/https?:\/\/[^\s)\]"'<>]+/g) || []) add('', u);
   return out.slice(0, 5);
+}
+
+// Pengaturan "berpikir" per keluarga model.
+//   careful = true → berpikir dulu (Vera, Pandu); false → langsung menjawab (Lukas).
+export function reasoningFor(model, careful) {
+  if (/qwen3/.test(model)) return careful ? { reasoning_effort: 'default', reasoning_format: 'hidden' } : { reasoning_effort: 'none' };
+  if (/gpt-oss/.test(model)) return { reasoning_effort: careful ? 'medium' : 'low' };
+  return {};
+}
+
+// Ambil objek JSON pertama dari teks jawaban model.
+export function parseJson(text) {
+  const t = cleanText(text);
+  const m = t.match(/\{[\s\S]*\}/);
+  return JSON.parse(m ? m[0] : t);
 }

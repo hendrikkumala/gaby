@@ -35,7 +35,7 @@ function dot(L, color) {
 export async function showMapCard(opts) {
   const L = await loadLeaflet();
   const card = document.getElementById('mapcard');
-  document.getElementById('map-title').textContent = opts.title || '';
+  document.getElementById('map-title').textContent = `📍 Kartu Peta${opts.title ? ` · ${opts.title}` : ''}`;
   document.getElementById('map-info').textContent = opts.info || '';
   const acts = document.getElementById('map-actions');
   acts.innerHTML = '';

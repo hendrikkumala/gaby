@@ -24,6 +24,9 @@
   <!-- Status di atas -->
   <div id="chip" class="chip"><span id="chip-dot" class="chip-dot"></span><span id="chip-text">Memuat…</span></div>
 
+  <!-- Papan kerja tim: teman Gaby yang sedang bekerja (ketuk untuk lihat langkahnya) -->
+  <div id="teamboard" class="teamboard" hidden></div>
+
   <!-- Tombol pojok -->
   <button id="btn-mic" class="corner corner-left" aria-label="Matikan / nyalakan mikrofon" title="Mikrofon">
     <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg>
@@ -68,6 +71,7 @@
 
   <!-- Gambar baru: tampil seperti hologram, pilih simpan / ulang / buang -->
   <div id="preview" class="preview" hidden>
+    <div class="preview-head"><b>🎨 Kartu Gambar</b><span id="preview-vera" class="preview-vera"></span></div>
     <div class="preview-frame">
       <span id="preview-tag" class="preview-tag">GRATIS</span>
       <img id="preview-img" alt="Gambar buatan Gaby">
@@ -82,7 +86,7 @@
   <!-- Kartu catatan / to-do -->
   <div id="todocard" class="mapcard todocard" hidden>
     <div class="mapcard-head">
-      <b>📝 Catatan Gaby</b>
+      <b>📝 Kartu Catatan</b>
       <button id="todo-close" class="icon-btn" aria-label="Tutup catatan">✕</button>
     </div>
     <ul id="todo-list" class="todo-list"></ul>
@@ -92,10 +96,11 @@
   <!-- Kartu sumber hasil cari_info -->
   <div id="srccard" class="mapcard srccard" hidden>
     <div class="mapcard-head">
-      <b>🔎 Dicari Rara</b>
+      <b>📰 Kartu Berita</b>
       <button id="src-close" class="icon-btn" aria-label="Tutup sumber">✕</button>
     </div>
     <p id="src-query" class="src-query"></p>
+    <p id="src-vera" class="src-vera"></p>
     <ul id="src-list" class="src-list"></ul>
   </div>
 
@@ -133,7 +138,7 @@
   <div id="viewer" class="overlay" hidden>
     <div class="viewer glass">
       <div class="panel-head">
-        <h2>Galeri Gaby</h2>
+        <h2>🖼️ Galeri</h2>
         <button id="viewer-close" class="icon-btn" aria-label="Tutup">✕</button>
       </div>
       <img id="viewer-img" alt="Gambar buatan Gaby">
