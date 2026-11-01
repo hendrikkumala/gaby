@@ -85,4 +85,88 @@ status: cocok = semua fakta utama didukung bukti; beda = sumber saling berbeda (
   return { status, answer: final || (status === 'lemah' ? '' : answer), support, note: String(v.catatan || '').slice(0, 300), badge, model: v._model };
 }
 
+// ---------- Cek gambar Lukas ----------
+
+function imagePrompt(request) {
+  return `Kamu VERA, pemeriksa gambar untuk asisten Gaby. Pelukis Lukas membuat gambar ini untuk permintaan pengguna:
+"${request}"
+
+1. Tulis 2–6 hal PENTING yang diminta (objek, jumlah, warna, pakaian/aksesori, aksi, gaya, tulisan). Jangan menambah hal yang tidak diminta.
+2. Lihat gambarnya: apakah tiap hal itu benar-benar ada dan sesuai?
+3. "lolos" = false HANYA kalau ada hal penting yang jelas tidak ada atau salah (bukan soal selera).
+4. "perbaikan" = instruksi singkat bahasa Inggris untuk pelukis, khusus hal yang kurang/salah.
+
+Balas HANYA JSON:
+{"cek": [{"hal": "kucing oranye", "ada": true}], "lolos": true, "perbaikan": ""}`;
+}
+
+function summarize(v, model) {
+  const items = (Array.isArray(v.cek) ? v.cek : []).filter((c) => c && c.hal).slice(0, 6)
+    .map((c) => ({ hal: String(c.hal).slice(0, 60), ada: c.ada !== false }));
+  if (!items.length) return null;
+  const ok = items.filter((c) => c.ada).length;
+  const missing = items.filter((c) => !c.ada).map((c) => c.hal);
+  const pass = v.lolos !== false && !missing.length;
+  return {
+    checked: true,
+    pass,
+    items,
+    missing,
+    fix: String(v.perbaikan || '').slice(0, 400) || (missing.length ? `Make sure the image clearly shows: ${missing.join(', ')}.` : ''),
+    badge: pass ? `✅ dicek Vera ${ok}/${items.length}` : `⚠️ Vera ${ok}/${items.length}: kurang ${missing.join(', ')}`,
+    model,
+  };
+}
+
+// image = { base64, mime }. Hasil: { checked, pass, items, missing, fix, badge } atau { checked: false, badge }.
+export async function checkImage({ request, image }) {
+  const { keys } = memory.get();
+  const unchecked = { checked: false, pass: true, badge: '❓ belum dicek Vera' };
+  if (!image || !image.base64) return unchecked;
+  const prompt = imagePrompt(request);
+  const dataUrl = `data:${image.mime || 'image/jpeg'};base64,${image.base64}`;
+  // 1) Groq: model penglihatan (Llama 4).
+  if (keys.groq) {
+    for (const model of await groqModels(keys.groq, 'vision')) {
+      const body = {
+        model,
+        messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: dataUrl } }] }],
+        temperature: 0.1,
+        max_completion_tokens: 800,
+      };
+      const r = await groqChat(keys.groq, body, 25000);
+      if (r.error) { console.warn('[Gaby] Vera gambar', model, r.error, r.message); if (r.error === 'auth') break; continue; }
+      try {
+        const out = summarize(parseJson(r.data.choices?.[0]?.message?.content), `groq:${model}`);
+        if (out) return out;
+      } catch (e) {
+        console.warn('[Gaby] Vera gambar balasan bukan JSON', e.message);
+      }
+    }
+  }
+  // 2) Cadangan: Gemini (bisa melihat gambar), kalau jatahnya ada.
+  if (keys.gemini) {
+    for (const model of ['gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
+      try {
+        const res = await fetch(`${REST}/models/${model}:generateContent?key=${encodeURIComponent(keys.gemini)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }, { inline_data: { mime_type: image.mime || 'image/jpeg', data: image.base64 } }] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.1 },
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) continue;
+        const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+        const out = summarize(parseJson(raw), model);
+        if (out) return out;
+      } catch {
+        // coba model berikutnya
+      }
+    }
+  }
+  return unchecked;
+}
+
 export const _internal = { askVera, REST };

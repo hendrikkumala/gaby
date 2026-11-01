@@ -111,6 +111,7 @@ const DEFAULTS = {
     imageEngine: 'free', // 'free' (Pollinations) | 'google' (berbayar, bisa edit foto)
     musicApp: 'ytmusic', // 'ytmusic' | 'youtube' | 'spotify'
     briefing: true,  // briefing pagi & sapaan malam
+    veraImage: true, // Vera mengecek gambar Lukas (gambar ulang otomatis sekali kalau ada yang kurang)
     affective: true, // Gemini merasakan nada suara (eksperimental)
     captions: true,
     antiEcho: false,

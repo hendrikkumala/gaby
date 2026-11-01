@@ -27,6 +27,7 @@ import { LocalVad } from './vad.js';
 import { Camera } from './camera.js';
 import { gallery } from './gallery.js';
 import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
+import { checkImage } from './vera.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -1123,6 +1124,7 @@ function fillSettings() {
   fillNews();
   $('set-briefing').checked = st.settings.briefing !== false;
   $('set-affective').checked = st.settings.affective !== false;
+  $('set-vera-image').checked = st.settings.veraImage !== false;
   $('set-music').value = st.settings.musicApp || 'ytmusic';
   $('set-apk').hidden = !isNativeApp;
   if (isNativeApp) installedApk().then((a) => { if (a) $('set-apk-version').textContent = a.version; });
@@ -1265,6 +1267,7 @@ $('set-affective').addEventListener('change', (e) => {
 $('set-diag').addEventListener('change', (e) => { memory.setSetting('diag', e.target.checked); renderDiag(); });
 
 $('set-captions').addEventListener('change', (e) => { memory.setSetting('captions', e.target.checked); applySettings(); });
+$('set-vera-image').addEventListener('change', (e) => { memory.setSetting('veraImage', e.target.checked); });
 $('set-echo').addEventListener('change', (e) => { memory.setSetting('antiEcho', e.target.checked); applySettings(); });
 
 function deleteKey(which, label) {
@@ -2101,40 +2104,52 @@ function imageHints(request) {
   return [...new Set(lines)].slice(0, 12);
 }
 
+// Perkecil gambar untuk dicek Vera (hemat kuota & lebih cepat): JPEG maks 768 px.
+async function shrinkForCheck(blob, fallbackB64) {
+  try {
+    if (!blob) return fallbackB64 ? { base64: fallbackB64, mime: 'image/png' } : null;
+    const bmp = await createImageBitmap(blob);
+    const scale = Math.min(1, 768 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * scale));
+    c.height = Math.max(1, Math.round(bmp.height * scale));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return { base64: c.toDataURL('image/jpeg', 0.82).split(',')[1], mime: 'image/jpeg' };
+  } catch {
+    return fallbackB64 ? { base64: fallbackB64, mime: blob?.type || 'image/png' } : null;
+  }
+}
+
 // draft: perintah singkat dari Gaby. opts: { request (kata-kata pengguna), shape, change, previous, reuse }.
-// Lukas menulis perintah yang rinci; kalau Lukas gagal, draf Gaby tetap dipakai.
+// Alur: Lukas menulis perintah → menggambar → Vera mengecek → (kurang? Lukas memperbaiki sekali → Vera cek ulang).
+// Kalau Lukas gagal menulis, draf Gaby tetap dipakai. Semua tampil di papan kerja tim.
 async function makeImage(draft, useCam, { request = '', shape = '', change = '', previous = '', reuse = false } = {}) {
   const st = memory.get();
   const photo = useCam ? camera.frame(1024, 0.85) : null;
   if (useCam && !photo) return { error: 'Kamera belum menyala. Minta pengguna menyalakan kamera dulu.' };
   painting++;
   visual.painting = true;
-  const note = toast('🎨 Lukas sedang menggambar…', 'info', 90000);
-  let out = null;
+  const veraOn = st.settings.veraImage !== false;
+  const job = startJob('lukas', 'Menulis perintah gambar…', {
+    steps: [reuse ? 'Lukas memakai perintah yang sama' : 'Lukas menulis perintah', 'Lukas menggambar', ...(veraOn ? ['Vera mengecek gambar'] : [])],
+  });
   let engine = st.settings.imageEngine === 'google' ? 'google' : 'gratis';
   let switched = '';
   let prompt = draft;
   let lukas = false;
   request = String(request || '').trim() || draft;
-  try {
-    if (!reuse && (st.keys.gemini || st.keys.groq)) {
-      try {
-        const w = await writeImagePrompt({ gemini: st.keys.gemini, groq: st.keys.groq }, {
-          request, draft, hints: imageHints(request), photo, engine, previous, change, shape,
-        });
-        prompt = w.prompt;
-        shape = w.bentuk;
-        lukas = true;
-        try { localStorage.setItem('gaby.lukasModel', w.model); } catch {}
-      } catch (e) {
-        console.warn('[Gaby] Lukas gagal menulis perintah, pakai draf Gaby:', e.message);
-      }
-    }
-    if (!shape) shape = 'persegi';
+  const keys = { gemini: st.keys.gemini, groq: st.keys.groq };
+
+  const write = async (opts) => {
+    const w = await writeImagePrompt(keys, { request, draft, hints: imageHints(request), photo, engine, shape, ...opts });
+    try { localStorage.setItem('gaby.lukasModel', w.model); } catch {}
+    return w;
+  };
+  const draw = async (p) => {
     if (engine === 'google') {
       try {
         if (!st.keys.gemini) throw Object.assign(new Error('Belum ada key Gemini'), { kind: 'key' });
-        out = await generateImage(st.keys.gemini, prompt, photo, shape);
+        return await generateImage(st.keys.gemini, p, photo, shape);
       } catch (e) {
         if (e.kind === 'ditolak') throw e;
         // Billing belum aktif / kuota habis: tetap buatkan gambar dengan mesin gratis.
@@ -2143,20 +2158,69 @@ async function makeImage(draft, useCam, { request = '', shape = '', change = '',
         engine = 'gratis';
       }
     }
-    if (!out) out = await generateFree(prompt, st.keys.pollinations, shape);
-    pendingImage = { blob: out.blob, url: out.url || null, prompt, request, useCam, engine, shape };
+    return generateFree(p, st.keys.pollinations, shape);
+  };
+
+  try {
+    job.step(0, reuse ? 'Memakai perintah yang sama…' : 'Menulis perintah gambar…');
+    if (!reuse && (keys.gemini || keys.groq)) {
+      try {
+        const w = await write({ previous, change });
+        prompt = w.prompt;
+        shape = w.bentuk;
+        lukas = true;
+      } catch (e) {
+        console.warn('[Gaby] Lukas gagal menulis perintah, pakai draf Gaby:', e.message);
+      }
+    }
+    if (!shape) shape = 'persegi';
+    job.step(1, 'Menggambar…');
+    let out = await draw(prompt);
+
+    // Vera mengecek; kalau ada hal penting yang kurang, Lukas memperbaiki sekali.
+    let check = null;
+    if (veraOn) {
+      job.pass('vera');
+      job.step(2, 'Mengecek gambar…');
+      check = await checkImage({ request, image: await shrinkForCheck(out.blob, out.base64) });
+      if (check.checked && !check.pass) {
+        const iFix = job.addStep('Lukas memperbaiki');
+        job.addStep('Vera mengecek ulang');
+        job.pass('lukas');
+        job.step(iFix, `Memperbaiki: ${check.missing.join(', ')}…`);
+        let fixed = `${prompt} Important: ${check.fix}`;
+        if (keys.gemini || keys.groq) {
+          try { fixed = (await write({ previous: prompt, change: check.fix })).prompt; } catch { /* pakai perintah + catatan Vera */ }
+        }
+        const out2 = await draw(fixed);
+        job.pass('vera');
+        job.step(iFix + 1, 'Mengecek ulang…');
+        const check2 = await checkImage({ request, image: await shrinkForCheck(out2.blob, out2.base64) });
+        // Pakai hasil perbaikan kecuali Vera menilainya lebih buruk.
+        const score = (c) => (c && c.checked ? c.items.filter((x) => x.ada).length / c.items.length : 0);
+        if (!check2.checked || score(check2) >= score(check)) { out = out2; prompt = fixed; check = check2; }
+      }
+    }
+
+    pendingImage = { blob: out.blob, url: out.url || null, prompt, request, useCam, engine, shape, badge: check ? check.badge : '' };
     showPreview();
+    job.done(check ? check.badge : 'Selesai');
     if (out.base64) brain.sendImage(out.base64, out.blob ? out.blob.type : 'image/png'); // supaya Gaby bisa melihat hasilnya
-    const notes = ['Gambar sudah tampil di layar. Komentari singkat, lalu tanya mau disimpan, diulang, atau dibuang. Kalau pengguna ingin ada yang diubah, pakai gambar_aksi ulang dengan isi perubahan.'];
+    const notes = ['Gambar sudah tampil di layar (Kartu Gambar). Komentari singkat, lalu tanya mau disimpan, diulang, atau dibuang. Kalau pengguna ingin ada yang diubah, pakai gambar_aksi ulang dengan isi perubahan.'];
+    if (check && check.checked) {
+      notes.push(check.pass
+        ? 'Vera sudah mengecek: semua yang diminta ada. Boleh sebut singkat "sudah dicek Vera".'
+        : `Vera mencatat masih kurang: ${check.missing.join(', ')}. Bilang jujur singkat dan tawarkan ulang dengan perubahan.`);
+    }
     if (engine === 'gratis' && useCam) notes.push('Ini gambar ulang yang mirip dari deskripsi, bukan edit foto asli.');
     if (switched) notes.push(`Mesin Google gagal (${switched}), jadi memakai mesin gratis.`);
     if (!out.base64) notes.push('Kamu tidak bisa melihat hasil gambarnya, jadi jangan mendeskripsikannya secara detail.');
-    return { ok: true, mesin: engine, ditulis_lukas: lukas, bentuk: shape, catatan: notes.join(' ') };
+    return { ok: true, mesin: engine, ditulis_lukas: lukas, bentuk: shape, cek_vera: check ? check.badge : 'tidak dicek', catatan: notes.join(' ') };
   } catch (e) {
+    job.fail(e.pesan || e.message || 'Gagal menggambar');
     toast(`🎨 ${e.pesan || e.message}`, 'err', 12000);
     return { error: e.pesan || e.message, jenis: e.kind || 'lain' };
   } finally {
-    note.remove();
     painting--;
     visual.painting = painting > 0;
     touch();
@@ -2170,6 +2234,7 @@ function showPreview() {
   previewUrl = imgSrc(pendingImage);
   $('preview-img').src = previewUrl;
   $('preview-tag').textContent = pendingImage.engine === 'google' ? 'GOOGLE' : 'GRATIS';
+  $('preview-vera').textContent = pendingImage.badge || '';
   $('preview').hidden = false;
   $('preview').classList.remove('show');
   requestAnimationFrame(() => $('preview').classList.add('show'));

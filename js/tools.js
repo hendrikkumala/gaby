@@ -161,7 +161,7 @@ export const TOOL_DEFS = [
   {
     name: 'buat_gambar',
     background: 'idle',
-    description: 'Minta LUKAS (teman pelukismu) membuat gambar baru, atau gambar berdasarkan benda di kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Lukas menulis perintah gambar yang rinci sendiri. Butuh 5–25 detik; sambil menunggu, bilang singkat bahwa Lukas sedang menggambar. Gambar tampil di layar dan pengguna memilih simpan, ulang, atau buang.',
+    description: 'Minta LUKAS (teman pelukismu) membuat gambar baru, atau gambar berdasarkan benda di kamera (pakai_kamera = true), misal "tambahkan anjing tidur di bantal ini". Lukas menulis perintah gambar yang rinci sendiri, lalu Vera mengecek hasilnya (kalau ada yang kurang, Lukas memperbaiki sekali). Butuh 10–45 detik; sambil menunggu, bilang singkat bahwa Lukas sedang menggambar (prosesnya tampil di papan kerja). Gambar tampil di layar dan pengguna memilih simpan, ulang, atau buang.',
     parameters: {
       type: 'object',
       properties: {
