@@ -98,22 +98,35 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.17.1, APK #6)
-Sudah jalan & diuji pemilik: percakapan suara Gemini, persona & emosi (tampilan hologram), kamera/layar, gambar (gratis & galeri),
-lokasi/tempat/rute/peta, ingatan & profil berkategori, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak,
-APK Android dengan kunci tetap & kartu update (update #6 lewat kartu berhasil),
-pengingat berbunyi saat HP terkunci & `pasang_alarm` ke aplikasi Jam di Android (diuji pemilik 31 Okt 2026).
-`pasang_alarm` di iPhone juga berhasil (1 Nov 2026): ketuk kartu alarm dari Gaby → pindah ke app Jam → pemilik menekan Simpan sendiri (iOS tidak mengizinkan alarm terpasang otomatis).
+## Status saat ini (v1.17.1, APK #6) — per 1 Nov 2026
+**Sudah jalan & diuji pemilik:**
+- Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
+  ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
+- APK Android dengan kunci tetap & kartu update (update ke #6 lewat kartu berhasil).
+- Pengingat berbunyi saat HP terkunci + `pasang_alarm` ke aplikasi Jam di Android (31 Okt 2026).
+- `pasang_alarm` di iPhone (1 Nov 2026): ketuk kartu alarm → app Jam → pemilik menekan Simpan sendiri (iOS tidak mengizinkan otomatis).
+- Lukas (v1.16, Groq Qwen3 di v1.17): gambar "lebih presisi sesuai permintaan", "aman banget, keren" (1 Nov 2026).
+- Rara via Groq GPT-OSS 120B + browser_search (v1.17.0): jalan dan memberi kartu sumber berita (1 Nov 2026).
+  Catatan: kunci Gemini gratis pemilik **ditolak** Google Search grounding, jadi Rara bergantung pada kunci Groq.
 
 **Belum dites langsung oleh pemilik:**
-- v1.15.0: laci ingatan baru + 👍/👎 + alat `buka_ingatan` + aturan anti muter-muter (hanya web, tanpa update APK).
-- v1.16.0: Rara (agen riset internet `cari_info`) + kartu sumber + pencarian cepat saat jatah habis; Lukas (prompt gambar rinci,
-  ulang dengan perubahan); nama teman di prompt & layar; cerita update sekali + Pengaturan → ✨ Apa yang baru. Belum pasti apakah kunci gratis
-  pemilik boleh memakai Google Search grounding dan berapa jatahnya (halaman harga Google tidak bisa dibuka dari sesi cloud).
-  1 Nov 2026: pemilik melapor Lukas lebih presisi ✅; Rara via Gemini tetap gagal (jatah/izin Google) → v1.17.0: kunci Groq.
-- v1.17.0 ✅ diuji pemilik 1 Nov 2026: kunci Groq → Rara (GPT-OSS 120B + browser_search) memberi kartu sumber berita, Lukas (Qwen3) "aman banget".
-- v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya"/"tutup semua" pakai suara (alat `tutup_kartu`).
-Kalau pemilik melaporkan masalah pengingat/alarm, mulai dari `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`.
+- v1.15: laci ingatan + 👍/👎 + `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
+- v1.16: cerita update sekali per versi, Pengaturan → ✨ Apa yang baru, "ulang dengan perubahan" untuk gambar.
+- v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya" / "tutup semua" pakai suara (`tutup_kartu`).
+- Pencarian cepat (Google Search bawaan) saat semua jatah Rara habis.
+
+Kalau pemilik melaporkan masalah: pengingat/alarm → `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`;
+Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + `js/research.js`, `js/groq.js`; Lukas → `js/imagegen.js`.
+
+## Riwayat rilis (ringkas)
+| Versi | Isi |
+|---|---|
+| 1.17.1 | Kartu sumber tidak menumpuk, `tutup_kartu` pakai suara; cerita update runtut (maks 4 hal, urut lama → baru). "Perbaikan bug kecil" (quiet) |
+| 1.17.0 | Kunci Groq di Pengaturan → Otak Gaby: Rara GPT-OSS 120B + browser_search, Lukas Qwen3 32B; catatan v1.16.1 dihapus dari Apa yang baru |
+| 1.16.1 | Alasan penolakan Google tampil di Pengaturan + tombol "Coba Rara lagi" |
+| 1.16.0 | Teman Gaby: Rara (`cari_info` + kartu sumber, Google Search bawaan dimatikan, pencarian cepat saat habis), Lukas (prompt gambar rinci, bentuk, ulang dengan perubahan), Meri; cerita update sekali; akhiran -ku/-mu/-nya |
+| 1.15.0 | 18 laci ingatan + 👍/👎, `buka_ingatan`, mode laci > 40 ingatan, anti muter-muter, pemilahan ulang AI |
+| 1.14.0 | Pengingat berbunyi saat HP terkunci, `pasang_alarm` (APK #6) |
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
 - "Hai Gaby" tanpa sentuh di Android (butuh layanan latar depan + notifikasi tetap; ditolak untuk sekarang).
