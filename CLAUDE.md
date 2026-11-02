@@ -154,9 +154,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 2 Nov 2026
-**Yang terbit (cabang `main` / GitHub Pages): v1.19.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem).
-**Siap tapi BELUM terbit (cabang kerja): v1.19.1** — kamera tampil utuh + riwayat versi bisa dilipat. Tunggu kata "terbitkan".
-iPhone pemilik terakhir terlihat di v1.18.2 (sebelum v1.19.0 terbit).
+**Yang terbit (cabang `main` / GitHub Pages): v1.19.1 · APK #7** (android-app 1.0.4, plugin Share & Filesystem). v1.19.1 terbit 2 Nov 2026.
+Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
+jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
@@ -167,17 +167,21 @@ iPhone pemilik terakhir terlihat di v1.18.2 (sebelum v1.19.0 terbit).
 - Lukas (v1.16, Groq Qwen3 di v1.17): gambar "lebih presisi sesuai permintaan", "aman banget, keren" (1 Nov 2026).
 - Rara via Groq GPT-OSS 120B + browser_search (v1.17.0): jalan dan memberi kartu sumber berita (1 Nov 2026).
 - Tanda 👍/👎 di Pengaturan → Ingatan sudah terlihat (v1.15, 1 Nov 2026).
+- **Pandu v1.19.0 lewat OpenRouter (2 Nov 2026): "sudah sukses, keren laporannya", "walau menunggu tapi hasilnya nyata"**; Vera ikut
+  memberi catatan (contoh: "belum ada jadwal hari terakhir dan check-out hotel"). Kunci OpenRouter sudah diisi pemilik.
+  Pertanyaan pemilik: kenapa catatan Vera tidak dikembalikan ke Pandu sampai beres → sekarang Pandu hanya diberi 1 putaran perbaikan
+  (hemat jatah); ide: 2 putaran saat lewat OpenRouter + tawarkan "lengkapi rencana" (belum disetujui).
   Catatan: kunci Gemini gratis pemilik **ditolak** Google Search grounding, jadi Rara bergantung pada kunci Groq.
 
-**Masalah yang dilaporkan pemilik & sudah ditangani (belum dikonfirmasi ulang di HP):**
+**Masalah yang dilaporkan pemilik & sudah ditangani:**
 - Pandu selalu gagal (1 Nov 2026) — penyebab: batas token per menit Groq habis sebelum semenit berlalu (Rara browsing + Vera per
-  pencarian + Pandu). Ditangani di v1.19.0: otak OpenRouter, 3 pencarian, tanpa Vera per pencarian, jatah 1.700/2.500, tahan banting.
-- Pratinjau kamera tampak di-zoom di APK & Mac (2 Nov 2026) → v1.19.1 (belum terbit).
-- Riwayat versi di Pengaturan terlalu panjang (2 Nov 2026) → v1.19.1 tombol lipat (belum terbit).
+  pencarian + Pandu). Ditangani di v1.19.0 (otak OpenRouter, 3 pencarian, tanpa Vera per pencarian, jatah 1.700/2.500, tahan banting)
+  — ✅ dikonfirmasi pemilik 2 Nov 2026.
+- Pratinjau kamera tampak di-zoom di APK & Mac (2 Nov 2026) → v1.19.1 (terbit, belum dicoba pemilik).
+- Riwayat versi di Pengaturan terlalu panjang (2 Nov 2026) → v1.19.1 tombol lipat (terbit, belum dicoba pemilik).
 
 **Belum dites langsung oleh pemilik:**
-- v1.19.0: Pandu lewat OpenRouter (pemilik perlu isi kunci OpenRouter + izinkan model gratis di Privacy OpenRouter), pilihan
-  hemat/seimbang/nyaman, jenis rencana (proyek dll.), simpan kartu ke HP (APK butuh update ke #7 — kartu update muncul otomatis
+- v1.19.0: pilihan hemat/seimbang/nyaman, jenis rencana (proyek dll.), simpan kartu ke HP (APK butuh update ke #7 — kartu update muncul otomatis
   besoknya, atau Pengaturan → Fitur → Cek update aplikasi).
 - v1.18: Pandu & rencana bernomor (buka/bandingkan/hapus/batal/ke catatan, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja,
   kartu bernama + `tutup_kartu` per nama, Gaby bilang santai kalau kunci teman belum diisi.
