@@ -139,6 +139,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   `WHATS_NEW` (`newsSince`: item pertama tiap versi yang terlewat pasti ikut, diceritakan urut dari versi lama ke baru); `memory.seenVersion` (pengguna baru langsung = VERSION, pengguna lama tanpa catatan = 1.14.0).
   **Setiap rilis: tambahkan entri di `js/whatsnew.js`** (bahasa santai, sudut pandang Gaby, item terpenting dulu;
   `quiet: true` untuk perbaikan kecil = hanya di Pengaturan, tidak diceritakan).
+- Pratinjau kamera (`#cam-box`): `fitCamBox()` menyamakan bentuk kotak dengan `videoWidth/videoHeight` dan `object-fit: contain`
+  (dulu kotak 3:4 + `cover` memotong gambar mendatar, sehingga tampak di-zoom padahal Gaby melihat gambar utuh).
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
@@ -149,7 +151,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.19.0, APK #7) — per 2 Nov 2026
+## Status saat ini (v1.19.1, APK #7) — per 2 Nov 2026
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
   ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
@@ -179,6 +181,7 @@ Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.19.1 | Pratinjau kamera mengikuti bentuk asli gambar (tidak dipotong/terlihat di-zoom); riwayat versi di Pengaturan bisa dilipat (quiet) |
 | 1.19.0 | Pandu: OpenRouter (Nemotron Ultra 550B) + cadangan Groq, irit (3 pencarian, tanpa Vera per pencarian, 1.700/2.500 token) & tahan banting; pilihan hemat/seimbang/nyaman; jenis rencana (proyek, acara, belajar, dll.), transportasi & kuliner bernama; simpan kartu ke HP; APK + plugin Share & Filesystem (android-app 1.0.4) |
 | 1.18.2 | Gaby memberi tahu dengan santai kalau teman belum bisa karena kunci belum diisi, lalu mengerjakan sendiri sebisanya (quiet) |
 | 1.18.1 | Penjaga batas token per menit Groq, Pandu lebih hemat token, Rara 20B saat dipanggil Pandu; papan kerja bisa ditutup (✕ / suara). "Perbaikan bug kecil" (quiet) |

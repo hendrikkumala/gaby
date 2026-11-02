@@ -1101,6 +1101,7 @@ function lukasStatus() {
 function fillNews() {
   const box = $('set-news');
   if (box.childElementCount) return;
+  $('set-news-sum').textContent = `Lihat riwayat versi (sekarang v${VERSION})`;
   for (const v of WHATS_NEW) {
     const h = document.createElement('h4');
     h.textContent = `v${v.version}`;
@@ -1794,6 +1795,20 @@ function todoAction(aksi, items) {
 
 $('todo-close').addEventListener('click', () => hideCards());
 $('set-open-todo').addEventListener('click', () => { $('settings').hidden = true; showTodoCard(); });
+
+// ---------- Kotak pratinjau kamera ----------
+// Kotak mengikuti bentuk asli gambar kamera (mendatar/tegak) dan menampilkannya utuh tanpa dipotong,
+// supaya yang terlihat sama dengan yang dilihat Gaby (dulu kotak tegak 3:4 memotong kiri-kanan → terlihat di-zoom).
+function fitCamBox() {
+  const v = $('cam-video');
+  const box = $('cam-box');
+  if (!v.videoWidth || !v.videoHeight) return;
+  const ratio = v.videoWidth / v.videoHeight;
+  box.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
+  box.classList.toggle('wide', ratio > 1.05);
+}
+$('cam-video').addEventListener('loadedmetadata', fitCamBox);
+$('cam-video').addEventListener('resize', fitCamBox); // berubah saat ganti kamera / HP diputar
 
 // ---------- Pencarian internet (cari_info) ----------
 
@@ -2578,6 +2593,7 @@ async function openCamera(kind = 'kamera', facing, announce = false) {
     return { error: 'Kamera belum menyala. Minta pengguna mengetuk tombol di layar.' };
   }
   $('cam-box').hidden = false;
+  fitCamBox();
   $('btn-cam').classList.add('on');
   visual.scanning = true;
   touch();

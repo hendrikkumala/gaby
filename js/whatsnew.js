@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.19.1',
+    quiet: true,
+    items: ['Perbaikan bug kecil: tampilan kamera tidak lagi terpotong, riwayat versi bisa dilipat'],
+  },
+  {
     version: '1.19.0',
     items: [
       'Pandu makin rinci dan irit: rencana perjalanan lengkap dengan pilihan hemat, seimbang, atau nyaman untuk maskapai dan hotel, plus rekomendasi tempat makan. Pandu juga bisa berpikir lewat otak Nemotron gratis dari OpenRouter supaya tidak cepat kehabisan jatah',

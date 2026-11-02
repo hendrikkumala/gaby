@@ -111,7 +111,9 @@ html, body {
   z-index: 7;
 }
 .cam-box[hidden] { display: none; }
-.cam-box video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-box video { width: 100%; height: 100%; object-fit: contain; display: block; }
+/* Gambar kamera mendatar (laptop / kamera HP) → kotak mendatar yang lebih lebar. */
+.cam-box.wide { width: min(62vw, 340px); }
 .cam-box video.mirror { transform: scaleX(-1); }
 .cam-box::after {
   content: '';
@@ -684,6 +686,8 @@ mark { background: rgba(255, 200, 100, .35); color: inherit; border-radius: 3px;
 .src-list a { color: var(--accent); text-decoration: none; word-break: break-word; }
 .src-list li.q a { opacity: .8; }
 #set-research-why { white-space: pre-line; word-break: break-word; font-size: 12px; }
+.news-drop > summary { cursor: pointer; padding: 8px 0; color: var(--accent); font-weight: 600; list-style: revert; }
+.news-drop[open] > summary { margin-bottom: 4px; }
 .news h4 { margin: 10px 0 4px; font-size: 14px; }
 .news ul { margin: 0; padding-left: 18px; }
 .news li { margin: 3px 0; line-height: 1.35; }
