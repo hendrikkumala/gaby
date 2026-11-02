@@ -34,12 +34,12 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/apps.js` | Buka WhatsApp/YouTube/dll. (Android intent, iOS universal link) |
 | `js/whatsnew.js` | Daftar "apa yang baru" per versi (Gaby cerita sekali setelah update; Pengaturan → ✨ Apa yang baru) |
 | `js/research.js` | **Rara**, agen riset internet `cari_info`: bertingkat Groq GPT-OSS 120B + browser_search → Gemini 3.x → 2.5 (+ Google Search), catat jatah habis & alasan, mode pencarian cepat |
-| `js/pandu.js` | **Pandu**, perencana: agen Groq GPT-OSS 120B dengan alat (langkah, Rara, cuaca, jarak, laci, jadwal, simpan_rencana), `normalizePlan` |
+| `js/pandu.js` | **Pandu**, perencana: otak OpenRouter (Nemotron) → Groq (GPT-OSS 120B) dengan alat (langkah, Rara, cuaca, jarak, laci, jadwal, simpan_rencana), `normalizePlan`, `pickOne`, `panduStatus` |
 | `js/vera.js` | **Vera**, pemeriksa: `checkFacts` (Rara), `checkImage` (Lukas, model penglihatan), `checkPlan` (Pandu: cek pasti + Qwen3) |
 | `js/planexport.js` | Isi rencana per bagian (`planSections`) — satu sumber untuk Kartu Rencana, gambar PNG (`renderImage`, canvas) & teks (`planText`) |
 | `js/teamboard.js` | Papan kerja tim di bawah status (siapa bekerja, bar, langkah; ketuk untuk detail) |
 | `js/openrouter.js` | Otak Pandu lewat OpenRouter (jatah per permintaan): pilih model gratis + tools (Nemotron Ultra 550B → Super 120B → …), hitung pemakaian harian, istirahat saat jatah/izin bermasalah |
-| `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS 120B + `browser_search`) & Lukas (Qwen3 32B → Llama 3.3 70B → …), pilih model pengganti dari daftar model Groq |
+| `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS + `browser_search`), Lukas (Qwen3 32B → …), Vera (Qwen3 / Llama 4 penglihatan) & Pandu cadangan; penjaga token per menit (`waitNeeded`), pilih model pengganti dari daftar model Groq |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
 | `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (**Lukas** menulis prompt via Gemini teks, lalu Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
 | `sw.js` | Service worker: tetap bisa dibuka walau GitHub down |
@@ -117,7 +117,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Batas token per menit Groq (v1.18.1): `groqChat` mencatat pemakaian 60 dtk terakhir per model (usage asli / perkiraan
   ±3,5 huruf per token) + header `x-ratelimit-*` kalau terbaca, lalu MENUNGGU dulu kalau jatah belum cukup (`waitNeeded`, bawaan 8.000/menit,
   maks 60 dtk; papan kerja menulis "Menunggu jatah Groq per menit"). 429 per menit → tunggu `retry-after` lalu ulang.
-  Pandu hemat token: maks 4 pencarian, alat ringkas (±900 token), hasil alat lama dipadatkan, minta panggil beberapa alat sekaligus,
+  Pandu hemat token (v1.18.1; diperketat di v1.19: maks 3 pencarian, lihat di atas): alat ringkas, hasil alat lama dipadatkan, minta panggil beberapa alat sekaligus,
   Rara di dalam Pandu memakai GPT-OSS **20B** (jatah terpisah dari Pandu 120B), Pandu pindah model untuk satu giliran kalau 120B harus
   menunggu > 8 dtk. Satu misi ±10–15 ribu token → wajar 1–3 menit. Awas: `/20b/` juga cocok dengan "120b" — pakai `/gpt-oss-20b/`.
 - Rencana v1.19: `jenis` (perjalanan/proyek/acara/belajar/kesehatan/belanja/lainnya) + bagian `transportasi` (nama maskapai/kereta,
@@ -134,7 +134,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Papan kerja bisa ditutup (✕ / `tutup_kartu` jenis `papan` / "tutup semua"); teman tetap bekerja, papan muncul lagi saat ada pekerjaan
   baru. Pekerjaan yang macet > 6 menit dihapus dari papan.
 - Uji: mikrofon tiruan Chromium berbunyi "bip" sehingga `vad.active` sering true; pakai `--use-file-for-fake-audio-capture=<wav hening>`.
-- OpenRouter belum dipakai: model gratisnya tidak bisa browsing gratis (pencarian berbayar). Pertimbangkan kalau Groq berhenti gratis.
+- OpenRouter hanya untuk OTAK Pandu (v1.19), bukan untuk browsing: pencarian web OpenRouter berbayar, jadi Rara tetap di Groq/Gemini.
+  Model gratis OpenRouter: ±20 permintaan/menit, 50/hari (1.000/hari kalau akun pernah isi saldo ≥ $10); permintaan gagal ikut dihitung;
+  pemilik harus mengizinkan model gratis di https://openrouter.ai/settings/privacy, kalau tidak → error "data policy" (`privacy`).
 - Cerita update: `newsCue` di `app.js` sekali per versi saat dibuka biasa (tap/wake/open, bukan resume/pengingat), maks 4 item dari
   `WHATS_NEW` (`newsSince`: item pertama tiap versi yang terlewat pasti ikut, diceritakan urut dari versi lama ke baru); `memory.seenVersion` (pengguna baru langsung = VERSION, pengguna lama tanpa catatan = 1.14.0).
   **Setiap rilis: tambahkan entri di `js/whatsnew.js`** (bahasa santai, sudut pandang Gaby, item terpenting dulu;
@@ -144,18 +146,22 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`.
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`, `backup-v1.19.0` (= versi yang terbit 2 Nov 2026).
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.19.1, APK #7) — per 2 Nov 2026
+## Status saat ini — per 2 Nov 2026
+**Yang terbit (cabang `main` / GitHub Pages): v1.19.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem).
+**Siap tapi BELUM terbit (cabang kerja): v1.19.1** — kamera tampil utuh + riwayat versi bisa dilipat. Tunggu kata "terbitkan".
+iPhone pemilik terakhir terlihat di v1.18.2 (sebelum v1.19.0 terbit).
+
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
   ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
-- APK Android dengan kunci tetap & kartu update (update ke #6 lewat kartu berhasil). APK #7 terbit 2 Nov 2026 (android-app 1.0.4).
+- APK Android dengan kunci tetap & kartu update (update ke #6 lewat kartu berhasil).
 - Pengingat berbunyi saat HP terkunci + `pasang_alarm` ke aplikasi Jam di Android (31 Okt 2026).
 - `pasang_alarm` di iPhone (1 Nov 2026): ketuk kartu alarm → app Jam → pemilik menekan Simpan sendiri (iOS tidak mengizinkan otomatis).
 - Lukas (v1.16, Groq Qwen3 di v1.17): gambar "lebih presisi sesuai permintaan", "aman banget, keren" (1 Nov 2026).
@@ -163,20 +169,34 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Tanda 👍/👎 di Pengaturan → Ingatan sudah terlihat (v1.15, 1 Nov 2026).
   Catatan: kunci Gemini gratis pemilik **ditolak** Google Search grounding, jadi Rara bergantung pada kunci Groq.
 
-**Belum dites langsung oleh pemilik:**
-- v1.15: `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
-- v1.16: cerita update sekali per versi, Pengaturan → ✨ Apa yang baru, "ulang dengan perubahan" untuk gambar.
-- v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya" / "tutup semua" pakai suara (`tutup_kartu`).
-- **v1.19.0 (terbit 2 Nov 2026, APK #7 dengan plugin Share & Filesystem):** belum dicoba di HP — Pandu lewat OpenRouter
-  (pemilik perlu isi kunci + izinkan model gratis di Privacy OpenRouter), pilihan berjenjang, simpan kartu ke HP.
-- **v1.18.0 (baru terbit, belum dicoba di HP):** Pandu (rencana bernomor, kartu, arsip, bandingkan, hapus/batal, ke catatan &
-  pengingat, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja tim, kartu bernama + tutup per nama.
-  Belum pasti di dunia nyata: model penglihatan Llama 4 masih ada di Groq? batas token per menit Groq saat Pandu bekerja panjang
-  (Pandu menunggu & pindah model kalau kena batas); kualitas rencana GPT-OSS untuk harga Indonesia.
-- Pencarian cepat (Google Search bawaan) saat semua jatah Rara habis.
+**Masalah yang dilaporkan pemilik & sudah ditangani (belum dikonfirmasi ulang di HP):**
+- Pandu selalu gagal (1 Nov 2026) — penyebab: batas token per menit Groq habis sebelum semenit berlalu (Rara browsing + Vera per
+  pencarian + Pandu). Ditangani di v1.19.0: otak OpenRouter, 3 pencarian, tanpa Vera per pencarian, jatah 1.700/2.500, tahan banting.
+- Pratinjau kamera tampak di-zoom di APK & Mac (2 Nov 2026) → v1.19.1 (belum terbit).
+- Riwayat versi di Pengaturan terlalu panjang (2 Nov 2026) → v1.19.1 tombol lipat (belum terbit).
 
-Kalau pemilik melaporkan masalah: Pandu/rencana → `js/pandu.js`, `runPlanJob`/`announce` di `js/app.js`; Vera → `js/vera.js`; pengingat/alarm → `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`;
-Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + `js/research.js`, `js/groq.js`; Lukas → `js/imagegen.js`.
+**Belum dites langsung oleh pemilik:**
+- v1.19.0: Pandu lewat OpenRouter (pemilik perlu isi kunci OpenRouter + izinkan model gratis di Privacy OpenRouter), pilihan
+  hemat/seimbang/nyaman, jenis rencana (proyek dll.), simpan kartu ke HP (APK butuh update ke #7 — kartu update muncul otomatis
+  besoknya, atau Pengaturan → Fitur → Cek update aplikasi).
+- v1.18: Pandu & rencana bernomor (buka/bandingkan/hapus/batal/ke catatan, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja,
+  kartu bernama + `tutup_kartu` per nama, Gaby bilang santai kalau kunci teman belum diisi.
+- v1.17.1: kartu sumber tidak menumpuk + "tutup beritanya" / "tutup semua".
+- v1.16: cerita update sekali per versi, "ulang dengan perubahan" untuk gambar. v1.15: `buka_ingatan` (> 40 ingatan), anti muter-muter.
+- Pencarian cepat (Google Search bawaan) saat semua jatah Rara habis.
+- Belum pasti di dunia nyata: Nemotron Ultra 550B gratis masih ada & cukup cepat? model penglihatan Llama 4 masih ada di Groq?
+  kualitas harga Indonesia dari pencarian.
+
+**Ketergantungan pada GitHub (pertanyaan pemilik, 2 Nov 2026):** APK memuat Gaby dari GitHub Pages (`server.url` di
+`android-app/capacitor.config.json`). Kalau repo/Pages dihapus: pengguna yang sudah pernah membuka tetap jalan dari salinan service
+worker (data aman di HP, semua AI tetap jalan), tapi tidak ada update/unduhan APK, pengguna baru tidak bisa, dan kalau cache/data app
+dihapus atau APK dipasang ulang → Gaby tidak terbuka. Salinan `www` di dalam APK belum dipakai sebagai cadangan, dan datanya terikat
+alamat github.io (pindah alamat = perlu ekspor/impor ingatan). Jangan hapus/ganti repo atau alamat Pages tanpa rencana pindah.
+
+Kalau pemilik melaporkan masalah: Pandu/rencana → `js/pandu.js`, `js/openrouter.js`, `runPlanJob`/`announce` di `js/app.js` + baris 🗺️ Pandu / 🧭 OpenRouter
+di Pengaturan → Otak Gaby; Vera → `js/vera.js`; pengingat/alarm → `js/native.js`, `GabyAlarmPlugin.java`, `fireReminder`/`setAlarm` di `js/app.js`;
+Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + `js/research.js`, `js/groq.js`; Lukas → `js/imagegen.js`;
+kamera → `fitCamBox` di `js/app.js`, `js/camera.js`.
 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
@@ -194,6 +214,8 @@ Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + 
 | 1.14.0 | Pengingat berbunyi saat HP terkunci, `pasang_alarm` (APK #6) |
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
+- Ekspor/impor ingatan & rencana ke satu file (berguna kalau pindah alamat/hosting atau ganti HP).
+- APK berdiri sendiri (offline penuh dari `www`) atau pindah hosting — hanya kalau pemilik ingin lepas dari GitHub.
 - "Hai Gaby" tanpa sentuh di Android (butuh layanan latar depan + notifikasi tetap; ditolak untuk sekarang).
 - Aplikasi iPhone asli (butuh Apple Developer $99/tahun; belum perlu).
 - PIN (pemilik belum menentukan).
