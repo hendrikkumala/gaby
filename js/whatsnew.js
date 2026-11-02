@@ -7,7 +7,7 @@ export const WHATS_NEW = [
   {
     version: '1.19.0',
     items: [
-      'Pandu makin rinci: rencana perjalanan sekarang lengkap dengan nama maskapai atau kereta, hotel, dan rekomendasi tempat makan',
+      'Pandu makin rinci dan irit: rencana perjalanan lengkap dengan pilihan hemat, seimbang, atau nyaman untuk maskapai dan hotel, plus rekomendasi tempat makan. Pandu juga bisa berpikir lewat otak Nemotron gratis dari OpenRouter supaya tidak cepat kehabisan jatah',
       'Pandu bisa merencanakan banyak hal, bukan cuma liburan: bikin aplikasi atau usaha, acara, belajar, olahraga, sampai bandingkan barang',
       'Kartu rencana bisa disimpan ke HP sebagai gambar rapi atau dikirim sebagai teks ke WhatsApp; bilang "simpan rencana 1 ke HP"',
     ],

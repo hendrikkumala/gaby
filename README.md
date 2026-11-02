@@ -25,10 +25,14 @@ Gaby bekerja bersama tiga teman AI, dan dia kenal mereka (tanya saja: *"teman-te
 | 🔎 **Rara** | Riset internet dengan teliti: berita, harga, skor, kurs, info kesehatan. Sumbernya tampil di kartu kecil di layar | Kunci **Groq** (GPT-OSS 120B + browsing). Cadangan: Gemini, lalu pencarian cepat Gaby |
 | 🎨 **Lukas** | Menulis perintah gambar yang rinci dari kata-katamu, lalu menggambar | Kunci **Groq** (Qwen3 32B). Foto kamera & cadangan: Gemini |
 | 📝 **Meri** | Menulis catatan harian dan merapikan ingatan ke laci-laci saat Gaby tidur | Gemini |
-| 🗺️ **Pandu** | Menyusun rencana berlangkah (liburan, acara, diet, belanja, bandingkan produk) dengan bantuan Rara | Kunci **Groq** (GPT-OSS 120B) |
+| 🗺️ **Pandu** | Menyusun rencana berlangkah (liburan, proyek, acara, diet, belanja, bandingkan produk) dengan bantuan Rara | Kunci **OpenRouter** (Nemotron gratis, disarankan) atau **Groq** (GPT-OSS 120B) |
 | ✅ **Vera** | Mengecek hasil Rara (fakta vs sumber), Lukas (gambar vs permintaan), dan Pandu (hitungan, tanggal, pantangan) | Kunci **Groq** (Qwen3 32B, Llama 4 untuk gambar) |
 
 Saat teman-teman bekerja, **papan kerja** di bawah status menunjukkan siapa yang sedang bekerja dan langkahnya (ketuk untuk detail).
+
+**Kunci OpenRouter untuk Pandu (gratis, disarankan):** Groq gratis membatasi token per menit, sehingga rencana panjang bisa
+mentok. OpenRouter menghitung per permintaan. Buat kunci di https://openrouter.ai/keys, izinkan model gratis di
+https://openrouter.ai/settings/privacy, lalu tempel di Pengaturan → Otak Gaby. Pemakaian hari ini tampil di sana.
 
 **Membuat kunci Groq (gratis):** buka https://console.groq.com/keys → masuk pakai akun Google → **Create API Key** →
 salin kunci (diawali `gsk_`) → tempel di Pengaturan → Otak Gaby → **Simpan key**. Kunci hanya tersimpan di HP-mu.
@@ -43,7 +47,9 @@ Kalau Rara gagal, alasannya tampil di Pengaturan → Fitur → *Pencarian intern
   *"ada berapa rencana?"*, *"hapus rencana 2"*, *"hapus semua rencana"* (langsung; bilang *"eh batal"* dalam 1 menit untuk mengembalikan).
 - Bukan cuma liburan: *"rencana bikin aplikasi kasir untuk warung"* (tujuan, fitur, alat, tahapan, biaya, risiko),
   acara, belajar, olahraga, sampai *"bandingin 3 HP di bawah 5 juta"*. Pandu merencanakan, bukan membuatkan aplikasinya.
-- Rencana perjalanan berisi nama maskapai/kereta, hotel, dan rekomendasi tempat makan (cek ulang harga & jadwal saat memesan).
+- Rencana perjalanan berisi pilihan **💸 hemat / ⚖️ seimbang / 🛋️ nyaman** untuk maskapai/kereta dan hotel (✅ = dipakai di total
+  biaya), plus rekomendasi tempat makan. Bilang *"ganti ke yang paling murah"* untuk versi hemat, lalu bandingkan. Harga & jadwal
+  perkiraan dari internet, cek ulang saat memesan.
 - **💾 Simpan ke HP** (gambar rapi) atau **📤 Kirim teks** (WhatsApp/Catatan) dari Kartu Rencana, atau bilang *"simpan rencana 1 ke HP"*.
 - Daftar juga ada di Pengaturan → 🗺️ Rencana.
 

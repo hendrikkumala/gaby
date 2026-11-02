@@ -12,6 +12,10 @@ export const JENIS = {
 };
 
 export const fmtRp = (n) => (n ? `Rp${Number(n).toLocaleString('id-ID')}` : '–');
+const TIER = { hemat: '💸 Hemat', seimbang: '⚖️ Seimbang', nyaman: '🛋️ Nyaman' };
+// "💸 Hemat — AirAsia …" dan tanda ✅ untuk pilihan yang dipakai di total biaya.
+const tierText = (x, body) => `${x.dipilih ? '✅ ' : ''}${x.kelas ? `${TIER[x.kelas]} — ` : ''}${body}`;
+const chosen = (list) => (list || []).find((x) => x.dipilih);
 const join = (parts) => parts.filter((x) => x != null && String(x).trim()).join(' · ');
 
 // Bagian-bagian rencana: { key, title, lines[], main, limit, total, links }.
@@ -29,10 +33,14 @@ export function planSections(p) {
   if (d.total_biaya) {
     add('biaya', '💰 Biaya', (d.rincian_biaya || []).map((r) => `${r.item}: ${fmtRp(r.biaya)}`), { main: true, total: `Total ± ${fmtRp(d.total_biaya)}`, limit: 6 });
   }
-  add('transportasi', '🚆 Transportasi', (d.transportasi || []).map((t) => join([`${t.nama}${t.moda ? ` (${t.moda})` : ''}`, t.rute, t.waktu, t.harga, t.catatan])), { main: true, limit: 3 });
+  add('transportasi', '🚆 Transportasi', (d.transportasi || []).map((t) => tierText(t, join([`${t.nama}${t.moda ? ` (${t.moda})` : ''}`, t.rute, t.waktu, t.harga, t.catatan]))), { main: true, limit: 3 });
   const tempat = d.tempat || [];
   const tempatTitle = jenis === 'belanja' ? '🛒 Pilihan produk' : /hotel|penginapan|villa/i.test((tempat[0] || {}).jenis || '') ? '🏨 Hotel / tempat' : '📍 Tempat';
-  add('tempat', tempatTitle, tempat.map((t) => join([t.nama, t.area, t.harga, t.catatan])), { main: true, limit: 3 });
+  add('tempat', tempatTitle, tempat.map((t) => tierText(t, join([t.nama, t.area, t.harga, t.catatan]))), { main: true, limit: 3 });
+  const picks = [chosen(d.transportasi), chosen(tempat)].filter(Boolean);
+  if (picks.length && (d.transportasi || []).some((t) => t.kelas) ) {
+    add('pilihan', '✅ Dipakai untuk total biaya', picks.map((x) => join([x.kelas ? TIER[x.kelas] : '', x.nama, x.harga])), { main: true });
+  }
   add('kuliner', jenis === 'acara' ? '🍽️ Menu / katering' : '🍽️ Kuliner', (d.kuliner || []).map((k) => join([k.waktu ? `${k.waktu}: ${k.nama}` : k.nama, k.area, k.menu, k.harga])), { main: true, limit: 4 });
   add('fitur', '🧩 Fitur utama', (d.fitur || []).map((f) => `${f.prioritas === 'nanti' ? '⏳ nanti' : '⭐ wajib'} — ${f.nama}`), { main: true, limit: 6 });
   add('alat', jenis === 'proyek' ? '🛠️ Alat & teknologi' : '🧰 Alat & sumber', (d.alat || []).map((a) => join([a.nama, a.kegunaan, a.biaya])), { main: jenis !== 'perjalanan', limit: 4 });
@@ -78,8 +86,8 @@ export function compareSections(plans) {
   return [
     row('📝 Judul', (p) => p.title),
     row('💰 Total', (p) => (p.data.total_biaya ? fmtRp(p.data.total_biaya) : '')),
-    row('🚆 Transportasi', (p) => first(p.data.transportasi, (t) => join([t.nama, t.harga]))),
-    row('📍 Utama', (p) => first(p.data.tempat, (t) => join([t.nama, t.area, t.harga]))),
+    row('🚆 Transportasi', (p) => { const t = chosen(p.data.transportasi) || (p.data.transportasi || [])[0]; return t ? join([t.kelas ? TIER[t.kelas] : '', t.nama, t.harga]) : ''; }),
+    row('📍 Utama', (p) => { const t = chosen(p.data.tempat) || (p.data.tempat || [])[0]; return t ? join([t.kelas ? TIER[t.kelas] : '', t.nama, t.area, t.harga]) : ''; }),
     row('🍽️ Kuliner', (p) => first(p.data.kuliner, (k) => join([k.nama, k.area]))),
     row('📅 Tanggal', (p) => p.data.tanggal),
     row('✅ Cek Vera', (p) => (p.vera ? p.vera.badge : '')),

@@ -62,6 +62,8 @@ export async function groqModels(key, role) {
 export function classifyGroq(status, message) {
   const m = String(message || '');
   if (status === 401 || /invalid api key|invalid_api_key/i.test(m)) return 'auth';
+  // Satu permintaan saja sudah melebihi batas token per menit (isi + jatah jawaban).
+  if (status === 413 || /request too large|reduce your message size|context_length_exceeded/i.test(m)) return 'toolarge';
   if (status === 429 || /rate limit/i.test(m)) {
     if (/per day|\(RPD\)|\(TPD\)|daily/i.test(m)) return 'day';
     if (/per minute|\(RPM\)|\(TPM\)/i.test(m)) return 'minute';

@@ -38,6 +38,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/vera.js` | **Vera**, pemeriksa: `checkFacts` (Rara), `checkImage` (Lukas, model penglihatan), `checkPlan` (Pandu: cek pasti + Qwen3) |
 | `js/planexport.js` | Isi rencana per bagian (`planSections`) — satu sumber untuk Kartu Rencana, gambar PNG (`renderImage`, canvas) & teks (`planText`) |
 | `js/teamboard.js` | Papan kerja tim di bawah status (siapa bekerja, bar, langkah; ketuk untuk detail) |
+| `js/openrouter.js` | Otak Pandu lewat OpenRouter (jatah per permintaan): pilih model gratis + tools (Nemotron Ultra 550B → Super 120B → …), hitung pemakaian harian, istirahat saat jatah/izin bermasalah |
 | `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS 120B + `browser_search`) & Lukas (Qwen3 32B → Llama 3.3 70B → …), pilih model pengganti dari daftar model Groq |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
 | `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (**Lukas** menulis prompt via Gemini teks, lalu Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
@@ -102,6 +103,17 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   (`#plancard`, `dataset.kind`), Kartu Catatan, Kartu Peta, Kartu Gambar, Galeri. `tutup_kartu` per nama; gambar belum disimpan ditanya dulu.
   Alat rencana: `buat_rencana` (+`dari_nomor` = turunan), `buka_rencana`, `daftar_rencana` (>5 → kartu daftar), `bandingkan_rencana`
   (2–3), `hapus_rencana` (langsung, tombol/ucapan "batal" 1 menit → `batal_hapus_rencana`), `rencana_ke_catatan`.
+- Pandu v1.19 (setelah pemilik melapor Pandu selalu gagal kena batas token per menit Groq): otak berurutan **OpenRouter**
+  (`keys.openrouter`, Nemotron Ultra 550B gratis, tanpa batas token per menit, hasil riset dikirim lengkap, `max_tokens` 8000,
+  `reasoning.effort low`) → **Groq** (GPT-OSS 120B; jatah jawaban 1.700, sampai 2.500 kalau masih muat di 7.600 token).
+  Maks **3 pencarian gabungan per topik** (transportasi semua maskapai / penginapan per kelas / kuliner & wisata), jawaban Rara rinci
+  (`research(q, { small, detail })`), **tanpa Vera per pencarian** (Vera hanya mengecek rencana akhir). Rara di dalam Pandu memilih model
+  Groq yang jatahnya paling lega (`waitNeeded`). "Request too large" (413) → `toolarge`: padatkan keras + 1.700 lalu coba lagi.
+  Otak gagal → pindah otak berikutnya; kalau sudah ada data, otak berikutnya dipaksa `simpan_rencana` (catatan "sebagian perkiraan").
+  Alasan gagal & otak terakhir di `localStorage['gaby.pandu']` → Pengaturan (🗺️ Pandu / 🧭 OpenRouter: "N/50 permintaan hari ini").
+  Pilihan berjenjang: `transportasi`/`tempat` (hotel) punya `kelas` hemat/seimbang/nyaman + tepat satu `dipilih` (dipakai di total;
+  `pickOne` memilih seimbang kalau model lupa). "Ganti ke yang paling murah" = rencana turunan.
+  Uji G (harness): Groq tiruan menolak > 8.000 token/menit dan "too large" (isi + jatah jawaban; browsing +3.500), OpenRouter tiruan.
 - Batas token per menit Groq (v1.18.1): `groqChat` mencatat pemakaian 60 dtk terakhir per model (usage asli / perkiraan
   ±3,5 huruf per token) + header `x-ratelimit-*` kalau terbaca, lalu MENUNGGU dulu kalau jatah belum cukup (`waitNeeded`, bawaan 8.000/menit,
   maks 60 dtk; papan kerja menulis "Menunggu jatah Groq per menit"). 429 per menit → tunggu `retry-after` lalu ulang.
@@ -166,7 +178,7 @@ Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
-| 1.19.0 | Pandu: jenis rencana (proyek, acara, belajar, dll.), transportasi & kuliner bernama; simpan kartu ke HP (gambar/teks); APK + plugin Share & Filesystem (android-app 1.0.4) |
+| 1.19.0 | Pandu: OpenRouter (Nemotron Ultra 550B) + cadangan Groq, irit (3 pencarian, tanpa Vera per pencarian, 1.700/2.500 token) & tahan banting; pilihan hemat/seimbang/nyaman; jenis rencana (proyek, acara, belajar, dll.), transportasi & kuliner bernama; simpan kartu ke HP; APK + plugin Share & Filesystem (android-app 1.0.4) |
 | 1.18.2 | Gaby memberi tahu dengan santai kalau teman belum bisa karena kunci belum diisi, lalu mengerjakan sendiri sebisanya (quiet) |
 | 1.18.1 | Penjaga batas token per menit Groq, Pandu lebih hemat token, Rara 20B saat dipanggil Pandu; papan kerja bisa ditutup (✕ / suara). "Perbaikan bug kecil" (quiet) |
 | 1.18.0 | Teman baru Pandu (perencana) & Vera (pemeriksa), papan kerja tim, kartu bernama + `tutup_kartu` per nama, rencana bernomor (buka/bandingkan/hapus/batal/ke catatan), kabar otomatis + notifikasi HP |

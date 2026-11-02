@@ -10,7 +10,7 @@ const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/app.js', 'js/apps.js', 'js/audio.js', 'js/brain.js', 'js/calendar.js', 'js/camera.js',
   'js/config.js', 'js/daily.js', 'js/gallery.js', 'js/gemini.js', 'js/groq.js', 'js/imagegen.js', 'js/journal.js',
-  'js/location.js', 'js/map.js', 'js/memory.js', 'js/mood.js', 'js/native.js', 'js/openai.js', 'js/pandu.js',
+  'js/location.js', 'js/map.js', 'js/memory.js', 'js/mood.js', 'js/native.js', 'js/openai.js', 'js/openrouter.js', 'js/pandu.js',
   'js/persona.js', 'js/planexport.js', 'js/research.js', 'js/teamboard.js', 'js/tools.js', 'js/vad.js', 'js/vera.js', 'js/visual.js', 'js/wake.js', 'js/whatsnew.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
 ];

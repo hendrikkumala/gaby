@@ -9,7 +9,7 @@
 // Tingkat yang habis dicatat di perangkat sampai jatahnya pulih.
 
 import { memory } from './memory.js';
-import { groqModels, groqChat, groqSources, cleanText, groqLabel } from './groq.js';
+import { groqModels, groqChat, groqSources, cleanText, groqLabel, waitNeeded } from './groq.js';
 import { checkFacts } from './vera.js';
 
 const REST = 'https://generativelanguage.googleapis.com/v1beta';
@@ -150,7 +150,7 @@ function retryDelay(err) {
   return Math.min(Math.max(s || 2, 1), 6) * 1000;
 }
 
-function buildPrompt(question) {
+function buildPrompt(question, detail = false) {
   const now = new Date();
   const when = now.toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -162,12 +162,14 @@ Waktu sekarang: ${when} (${tz}).
 
 Aturan:
 - Pakai HANYA informasi dari hasil pencarian. Jangan menebak atau mengarang angka, nama, harga, skor, atau tanggal.
-- Jawab ringkas 2–4 kalimat. Sebut angka/tanggal penting dan kapan info itu berlaku.
+${detail
+    ? '- Jawab dalam poin-poin ringkas (maks 12 poin) untuk perencana: sebut SEMUA pilihan yang ditemukan dengan nama (maskapai/kereta/hotel/resto/produk), kisaran harga, dan catatan penting (bagasi, lokasi, jam). Urutkan dari termurah ke ternyaman.'
+    : '- Jawab ringkas 2–4 kalimat. Sebut angka/tanggal penting dan kapan info itu berlaku.'}
 - Kalau sumber saling berbeda, katakan bahwa sumbernya berbeda dan sebut kisarannya.
 - Kalau hasil pencarian tidak memuat jawabannya, balas persis satu kata: TIDAK_KETEMU`;
 }
 
-async function ask(model, key, question) {
+async function ask(model, key, question, detail = false) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   try {
@@ -176,7 +178,7 @@ async function ask(model, key, question) {
       headers: { 'Content-Type': 'application/json' },
       signal: ctrl.signal,
       body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: buildPrompt(question) }] }],
+        contents: [{ role: 'user', parts: [{ text: buildPrompt(question, detail) }] }],
         tools: [{ googleSearch: {} }],
         generationConfig: { temperature: 0.2 },
       }),
@@ -226,14 +228,19 @@ function groqEvidence(msg) {
 // Rara lewat Groq: GPT-OSS + browser_search.
 // small = utamakan GPT-OSS 20B (dipakai saat Pandu bekerja, supaya jatah token per menit
 // tidak berebut dengan Pandu yang memakai GPT-OSS 120B).
-async function askGroq(key, question, small = false) {
+async function askGroq(key, question, small = false, detail = false) {
   let list = await groqModels(key, 'rara');
-  if (small) list = [...list].sort((a, b) => (/gpt-oss-20b/.test(b) ? 1 : 0) - (/gpt-oss-20b/.test(a) ? 1 : 0));
+  if (small) {
+    // Pilih model yang jatah per menitnya paling lega saat ini (20B diutamakan kalau sama-sama lega),
+    // supaya pencarian beruntun tidak antre di satu model.
+    const need = 4000;
+    list = [...list].sort((a, b) => (waitNeeded(a, need) - waitNeeded(b, need)) || ((/gpt-oss-20b/.test(b) ? 1 : 0) - (/gpt-oss-20b/.test(a) ? 1 : 0)));
+  }
   let last = { error: 'model', message: 'Model GPT-OSS tidak tersedia di Groq' };
   for (const model of list) {
     const body = {
       model,
-      messages: [{ role: 'user', content: buildPrompt(question).replace('Cari di Google', 'Cari di internet dengan browser_search') }],
+      messages: [{ role: 'user', content: buildPrompt(question, detail).replace('Cari di Google', 'Cari di internet dengan browser_search') }],
       tools: [{ type: 'browser_search' }],
       tool_choice: 'required',
       reasoning_effort: 'low',
@@ -264,7 +271,7 @@ async function askGroq(key, question, small = false) {
 //   { ok: true, found: false }              → tidak ketemu di internet
 //   { ok: false, reason: 'habis', nofree }  → semua jatah teliti habis / tidak diberi (pindah ke pencarian cepat)
 //   { ok: false, reason: 'auth' | 'gagal' } → kunci ditolak / gangguan
-export async function research(question, { small = false } = {}) {
+export async function research(question, { small = false, detail = false } = {}) {
   const { keys } = memory.get();
   let failed = false;
   let nofree = false;
@@ -274,16 +281,16 @@ export async function research(question, { small = false } = {}) {
     let r;
     let model;
     if (tier.id === 'groq') {
-      r = await askGroq(keys.groq, question, small);
+      r = await askGroq(keys.groq, question, small, detail);
       model = r.model || 'Groq';
     } else {
       const list = await pickModels(keys.gemini);
       model = list[tier.id];
       if (!model) { markExhausted(tier.id, 'week', 'Model ini belum tersedia untuk kunci Gemini kamu'); continue; }
-      r = await ask(model, keys.gemini, question);
+      r = await ask(model, keys.gemini, question, detail);
       if (r.error === 'minute') {
         await sleep(retryDelay(r.raw));
-        r = await ask(model, keys.gemini, question);
+        r = await ask(model, keys.gemini, question, detail);
       }
     }
     if (!r.error) {

@@ -105,7 +105,7 @@ const DEFAULTS = {
   plans: [],         // [{ no, title, created, parent, request, data, vera }] — rencana dari Pandu (bernomor)
   nextPlanNo: 1,     // nomor rencana berikutnya (tidak dipakai ulang, kecuali semua rencana dihapus)
   pinOk: false,
-  keys: { gemini: '', openai: '', pollinations: '', groq: '' },
+  keys: { gemini: '', openai: '', pollinations: '', groq: '', openrouter: '' },
   settings: {
     mode: null,      // 'wake' | 'always' | 'tap' (null = pilih otomatis)
     voice: 'Aoede',

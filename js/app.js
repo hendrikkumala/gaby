@@ -28,7 +28,8 @@ import { Camera } from './camera.js';
 import { gallery } from './gallery.js';
 import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
 import { checkImage, checkPlan } from './vera.js';
-import { runPandu } from './pandu.js';
+import { runPandu, panduStatus } from './pandu.js';
+import { orStatus, resetOpenRouter } from './openrouter.js';
 import { planSections, planHeader, planText, compareSections, compareText, renderImage, JENIS } from './planexport.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
@@ -1165,7 +1166,12 @@ function fillSettings() {
   $('set-groq-rara').textContent = researchStatus();
   $('set-groq-lukas').textContent = lukasStatus();
   $('set-groq-vera').textContent = st.keys.groq ? 'Groq Qwen3 32B (fakta & rencana) · Llama 4 (gambar)' : 'Butuh kunci Groq (tanpa itu hasil tetap tampil, bertanda "belum dicek")';
-  $('set-groq-pandu').textContent = st.keys.groq ? 'Groq GPT-OSS 120B' : 'Butuh kunci Groq';
+  $('set-groq-pandu').textContent = [
+    st.keys.openrouter ? 'OpenRouter Nemotron (cadangan Groq)' : st.keys.groq ? 'Groq GPT-OSS 120B' : 'Butuh kunci Groq atau OpenRouter',
+    panduStatus(),
+  ].filter(Boolean).join(' · ');
+  if (document.activeElement !== $('set-openrouter')) $('set-openrouter').value = st.keys.openrouter || '';
+  $('set-or-status').textContent = orStatus(!!st.keys.openrouter);
   document.querySelectorAll('input[name="imgengine"]').forEach((r) => { r.checked = r.value === (st.settings.imageEngine || 'free'); });
 }
 
@@ -1303,6 +1309,15 @@ function deleteKey(which, label) {
 }
 $('set-del-gemini').addEventListener('click', () => deleteKey('gemini', 'Gemini'));
 $('set-del-openai').addEventListener('click', () => deleteKey('openai', 'OpenAI'));
+$('set-del-openrouter').addEventListener('click', () => {
+  if (!memory.get().keys.openrouter) { toast('Belum ada key OpenRouter.'); return; }
+  if (!confirm('Hapus API key OpenRouter dari perangkat ini? Pandu kembali memakai Groq.')) return;
+  memory.setKeys({ openrouter: '' });
+  $('set-openrouter').value = '';
+  resetOpenRouter();
+  fillSettings();
+  toast('Key OpenRouter sudah dihapus.');
+});
 $('set-del-groq').addEventListener('click', () => {
   if (!memory.get().keys.groq) { toast('Belum ada key Groq.'); return; }
   if (!confirm('Hapus API key Groq dari perangkat ini? Rara & Lukas kembali memakai Gemini.')) return;
@@ -1319,13 +1334,17 @@ $('set-save-keys').addEventListener('click', async () => {
   const openai = $('set-openai').value.trim();
   const pollinations = $('set-poll').value.trim();
   const groq = $('set-groq').value.trim();
+  const openrouter = $('set-openrouter').value.trim();
+  if (openrouter && !/^sk-or-/.test(openrouter)) toast('Key OpenRouter biasanya diawali "sk-or-". Cek lagi kalau Pandu gagal.', 'warn', 7000);
+  const orChanged = openrouter !== (memory.get().keys.openrouter || '');
+  if (orChanged) resetOpenRouter();
   if (gemini && gemini !== memory.get().keys.gemini) {
     const err = await checkGeminiKey(gemini);
     if (err) { toast(err, 'err'); return; }
   }
   if (groq && !/^gsk_/.test(groq)) toast('Key Groq biasanya diawali "gsk_". Cek lagi kalau Rara gagal.', 'warn', 7000);
   const groqChanged = groq !== (memory.get().keys.groq || '');
-  memory.setKeys({ gemini, openai, pollinations, groq });
+  memory.setKeys({ gemini, openai, pollinations, groq, openrouter });
   for (const id of Object.keys(memory.get().exhausted)) memory.clearExhausted(id);
   brain.models = null;
   // Kunci Groq baru: Rara langsung dicoba lagi, dan Gaby disambung ulang supaya kenal Rara yang aktif.
@@ -1334,7 +1353,8 @@ $('set-save-keys').addEventListener('click', async () => {
     try { localStorage.removeItem('gaby.lukasModel'); } catch {}
     if (phase === 'active') restartSession();
   }
-  toast(groqChanged && groq ? 'Key tersimpan ✓ Rara & Lukas sekarang pakai Groq ⚡' : 'Key tersimpan ✓');
+  if (orChanged && phase === 'active' && !groqChanged) restartSession(); // Gaby perlu tahu Pandu sudah siap
+  toast(groqChanged && groq ? 'Key tersimpan ✓ Rara & Lukas sekarang pakai Groq ⚡' : orChanged && openrouter ? 'Key tersimpan ✓ Pandu sekarang berpikir lewat OpenRouter 🧭' : 'Key tersimpan ✓');
   fillChain();
   fillSettings();
 });
@@ -1959,17 +1979,17 @@ function takePlanNews() {
 
 function planSummary(p) {
   const d = p.data || {};
-  const hotel = (d.tempat || [])[0];
+  const hotel = (d.tempat || []).find((t) => t.dipilih) || (d.tempat || [])[0];
   return {
     nomor: p.no,
     judul: p.title,
     tanggal: d.tanggal || '',
     total_biaya: d.total_biaya ? fmtRp(d.total_biaya) : '',
     rincian: (d.rincian_biaya || []).map((r) => `${r.item}: ${fmtRp(r.biaya)}`),
-    tempat: (d.tempat || []).map((t) => [t.nama, t.area, t.harga].filter(Boolean).join(', ')),
+    tempat: (d.tempat || []).map((t) => [t.dipilih ? 'DIPAKAI' : '', t.kelas, t.nama, t.area, t.harga].filter(Boolean).join(', ')),
     jadwal: (d.jadwal || []).map((j) => `${j.waktu}: ${j.kegiatan}`),
     jenis: d.jenis || 'lainnya',
-    transportasi: (d.transportasi || []).map((t) => [t.nama, t.moda, t.rute, t.waktu, t.harga].filter(Boolean).join(', ')),
+    transportasi: (d.transportasi || []).map((t) => [t.dipilih ? 'DIPAKAI' : '', t.kelas, t.nama, t.moda, t.rute, t.waktu, t.harga].filter(Boolean).join(', ')),
     kuliner: (d.kuliner || []).map((k) => [k.waktu, k.nama, k.area, k.menu, k.harga].filter(Boolean).join(', ')),
     tujuan: d.tujuan || '',
     fitur: (d.fitur || []).map((f) => `${f.nama} (${f.prioritas})`),
@@ -1989,10 +2009,10 @@ function planSummary(p) {
 function startPlan({ permintaan, dari_nomor }) {
   const request = String(permintaan || '').trim().slice(0, 400);
   if (!request) return { error: 'Permintaannya kosong. Tanyakan mau direncanakan apa.' };
-  if (!memory.get().keys.groq) {
+  if (!memory.get().keys.groq && !memory.get().keys.openrouter) {
     return {
       error: 'pandu_belum_bisa',
-      catatan: 'Pandu belum bisa dipanggil: dia wajib pakai kunci Groq (gratis). Bilang santai, misal "Wah, Pandu belum bisa diminta tolong nih, kunci Groq-nya belum dimasukin. Isi dulu di Pengaturan → Otak Gaby ya, gratis kok." Lalu tawarkan garis besar sederhana buatanmu sendiri sekarang (bilang bahwa itu tidak tersimpan sebagai rencana bernomor dan belum dicek Vera).',
+      catatan: 'Pandu belum bisa dipanggil: dia butuh kunci Groq atau OpenRouter (gratis). Bilang santai, misal "Wah, Pandu belum bisa diminta tolong nih, kuncinya belum dimasukin. Isi dulu kunci Groq atau OpenRouter di Pengaturan → Otak Gaby ya, gratis kok." Lalu tawarkan garis besar sederhana buatanmu sendiri sekarang (bilang bahwa itu tidak tersimpan sebagai rencana bernomor dan belum dicek Vera).',
     };
   }
   if (planRunning) {
@@ -2014,6 +2034,7 @@ function startPlan({ permintaan, dari_nomor }) {
 
 async function runPlanJob(request, base, job) {
   let veraIdx = 0;
+  let lastBrain = '';
   try {
     const res = await runPandu({
       request,
@@ -2022,7 +2043,8 @@ async function runPlanJob(request, base, job) {
         onSteps: (list) => { veraIdx = list.length; job.setSteps([...list, 'Vera mengecek rencana']); },
         onStep: (i, text) => { job.pass('pandu'); job.step(i, text); },
         onRara: (who, text) => job.pass(who, text),
-        onWait: (sec) => { job.pass('pandu'); job.update(`Menunggu jatah Groq per menit${sec ? ` ±${sec} dtk` : ''}…`); },
+        onWait: (sec) => { job.pass('pandu'); job.update(`Menunggu jatah AI sebentar${sec ? ` ±${sec} dtk` : ''}…`); },
+        onBrain: (label) => { if (label !== lastBrain) { if (lastBrain) job.update(`Pindah ke ${label}…`); lastBrain = label; } },
         onFix: (fb) => job.pass('pandu', `Memperbaiki: ${fb.slice(0, 70)}…`),
         verify: async (plan, fixes) => {
           job.pass('vera');
@@ -2056,7 +2078,7 @@ async function runPlanJob(request, base, job) {
   } catch (e) {
     console.warn('[Gaby] Pandu gagal:', e);
     job.fail(String(e.message || 'Gagal').slice(0, 80));
-    announce(`[SISTEM] Pandu gagal menyusun rencana "${request}": ${e.message}. Sampaikan singkat dan jujur, lalu tawarkan untuk mencoba lagi.`,
+    announce(`[SISTEM] Pandu gagal menyusun rencana "${request}": ${String(e.message || '').replace(/\.+$/, '')}. Sampaikan singkat dan jujur dengan bahasa sederhana (sebut penyebabnya, misal jatah AI habis atau izin OpenRouter belum dinyalakan), lalu tawarkan untuk mencoba lagi.`,
       { title: 'Pandu belum berhasil', body: String(e.message || '').slice(0, 100) });
   }
 }
@@ -2241,9 +2263,9 @@ function showCompareCard(plans) {
     <tbody>
       ${row('Judul', (s) => esc(s.judul))}
       ${row('💰 Total', (s) => esc(s.total_biaya))}
-      ${row('📍 Utama', (s, p) => esc((p.data.tempat || [])[0] ? [p.data.tempat[0].nama, p.data.tempat[0].area].filter(Boolean).join(', ') : ''))}
-      ${row('💵 Harga', (s, p) => esc((p.data.tempat || [])[0] ? p.data.tempat[0].harga : ''))}
-      ${row('🚆 Transport', (s, p) => esc((p.data.transportasi || [])[0] ? [p.data.transportasi[0].nama, p.data.transportasi[0].harga].filter(Boolean).join(', ') : ''))}
+      ${row('📍 Utama', (s, p) => { const t = (p.data.tempat || []).find((x) => x.dipilih) || (p.data.tempat || [])[0]; return esc(t ? [t.kelas, t.nama, t.area].filter(Boolean).join(', ') : ''); })}
+      ${row('💵 Harga', (s, p) => { const t = (p.data.tempat || []).find((x) => x.dipilih) || (p.data.tempat || [])[0]; return esc(t ? t.harga : ''); })}
+      ${row('🚆 Transport', (s, p) => { const t = (p.data.transportasi || []).find((x) => x.dipilih) || (p.data.transportasi || [])[0]; return esc(t ? [t.kelas, t.nama, t.harga].filter(Boolean).join(', ') : ''); })}
       ${row('🍽️ Kuliner', (s, p) => esc((p.data.kuliner || [])[0] ? p.data.kuliner[0].nama : ''))}
       ${row('📅 Tanggal', (s) => esc(s.tanggal))}
       ${row('🗓️ Jadwal', (s) => (s.jadwal.length ? `${s.jadwal.length} kegiatan` : ''))}

@@ -320,6 +320,11 @@
           <input id="set-groq" class="field small" type="password" placeholder="gsk_…" autocomplete="off" spellcheck="false"></div>
         <p class="hint">Cara membuat: 1) ketuk "Dapatkan key", masuk pakai akun Google · 2) tekan <b>Create API Key</b>, beri nama "Gaby" · 3) salin kuncinya (diawali <b>gsk_</b>), tempel di kolom ini, lalu tekan <b>Simpan key</b> di bawah. Kunci hanya tersimpan di HP ini.</p>
         <p class="hint">🔎 Rara: <b id="set-groq-rara">–</b><br>🎨 Lukas: <b id="set-groq-lukas">–</b><br>✅ Vera: <b id="set-groq-vera">–</b><br>🗺️ Pandu: <b id="set-groq-pandu">–</b></p>
+        <h4 class="sub">🧭 Kunci OpenRouter untuk otak Pandu <i>(gratis, opsional)</i></h4>
+        <div class="row"><span>API key OpenRouter <a class="getkey" href="https://openrouter.ai/keys" target="_blank" rel="noopener">Dapatkan key ↗</a></span>
+          <input id="set-openrouter" class="field small" type="password" placeholder="sk-or-…" autocomplete="off" spellcheck="false"></div>
+        <p class="hint">Jatahnya dihitung per permintaan (bukan per token), jadi Pandu tidak cepat mentok. Cara: 1) ketuk "Dapatkan key", masuk pakai akun Google · 2) <b>Create Key</b>, beri nama "Gaby", salin (diawali <b>sk-or-</b>) · 3) buka <a class="getkey" href="https://openrouter.ai/settings/privacy" target="_blank" rel="noopener">Privacy ↗</a> dan izinkan model gratis (<i>free endpoints</i>) · 4) tempel di sini lalu <b>Simpan key</b>. Gratis ±50 rencana-langkah per hari; jadi 1.000/hari kalau akun pernah isi saldo $10.</p>
+        <p class="hint">🧭 OpenRouter: <b id="set-or-status">–</b></p>
         <div class="row"><span>Model Gemini</span>
           <select id="set-model" class="field small"><option value="auto">Otomatis (tercepat)</option></select></div>
         <p class="hint">Model bertanda 🐢 "berpikir" dulu sebelum bicara, jadi lebih lambat.</p>
@@ -339,6 +344,7 @@
           <button id="set-del-gemini" class="btn danger">Hapus key Gemini</button>
           <button id="set-del-openai" class="btn danger">Hapus key OpenAI</button>
           <button id="set-del-groq" class="btn danger">Hapus key Groq</button>
+          <button id="set-del-openrouter" class="btn danger">Hapus key OpenRouter</button>
         </div>
       </div>
 
