@@ -49,6 +49,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Lokal: `python -m http.server 8000` lalu buka http://localhost:8000 (mikrofon boleh di localhost).
   Data di localhost terpisah dari github.io. Tekan Ctrl+Shift+R kalau service worker menyimpan salinan lama.
 - Naikkan `VERSION` di `js/config.js` setiap rilis. Isi web terbit otomatis lewat GitHub Pages (±1 menit) setelah push ke `main`.
+  **Tunggu pemasangan Pages sebelumnya selesai** sebelum push ke `main` lagi: kalau masih berjalan, pemasangan baru GAGAL ("in progress
+  deployment") dan website tetap versi lama (terjadi pada v1.18.2, 1 Nov 2026). Perbaikan: jalankan ulang SELURUH run Pages
+  (`rerun_workflow_run`, bukan hanya job yang gagal — artefaknya tidak ikut dibuat ulang). Selalu cek hasil run Pages setelah terbit.
 - Perubahan di `android-app/**` memicu perakitan APK (versionCode = nomor run). Setelah selesai, di HP: Pengaturan → Fitur → Cek update aplikasi.
   Naikkan `version` di `android-app/package.json` kalau hanya ingin memicu perakitan.
 - Uji otomatis memakai Playwright dengan WebSocket Gemini palsu, kamera/mikrofon palsu, UA iPhone/Android, dan jembatan Capacitor tiruan (`window.Capacitor`).
