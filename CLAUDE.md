@@ -149,11 +149,11 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini (v1.19.0, APK #6 → #7 dirakit saat terbit) — per 1 Nov 2026
+## Status saat ini (v1.19.0, APK #7) — per 2 Nov 2026
 **Sudah jalan & diuji pemilik:**
 - Percakapan suara Gemini, persona & emosi (hologram), kamera/layar, gambar (gratis & galeri), lokasi/tempat/rute/peta,
   ingatan & profil, jurnal, briefing pagi, to-do + pengingat, musik, buka aplikasi + kontak.
-- APK Android dengan kunci tetap & kartu update (update ke #6 lewat kartu berhasil).
+- APK Android dengan kunci tetap & kartu update (update ke #6 lewat kartu berhasil). APK #7 terbit 2 Nov 2026 (android-app 1.0.4).
 - Pengingat berbunyi saat HP terkunci + `pasang_alarm` ke aplikasi Jam di Android (31 Okt 2026).
 - `pasang_alarm` di iPhone (1 Nov 2026): ketuk kartu alarm → app Jam → pemilik menekan Simpan sendiri (iOS tidak mengizinkan otomatis).
 - Lukas (v1.16, Groq Qwen3 di v1.17): gambar "lebih presisi sesuai permintaan", "aman banget, keren" (1 Nov 2026).
@@ -165,7 +165,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - v1.15: `buka_ingatan` (baru terasa kalau ingatan > 40) + aturan anti muter-muter.
 - v1.16: cerita update sekali per versi, Pengaturan → ✨ Apa yang baru, "ulang dengan perubahan" untuk gambar.
 - v1.17.1: kartu sumber tidak menumpuk lagi + "tutup beritanya" / "tutup semua" pakai suara (`tutup_kartu`).
-- **v1.19.0:** belum dicoba di HP (simpan ke HP di APK butuh APK #7). Kartu Rencana punya jenis, transportasi & kuliner.
+- **v1.19.0 (terbit 2 Nov 2026, APK #7 dengan plugin Share & Filesystem):** belum dicoba di HP — Pandu lewat OpenRouter
+  (pemilik perlu isi kunci + izinkan model gratis di Privacy OpenRouter), pilihan berjenjang, simpan kartu ke HP.
 - **v1.18.0 (baru terbit, belum dicoba di HP):** Pandu (rencana bernomor, kartu, arsip, bandingkan, hapus/batal, ke catatan &
   pengingat, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja tim, kartu bernama + tutup per nama.
   Belum pasti di dunia nyata: model penglihatan Llama 4 masih ada di Groq? batas token per menit Groq saat Pandu bekerja panjang
