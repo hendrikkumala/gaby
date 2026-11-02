@@ -240,7 +240,7 @@ export const TOOL_DEFS = [
   },
   {
     name: 'buat_rencana',
-    description: 'Minta PANDU (teman perencana) menyusun rencana berlangkah: liburan/perjalanan, acara (ultah, arisan), diet/olahraga mingguan, belanja besar, membandingkan produk, dll. Pandu bekerja 1–2 menit di belakang layar (riset lewat Rara, dicek Vera), lalu rencana bernomor tampil di Kartu Rencana dan kamu dikabari sistem. Untuk MENGUBAH rencana lama ("ganti hotel rencana 1 yang dekat pantai"), isi dari_nomor; hasilnya rencana baru (turunan), yang lama tetap ada.',
+    description: 'Minta PANDU (teman perencana) menyusun rencana berlangkah: liburan/perjalanan, acara (ultah, arisan), diet/olahraga mingguan, belanja besar, membandingkan produk, dll. Pandu bekerja 1–2 menit di belakang layar (riset lewat Rara, dicek Vera), lalu rencana bernomor tampil di Kartu Rencana dan kamu dikabari sistem. Untuk MENGUBAH atau MELENGKAPI rencana lama ("ganti hotel rencana 1 yang dekat pantai", "lengkapi sesuai catatan Vera"), isi dari_nomor; hasilnya rencana baru (turunan), yang lama tetap ada.',
     parameters: {
       type: 'object',
       properties: {

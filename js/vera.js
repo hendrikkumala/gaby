@@ -182,6 +182,57 @@ function dislikeTerms() {
     (m.text.toLowerCase().match(/[a-z0-9]+/g) || []).filter((w) => w.length > 3 && !STOP.has(w)).map((w) => ({ w, fact: m.text })));
 }
 
+// Lama perjalanan (hari): dari tanggal_mulai–tanggal_selesai, atau dari teks ("12–14 Des", "3 hari 2 malam").
+// 0 = tidak bisa dipastikan (pemeriksaan per hari dilewati, bukan dianggap salah).
+function tripDays(plan) {
+  if (plan.tanggal_mulai && plan.tanggal_selesai) {
+    const d = Math.round((Date.parse(plan.tanggal_selesai) - Date.parse(plan.tanggal_mulai)) / 864e5) + 1;
+    if (d >= 1 && d <= 30) return d;
+  }
+  const t = `${plan.tanggal || ''} ${plan.judul || ''} ${plan.ringkasan || ''}`.toLowerCase();
+  const range = t.match(/\b(\d{1,2})\s*[–—-]\s*(\d{1,2})\s+(?:jan|feb|mar|apr|mei|jun|jul|agu|agt|sep|okt|nov|des)/);
+  if (range && +range[2] > +range[1] && +range[2] - +range[1] < 30) return +range[2] - +range[1] + 1;
+  const n = t.match(/\b(\d{1,2})\s*hari\b/);
+  return n && +n[1] >= 1 && +n[1] <= 30 ? +n[1] : 0;
+}
+
+// Hari ke berapa saja yang ada di jadwal ("Hari 1, 08:00" / "Hari ke-2").
+function scheduledDays(plan) {
+  const days = new Set();
+  for (const j of plan.jadwal || []) {
+    const m = `${j.waktu} ${j.kegiatan}`.toLowerCase().match(/\bhari\s*(?:ke[-\s]?)?(\d{1,2})\b/);
+    if (m) days.add(+m[1]);
+  }
+  return days;
+}
+
+// Perjalanan: jadwal tiap hari sampai hari terakhir, check-out hotel, dan perjalanan pulang.
+function tripScheduleIssues(plan) {
+  const issues = [];
+  const all = (plan.jadwal || []).map((j) => `${j.waktu} ${j.kegiatan}`).join(' \n ').toLowerCase();
+  const days = tripDays(plan);
+  const seen = scheduledDays(plan);
+  if (days && /hari\s+terakhir/.test(all)) seen.add(days);
+  if (days >= 2) {
+    const missing = [...Array(days).keys()].map((i) => i + 1).filter((d) => !seen.has(d));
+    if (missing.length && seen.size) {
+      const last = missing.includes(days) ? ' (termasuk hari terakhir)' : '';
+      issues.push({ serius: true, text: `Jadwal belum lengkap: belum ada kegiatan untuk hari ${missing.join(', ')}${last}. Perjalanan ${days} hari, isi jadwal setiap hari ("Hari N, jam").` });
+    } else if (!seen.size) {
+      issues.push({ serius: true, text: `Jadwal belum dibagi per hari: perjalanan ${days} hari, tulis waktu seperti "Hari 1, 08:00" sampai "Hari ${days}".` });
+    }
+  }
+  const hotel = (plan.tempat || []).some((t) => /hotel|penginapan|villa|resort|homestay/i.test(t.jenis));
+  if (hotel && (days === 0 || days >= 2) && !/check[\s-]?out|checkout/.test(all)) {
+    issues.push({ serius: true, text: 'Belum ada jadwal check-out hotel di hari terakhir.' });
+  }
+  const stay = '(?!hotel|penginapan|villa|resort|homestay|kamar)';
+  if (!new RegExp(`pulang|(?:penerbangan|perjalanan|kereta|bus|terbang) (?:kembali|balik)|(?:kembali|balik) ke ${stay}`).test(all)) {
+    issues.push({ serius: true, text: 'Belum ada jadwal perjalanan pulang di hari terakhir (jam & transportasinya).' });
+  }
+  return issues;
+}
+
 // Pemeriksaan pasti tanpa AI: hal yang tidak disukai, pengingat yang sudah lewat, bentrok jadwal.
 function localPlanIssues(plan) {
   const issues = [];
@@ -194,6 +245,7 @@ function localPlanIssues(plan) {
   if (plan.jenis === 'perjalanan') {
     if (!(plan.transportasi || []).length) issues.push({ serius: true, text: 'Rencana perjalanan belum punya transportasi: tambahkan pilihan maskapai/kereta/bus dengan nama, rute, perkiraan jam, dan harga.' });
     if (!(plan.kuliner || []).length) issues.push({ serius: true, text: 'Belum ada rekomendasi tempat makan: tambahkan nama resto/warung (area & kisaran harga) di kuliner.' });
+    issues.push(...tripScheduleIssues(plan));
   }
   if (plan.jenis === 'proyek' && !(plan.fitur || []).length && !(plan.tujuan || '').trim()) {
     issues.push({ serius: true, text: 'Rencana proyek belum punya tujuan & fitur utama: tambahkan.' });
@@ -209,7 +261,7 @@ function localPlanIssues(plan) {
   return issues;
 }
 
-// Hasil: { ok, feedback, badge, issues[] }. ok=false + feedback → Pandu memperbaiki sekali.
+// Hasil: { ok, feedback, badge, issues[] }. ok=false + feedback → Pandu memperbaiki (maks 2 kali lewat OpenRouter).
 // fixes = koreksi otomatis yang sudah dilakukan (misal total dihitung ulang).
 export async function checkPlan(plan, fixes = []) {
   const local = localPlanIssues(plan);
@@ -221,7 +273,7 @@ Hal yang tidak disukai pengguna: ${memory.get().profile.filter((m) => m.rasa ===
 RENCANA (JSON):
 ${JSON.stringify({ ...plan, sumber: (plan.sumber || []).map((x) => x.title) }).slice(0, 6000)}
 
-Cek: (1) hitungan biaya masuk akal dan tidak ada biaya penting yang terlupa (misal transport/makan untuk perjalanan), (2) tanggal & urutan jadwal masuk akal dan bisa dijalani, (3) tidak ada saran yang bertentangan dengan hal yang tidak disukai, (4) tidak ada janji pasti yang sebenarnya hanya perkiraan.
+Cek: (1) hitungan biaya masuk akal dan tidak ada biaya penting yang terlupa (misal transport/makan untuk perjalanan), (2) tanggal & urutan jadwal masuk akal dan bisa dijalani, (3) tidak ada saran yang bertentangan dengan hal yang tidak disukai, (4) tidak ada janji pasti yang sebenarnya hanya perkiraan, (5) khusus perjalanan: ada jadwal untuk SETIAP hari sampai hari terakhir, termasuk check-out hotel dan perjalanan pulang.
 Jangan rewel soal selera; laporkan hanya masalah NYATA.
 
 Balas HANYA JSON:
@@ -243,4 +295,4 @@ Balas HANYA JSON:
   return { ok: !serious.length, feedback, badge, issues, notes: [...fixes, ...issues.filter((i) => !i.serius).map((i) => i.text)], model: v && v._model };
 }
 
-export const _internal = { askVera, REST };
+export const _internal = { askVera, REST, tripDays, tripScheduleIssues };

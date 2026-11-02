@@ -113,6 +113,13 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Alasan gagal & otak terakhir di `localStorage['gaby.pandu']` → Pengaturan (🗺️ Pandu / 🧭 OpenRouter: "N/50 permintaan hari ini").
   Pilihan berjenjang: `transportasi`/`tempat` (hotel) punya `kelas` hemat/seimbang/nyaman + tepat satu `dipilih` (dipakai di total;
   `pickOne` memilih seimbang kalau model lupa). "Ganti ke yang paling murah" = rencana turunan.
+- Pandu × Vera v1.20: ditolak Vera → Pandu memperbaiki maks **2 kali lewat OpenRouter**, 1 kali lewat Groq (`maxFixes`); hasil terakhir
+  dicek ulang di `runPlanJob`. Masih ada catatan serius → Gaby menawarkan SATU kali "Mau aku minta Pandu lengkapi?" → `buat_rencana`
+  `dari_nomor` = rencana turunan; `userContext(base)` memberi Pandu catatan Vera rencana lama ("WAJIB dibereskan"). `plan.vera.issues` =
+  catatan serius saja (rencana lama: semua catatan), `notes` = catatan serius (⚠️) + catatan kecil; Kartu Rencana menaruh "Catatan Vera" di
+  depan kalau `vera.ok === false`; `buka_rencana` membawa `catatan_vera`. Perjalanan: `tanggal_selesai` baru, jadwal "Hari N, jam" (maks 30),
+  `tripScheduleIssues` (tanpa AI) mewajibkan setiap hari sampai hari terakhir (lama dari tanggal_mulai–selesai / "12–14 Des" / "3 hari";
+  tidak terbaca → dilewati), check-out kalau ada hotel, dan perjalanan pulang ("kembali ke hotel" tidak dihitung).
   Uji G (harness): Groq tiruan menolak > 8.000 token/menit dan "too large" (isi + jatah jawaban; browsing +3.500), OpenRouter tiruan.
 - Batas token per menit Groq (v1.18.1): `groqChat` mencatat pemakaian 60 dtk terakhir per model (usage asli / perkiraan
   ±3,5 huruf per token) + header `x-ratelimit-*` kalau terbaca, lalu MENUNGGU dulu kalau jatah belum cukup (`waitNeeded`, bawaan 8.000/menit,
@@ -146,15 +153,15 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`, `backup-v1.19.0` (= versi yang terbit 2 Nov 2026).
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`, `backup-v1.19.0`, `backup-v1.19.1` (= versi sebelum v1.20.0, 3 Nov 2026).
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini — per 2 Nov 2026
-**Yang terbit (cabang `main` / GitHub Pages): v1.19.1 · APK #7** (android-app 1.0.4, plugin Share & Filesystem). v1.19.1 terbit 2 Nov 2026.
+## Status saat ini — per 3 Nov 2026
+**Yang terbit (cabang `main` / GitHub Pages): v1.20.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem). v1.20.0 terbit 3 Nov 2026 (web saja, APK tidak berubah).
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
@@ -169,8 +176,8 @@ jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, 
 - Tanda 👍/👎 di Pengaturan → Ingatan sudah terlihat (v1.15, 1 Nov 2026).
 - **Pandu v1.19.0 lewat OpenRouter (2 Nov 2026): "sudah sukses, keren laporannya", "walau menunggu tapi hasilnya nyata"**; Vera ikut
   memberi catatan (contoh: "belum ada jadwal hari terakhir dan check-out hotel"). Kunci OpenRouter sudah diisi pemilik.
-  Pertanyaan pemilik: kenapa catatan Vera tidak dikembalikan ke Pandu sampai beres → sekarang Pandu hanya diberi 1 putaran perbaikan
-  (hemat jatah); ide: 2 putaran saat lewat OpenRouter + tawarkan "lengkapi rencana" (belum disetujui).
+  Pertanyaan pemilik: kenapa catatan Vera tidak dikembalikan ke Pandu sampai beres → v1.20.0 (disetujui pemilik 3 Nov 2026):
+  2 putaran perbaikan lewat OpenRouter + tawaran "lengkapi rencana" + Vera mengecek jadwal per hari/check-out/pulang.
   Catatan: kunci Gemini gratis pemilik **ditolak** Google Search grounding, jadi Rara bergantung pada kunci Groq.
 
 **Masalah yang dilaporkan pemilik & sudah ditangani:**
@@ -181,6 +188,8 @@ jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, 
 - Riwayat versi di Pengaturan terlalu panjang (2 Nov 2026) → v1.19.1 tombol lipat (terbit, belum dicoba pemilik).
 
 **Belum dites langsung oleh pemilik:**
+- v1.20.0: Pandu memperbaiki 2× setelah ditolak Vera, tawaran "lengkapi" → rencana turunan, cek jadwal tiap hari/check-out/pulang.
+  Diuji otomatis (Node: logika Pandu/Vera dengan otak tiruan; Edge + playwright-core: alur buat_rencana → kabar → lengkapi).
 - v1.19.0: pilihan hemat/seimbang/nyaman, jenis rencana (proyek dll.), simpan kartu ke HP (APK butuh update ke #7 — kartu update muncul otomatis
   besoknya, atau Pengaturan → Fitur → Cek update aplikasi).
 - v1.18: Pandu & rencana bernomor (buka/bandingkan/hapus/batal/ke catatan, kabar otomatis), Vera (cek Rara/Lukas/Pandu), papan kerja,
@@ -205,6 +214,7 @@ kamera → `fitCamBox` di `js/app.js`, `js/camera.js`.
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.20.0 | Pandu memperbaiki sampai 2× (OpenRouter) setelah ditolak Vera; masih kurang → Gaby menawarkan "lengkapi" (rencana turunan membawa catatan Vera); Vera mewajibkan jadwal tiap hari sampai hari terakhir + check-out + pulang; catatan Vera serius tampil di depan Kartu Rencana |
 | 1.19.1 | Pratinjau kamera mengikuti bentuk asli gambar (tidak dipotong/terlihat di-zoom); riwayat versi di Pengaturan bisa dilipat (quiet) |
 | 1.19.0 | Pandu: OpenRouter (Nemotron Ultra 550B) + cadangan Groq, irit (3 pencarian, tanpa Vera per pencarian, 1.700/2.500 token) & tahan banting; pilihan hemat/seimbang/nyaman; jenis rencana (proyek, acara, belajar, dll.), transportasi & kuliner bernama; simpan kartu ke HP; APK + plugin Share & Filesystem (android-app 1.0.4) |
 | 1.18.2 | Gaby memberi tahu dengan santai kalau teman belum bisa karena kunci belum diisi, lalu mengerjakan sendiri sebisanya (quiet) |

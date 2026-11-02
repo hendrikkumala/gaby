@@ -2016,6 +2016,7 @@ function planSummary(p) {
     ringkasan: d.ringkasan || '',
     turunan_dari: p.parent ? `#${p.parent}` : '',
     cek_vera: p.vera ? p.vera.badge : '',
+    catatan_vera: p.vera && !p.vera.ok ? (p.vera.issues || []) : [],
     dibuat: fmtDay(p.created),
     _utama: hotel ? `${hotel.nama}${hotel.area ? ` (${hotel.area})` : ''}` : '',
   };
@@ -2060,7 +2061,7 @@ async function runPlanJob(request, base, job) {
         onRara: (who, text) => job.pass(who, text),
         onWait: (sec) => { job.pass('pandu'); job.update(`Menunggu jatah AI sebentar${sec ? ` ±${sec} dtk` : ''}…`); },
         onBrain: (label) => { if (label !== lastBrain) { if (lastBrain) job.update(`Pindah ke ${label}…`); lastBrain = label; } },
-        onFix: (fb) => job.pass('pandu', `Memperbaiki: ${fb.slice(0, 70)}…`),
+        onFix: (fb, ke) => job.pass('pandu', `Memperbaiki${ke > 1 ? ` (ke-${ke})` : ''}: ${fb.slice(0, 70)}…`),
         verify: async (plan, fixes) => {
           job.pass('vera');
           job.step(veraIdx, 'Mengecek hitungan, tanggal, dan pantanganmu…');
@@ -2074,11 +2075,12 @@ async function runPlanJob(request, base, job) {
       job.step(veraIdx, 'Mengecek ulang rencana…');
       vera = await checkPlan(res.plan, res.fixes);
     }
+    const serious = (vera.issues || []).filter((i) => i.serius).map((i) => i.text); // yang belum beres
     const plan = memory.addPlan({
       title: res.plan.judul,
       request,
       data: res.plan,
-      vera: { badge: vera.badge, ok: vera.ok, notes: vera.notes || [], issues: (vera.issues || []).map((i) => i.text) },
+      vera: { badge: vera.badge, ok: vera.ok, notes: [...serious.map((t) => `⚠️ ${t}`), ...(vera.notes || [])], issues: serious },
       parent: base ? base.no : null,
     });
     job.pass('pandu');
@@ -2086,9 +2088,12 @@ async function runPlanJob(request, base, job) {
     showPlanCard(plan.no);
     fillSettings();
     const s = planSummary(plan);
-    const extra = (plan.data.checklist.length || plan.data.pengingat.length)
-      ? ' Lalu tanya apakah mau dimasukkan ke catatan & pengingat (alat rencana_ke_catatan).' : '';
-    announce(`[SISTEM] Pandu sudah selesai: Rencana #${plan.no} "${plan.title}" sudah siap dan tampil di Kartu Rencana. Cek Vera: ${vera.badge}${vera.ok ? '' : ` (${(vera.issues || []).map((i) => i.text).join('; ')})`}. Ringkasan: ${JSON.stringify({ jenis: s.jenis, tanggal: s.tanggal, total: s.total_biaya, utama: s._utama, transportasi: s.transportasi.slice(0, 2), kuliner: s.kuliner.slice(0, 2), tujuan: s.tujuan, fitur: s.fitur.slice(0, 3), rincian: s.rincian.slice(0, 5), jadwal: s.jadwal.slice(0, 3) })}. Sampaikan dengan antusias tapi SINGKAT (2–3 kalimat): sebut nomor rencana, total biaya, dan 1–2 hal utama (misal maskapai & hotel, atau fitur utama untuk proyek); boleh sebut bahwa kartunya bisa disimpan ke HP${vera.ok ? '' : ', lalu jujur sebut catatan Vera'}.${extra}`,
+    // Vera masih punya catatan → Gaby menawarkan "lengkapi" (rencana turunan); kalau tidak, tawarkan ke catatan.
+    const extra = !vera.ok
+      ? ` Lalu tawarkan SATU kali, misal "Vera masih mencatat <inti catatannya>. Mau aku minta Pandu lengkapi?". Kalau pengguna setuju → buat_rencana dengan dari_nomor ${plan.no} dan permintaan "Lengkapi rencana #${plan.no} sesuai catatan Vera".`
+      : (plan.data.checklist.length || plan.data.pengingat.length)
+        ? ' Lalu tanya apakah mau dimasukkan ke catatan & pengingat (alat rencana_ke_catatan).' : '';
+    announce(`[SISTEM] Pandu sudah selesai: Rencana #${plan.no} "${plan.title}" sudah siap dan tampil di Kartu Rencana. Cek Vera: ${vera.badge}${vera.ok ? '' : ` (${serious.join('; ')})`}. Ringkasan: ${JSON.stringify({ jenis: s.jenis, tanggal: s.tanggal, total: s.total_biaya, utama: s._utama, transportasi: s.transportasi.slice(0, 2), kuliner: s.kuliner.slice(0, 2), tujuan: s.tujuan, fitur: s.fitur.slice(0, 3), rincian: s.rincian.slice(0, 5), jadwal: s.jadwal.slice(0, 3) })}. Sampaikan dengan antusias tapi SINGKAT (2–3 kalimat): sebut nomor rencana, total biaya, dan 1–2 hal utama (misal maskapai & hotel, atau fitur utama untuk proyek); boleh sebut bahwa kartunya bisa disimpan ke HP${vera.ok ? '' : ', lalu jujur sebut catatan Vera dengan bahasa sederhana'}.${extra}`,
     { title: `Rencana #${plan.no} siap`, body: `${plan.title}${s.total_biaya ? ` · total ${s.total_biaya}` : ''}` });
   } catch (e) {
     console.warn('[Gaby] Pandu gagal:', e);

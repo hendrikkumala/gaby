@@ -5,6 +5,13 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.20.0',
+    items: [
+      'Pandu dan Vera makin kompak: kalau Vera menemukan kekurangan, Pandu memperbaiki rencananya sampai dua kali sebelum diserahkan. Kalau masih ada catatan, aku tawarkan "mau aku minta Pandu lengkapi?", jadi rencana lamanya tetap ada untuk dibandingkan',
+      'Vera lebih teliti untuk rencana perjalanan: jadwalnya harus ada setiap hari sampai hari terakhir, lengkap dengan check-out hotel dan perjalanan pulang',
+    ],
+  },
+  {
     version: '1.19.1',
     quiet: true,
     items: ['Perbaikan bug kecil: tampilan kamera tidak lagi terpotong, riwayat versi bisa dilipat'],

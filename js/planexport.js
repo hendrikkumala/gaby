@@ -49,7 +49,8 @@ export function planSections(p) {
   add('checklist', jenis === 'proyek' ? '👣 Langkah pertama' : '✅ Persiapan', d.checklist || []);
   add('pengingat', '⏰ Pengingat usulan', (d.pengingat || []).map((r) => `${r.tanggal} ${r.jam} — ${r.pesan}`));
   add('catatan', '📌 Catatan', d.catatan || []);
-  add('vera', '🔍 Catatan Vera', (p.vera && p.vera.notes) || []);
+  // Vera masih punya catatan serius → tampil di depan (tidak terlipat di detail).
+  add('vera', '🔍 Catatan Vera', (p.vera && p.vera.notes) || [], { main: !!(p.vera && p.vera.ok === false) });
   add('sumber', '🔗 Sumber', (d.sumber || []).map((x) => x.title), { links: (d.sumber || []).map((x) => x.url) });
   return out;
 }

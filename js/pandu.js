@@ -1,7 +1,7 @@
 // PANDU, perencana di tim Gaby: memecah tugas besar ("rencanakan liburan ke Bali, budget 5 juta")
 // menjadi langkah, menjalankannya dengan alat (Rara untuk riset, cuaca, jarak, laci ingatan,
 // jadwal pengguna), lalu menyerahkan rencana terstruktur. Vera mengeceknya sebelum disimpan;
-// kalau Vera menemukan masalah, Pandu memperbaiki SEKALI.
+// kalau Vera menemukan masalah, Pandu memperbaiki (2 kali lewat OpenRouter, 1 kali lewat Groq).
 // Memakai Groq (GPT-OSS 120B dengan pemanggilan alat). Pandu tidak pernah membeli,
 // membayar, memesan, atau mengirim pesan.
 
@@ -30,10 +30,11 @@ const PLAN_SCHEMA = obj({
   ringkasan: S,
   tanggal: { type: 'string', description: 'misal "12–14 Des 2026" atau ""' },
   tanggal_mulai: { type: 'string', description: 'YYYY-MM-DD atau ""' },
+  tanggal_selesai: { type: 'string', description: 'hari terakhir, YYYY-MM-DD atau ""' },
   total_biaya: { type: 'number', description: 'rupiah = jumlah rincian_biaya' },
   rincian_biaya: { type: 'array', items: obj({ item: S, biaya: N }, ['item', 'biaya']) },
   tempat: { type: 'array', description: 'hotel (2–3 kelas) / tempat / toko / produk', items: obj({ jenis: S, kelas: KELAS, dipilih: { type: 'boolean' }, nama: S, area: S, harga: S, catatan: S }, ['jenis', 'nama']) },
-  jadwal: { type: 'array', items: obj({ waktu: S, kegiatan: S }, ['waktu', 'kegiatan']) },
+  jadwal: { type: 'array', items: obj({ waktu: { type: 'string', description: 'perjalanan: "Hari 1, 08:00"' }, kegiatan: S }, ['waktu', 'kegiatan']) },
   transportasi: { type: 'array', description: 'perjalanan: 2–3 pilihan berjenjang, nama maskapai/kereta/bus', items: obj({ kelas: KELAS, dipilih: { type: 'boolean' }, moda: S, nama: S, rute: S, waktu: S, harga: S, catatan: S }, ['moda', 'nama']) },
   kuliner: { type: 'array', description: 'nama resto/warung/menu', items: obj({ nama: S, area: S, menu: S, harga: S, waktu: S }, ['nama']) },
   tujuan: S,
@@ -106,10 +107,11 @@ export function normalizePlan(raw) {
       ringkasan: str(p.ringkasan, 400),
       tanggal: str(p.tanggal, 60),
       tanggal_mulai: /^\d{4}-\d{2}-\d{2}$/.test(str(p.tanggal_mulai)) ? str(p.tanggal_mulai) : '',
+      tanggal_selesai: /^\d{4}-\d{2}-\d{2}$/.test(str(p.tanggal_selesai)) ? str(p.tanggal_selesai) : '',
       total_biaya: total,
       rincian_biaya: rincian,
       tempat: pickOne(arr(p.tempat).map((t) => ({ jenis: str(t.jenis, 20) || 'tempat', kelas: TIERS.includes(t.kelas) ? t.kelas : '', dipilih: t.dipilih === true, nama: str(t.nama, 80), area: str(t.area, 80), harga: str(t.harga, 60), catatan: str(t.catatan, 160) })).filter((t) => t.nama).slice(0, 8), (t) => /hotel|penginapan|villa|resort|homestay/i.test(t.jenis)),
-      jadwal: arr(p.jadwal).map((j) => ({ waktu: str(j.waktu, 40), kegiatan: str(j.kegiatan, 240) })).filter((j) => j.kegiatan).slice(0, 20),
+      jadwal: arr(p.jadwal).map((j) => ({ waktu: str(j.waktu, 40), kegiatan: str(j.kegiatan, 240) })).filter((j) => j.kegiatan).slice(0, 30),
       transportasi: pickOne(arr(p.transportasi).map((t) => ({ kelas: TIERS.includes(t.kelas) ? t.kelas : '', dipilih: t.dipilih === true, moda: str(t.moda, 20), nama: str(t.nama, 80), rute: str(t.rute, 80), waktu: str(t.waktu, 60), harga: str(t.harga, 60), catatan: str(t.catatan, 120) })).filter((t) => t.nama).slice(0, 6)),
       kuliner: arr(p.kuliner).map((k) => ({ nama: str(k.nama, 80), area: str(k.area, 60), menu: str(k.menu, 100), harga: str(k.harga, 60), waktu: str(k.waktu, 40) })).filter((k) => k.nama).slice(0, 10),
       tujuan: str(p.tujuan, 300),
@@ -132,6 +134,8 @@ function userContext(base) {
     .map((m) => `- [${CATEGORIES[m.cat].replace(/^\S+\s/, '')}] ${m.text}`).join('\n') || '- (belum ada)';
   const now = new Date();
   const when = now.toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // Catatan Vera untuk rencana lama: Pandu wajib membereskannya di rencana turunan.
+  const veraNotes = base && base.vera && !base.vera.ok ? arr(base.vera.issues).map((t) => `- ${str(t, 200)}`).join('\n') : '';
   return `Waktu sekarang: ${when} (${now.toLocaleDateString('sv-SE')}).
 Pengguna: ${st.nickname || 'pengguna'}.
 Hal yang TIDAK disukai / alergi / pantangan pengguna (JANGAN disarankan):
@@ -141,7 +145,9 @@ ${about}${base ? `
 
 INI PERUBAHAN dari Rencana #${base.no} "${base.title}". Isi rencana lama:
 ${JSON.stringify(base.data).slice(0, 4000)}
-Pertahankan semua yang tidak diminta berubah. Judul baru harus menyebut pembedanya.` : ''}`;
+Pertahankan semua yang tidak diminta berubah. Judul baru harus menyebut pembedanya.${veraNotes ? `
+Catatan Vera untuk rencana lama (WAJIB dibereskan):
+${veraNotes}` : ''}` : ''}`;
 }
 
 const SYSTEM = `Kamu PANDU, perencana di tim asisten suara Gaby. Kerjakan permintaan pengguna sampai menjadi rencana yang rapi dan bisa langsung dipakai.
@@ -154,7 +160,7 @@ Cara kerja:
 4. Akhiri dengan simpan_rencana. total_biaya = jumlah rincian_biaya (rupiah, angka). Tulis semua teks dalam bahasa Indonesia yang ringkas.
 
 Isi sesuai jenis (tentukan dulu jenisnya):
-- perjalanan: WAJIB transportasi berisi 2–3 pilihan BERJENJANG (kelas hemat / seimbang / nyaman, misal AirAsia atau Lion / Citilink atau Batik / Garuda) dengan nama, rute, perkiraan jam, kisaran harga, catatan (bagasi, "cek ulang saat pesan"); hotel juga 2–3 kelas di tempat (jenis "hotel"). Tandai dipilih=true pada SATU pilihan transportasi dan SATU hotel yang dipakai di total_biaya (sesuai budget & kesukaan; tanpa budget → seimbang). Kuliner berisi NAMA resto/warung per hari (area & kisaran harga). Jadwal per hari menyebut nama tempat & resto.
+- perjalanan: WAJIB transportasi berisi 2–3 pilihan BERJENJANG (kelas hemat / seimbang / nyaman, misal AirAsia atau Lion / Citilink atau Batik / Garuda) dengan nama, rute, perkiraan jam, kisaran harga, catatan (bagasi, "cek ulang saat pesan"); hotel juga 2–3 kelas di tempat (jenis "hotel"). Tandai dipilih=true pada SATU pilihan transportasi dan SATU hotel yang dipakai di total_biaya (sesuai budget & kesukaan; tanpa budget → seimbang). Kuliner berisi NAMA resto/warung per hari (area & kisaran harga). Jadwal WAJIB ada untuk SETIAP hari sampai hari terakhir (waktu ditulis "Hari 1, 08:00", "Hari 2, 12:00", …), menyebut nama tempat & resto, termasuk check-out hotel dan perjalanan pulang di hari terakhir. Isi tanggal_mulai & tanggal_selesai kalau tanggalnya diketahui.
 - proyek (bikin aplikasi, usaha, renovasi): tujuan, fitur (prioritas wajib/nanti), alat/teknologi + biaya, jadwal = tahapan per minggu, rincian biaya, risiko, checklist = langkah pertama. Kamu hanya merencanakan, bukan membuatnya.
 - acara: tempat, kuliner = menu/katering, checklist = persiapan & belanja.
 - belajar / kesehatan: tujuan, jadwal per minggu, alat = materi/sumber/peralatan.
@@ -250,6 +256,10 @@ async function think(b, keys, messages, toolChoice, hooks) {
   return r;
 }
 
+// Berapa kali Pandu boleh memperbaiki setelah ditolak Vera: OpenRouter (jatah per permintaan) 2 kali,
+// Groq (jatah token per menit, setiap perbaikan mengirim ulang seluruh percakapan) 1 kali.
+const maxFixes = (b) => (b.via === 'openrouter' ? 2 : 1);
+
 const BRAIN_ERR = {
   auth: 'kunci ditolak', day: 'jatah harian habis', privacy: 'izin privasi model gratis OpenRouter belum dinyalakan',
   credits: 'OpenRouter minta saldo', model: 'model tidak tersedia', toolarge: 'permintaan terlalu besar untuk batas per menit',
@@ -258,7 +268,7 @@ const BRAIN_ERR = {
 
 // Jalankan Pandu.
 //   request: permintaan pengguna; base: rencana lama (kalau mengubah) atau null
-//   hooks: { onSteps(list), onStep(i, text), onRara(who, text), onWait(sec), onBrain(label), onFix(text), verify(plan) → { ok, feedback } }
+//   hooks: { onSteps(list), onStep(i, text), onRara(who, text), onWait(sec), onBrain(label), onFix(text, ke), verify(plan) → { ok, feedback } }
 // Hasil: { plan, fixes, sources, model, vera } atau lempar Error (pesan ramah).
 export async function runPandu({ request, base = null, hooks = {} }) {
   const { keys } = memory.get();
@@ -275,7 +285,7 @@ export async function runPandu({ request, base = null, hooks = {} }) {
   let searches = 0;
   let stepsCount = 0;
   let calls = 0;
-  let verified = false;
+  let checks = 0; // berapa kali Vera sudah mengecek di dalam Pandu
   let salvage = false; // jatah mentok di tengah jalan: minta Pandu menyimpan dari data yang ada
   const step = (text) => {
     calls++;
@@ -398,13 +408,14 @@ export async function runPandu({ request, base = null, hooks = {} }) {
         plan.sumber = sources.slice(0, 8);
         if (!plan.jadwal.length && !plan.rincian_biaya.length && !plan.checklist.length) {
           result = { error: 'Rencana masih kosong (atau terpotong). Isi jadwal / rincian_biaya / checklist dengan ringkas, lalu simpan_rencana lagi.' };
-        } else if (!verified && hooks.verify && !salvage) {
-          verified = true;
+        } else if (checks < maxFixes(use) && hooks.verify && !salvage) {
+          checks++;
           if (hooks.onStep) hooks.onStep(Math.max(stepsCount - 1, 0), 'Menyerahkan ke Vera…');
           const v = await hooks.verify(plan, fixes);
           if (v && !v.ok && v.feedback) {
-            result = { ditolak_vera: true, perbaiki: v.feedback, catatan: 'Perbaiki hal ini saja, lalu panggil simpan_rencana lagi.' };
-            if (hooks.onFix) hooks.onFix(v.feedback);
+            const lastFix = checks >= maxFixes(use);
+            result = { ditolak_vera: true, perbaiki: v.feedback, catatan: `Perbaiki hal ini saja (pertahankan yang sudah benar), lalu panggil simpan_rencana lagi.${lastFix ? ' Ini kesempatan perbaikan terakhir.' : ''}` };
+            if (hooks.onFix) hooks.onFix(v.feedback, checks);
           } else {
             return finish(plan, fixes, use, v);
           }
