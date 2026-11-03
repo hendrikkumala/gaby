@@ -95,6 +95,9 @@ export function startJob(who, text, { steps = [] } = {}) {
   setSteps(steps);
   render();
   officeEmit('job', { id, kind: 'start', who, text: job.text }); // Ruang Kerja: teman mulai bekerja
+  // Ruang Kerja v1.22: daftar langkah & langkah yang sedang dikerjakan (papan rute Pandu)
+  const emitSteps = () => officeEmit('job', { id, kind: 'steps', list: job.steps.map((s) => s.text) });
+  if (job.steps.length) emitSteps();
   const progress = () => officeEmit('job', { id, kind: 'progress', frac: progressOf(job) });
   const finish = (state, msg, ms) => {
     if (!jobs.has(id) || job.state !== 'run') return;
@@ -115,7 +118,7 @@ export function startJob(who, text, { steps = [] } = {}) {
       if (changed) officeEmit('job', { id, kind: 'pass', who: nextWho, text: job.text });
     },
     update(msg, frac = null) { if (job.state !== 'run') return; if (msg != null) job.text = String(msg); job.frac = frac; render(); progress(); },
-    setSteps(list) { if (job.state !== 'run') return; setSteps(list); render(); },
+    setSteps(list) { if (job.state !== 'run') return; setSteps(list); render(); emitSteps(); },
     // Tandai langkah ke-i sedang dikerjakan (langkah sebelumnya dianggap selesai).
     step(i, msg) {
       if (job.state !== 'run') return;
@@ -123,6 +126,7 @@ export function startJob(who, text, { steps = [] } = {}) {
       if (msg != null) job.text = String(msg);
       render();
       progress();
+      officeEmit('job', { id, kind: 'step', i, text: msg != null ? String(msg) : (job.steps[i] || {}).text });
     },
     addStep(text) { if (job.state !== 'run') return job.steps.length - 1; job.steps.push({ text: String(text), state: 'todo' }); render(); return job.steps.length - 1; },
     done(msg) { finish('done', msg, 2500); },

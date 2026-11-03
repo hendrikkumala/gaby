@@ -173,7 +173,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 3 Nov 2026
-**Yang terbit (cabang `main` / GitHub Pages): v1.21.5 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
+**v1.22.0 (papan rute Pandu) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.21.5 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
 Run Pages `1ddf6e2` sukses & `config.js` live = 1.21.5. Uji otomatis 3 Nov 2026 (Edge + tiruan): Ruang Kerja 30/30, alur Pandu/Vera lulus,
 HP (CPU 4×) ±53 FPS. ✅ **Pemilik menguji v1.21.5 di iPhone 17 Pro dan Android (Oppo Find N5, APK): berjalan baik, tidak restart lagi.**
 
@@ -353,22 +353,28 @@ SEKALI & dipakai ulang (jumlah tetap), mode hemat (`LITE`) lebih sederhana, uji 
 (impor `../../js/…`) + tambahan; `index.html` = kantor + panel 🧪 Uji (alur lengkap, alur + Vera menolak, 3/5/8 langkah, 🔁 uji tahan
 lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). Mode hemat prototipe memakai kunci `proto122.lite`
 (bukan `gaby.officeLite`, supaya aplikasi asli di alamat yang sama tidak ikut berubah).
-- **Pandu (prototipe selesai):** papan rute = peta bersih + maks 8 paku bernomor + 7 benang (`routeG`, dibuat sekali di `R.pandu.fx0`).
+- **Pandu — TERBIT DI APLIKASI sebagai v1.22.0 (commit lokal 4 Nov 2026, menunggu push pemilik):** papan rute = peta bersih + maks 8 paku bernomor + 7 benang (`routeG`, dibuat sekali di `R.pandu.fx0`).
   Kabar BARU `job` `steps` {list} & `step` {i, text} (Vera tidak jadi paku: `/^Vera\b/`). Pandu lari ke paku langkah ke-i, menancapkan
   (pose `reaching`), benang ditarik (`pullString`), gelembung "📍 <langkah>"; minta Rara = pesawat kertas; selesai → paku hijau satu per
   satu + 🏁, rute tetap di papan sampai rencana berikutnya. `route` dicatat walau Ruang Kerja tertutup (`routeEvent`), digambar di `syncAll`.
-  Untuk rilis: `teamboard.js` harus mengirim `steps` (di `setSteps`) & `step` (di `step(i, msg)`), lalu salin bagian ini ke `js/office.js`.
+  `teamboard.js` mengirim `steps` (saat `startJob` dengan langkah & `setSteps`) dan `step` {i, text} (di `step(i, msg)`). Pandu sering
+  mengirim langkah yang SAMA berkali-kali → `route.pinned`: hanya gelembung diganti, benang tidak ditarik ulang.
+  `js/office.js` v1.22.0 = prototipe dengan impor `./…` & kunci `gaby.officeLite` (dibuat dengan sed dari `prototipe/v122/office.js`).
   Uji: Edge 13/14 (yang "gagal" = elemen +63 karena versi karakter dibuat sekali), Edge HP 8 menit/10 putaran elemen datar ±3.460 &
-  heap ±4 MB, WebKit UA iPhone (lite) 5 menit/6 putaran tanpa tumbang/error. Menunggu tontonan & tes iPhone pemilik.
+  heap ±4 MB, WebKit UA iPhone (lite) 5 menit/6 putaran tanpa tumbang/error. ✅ Pemilik menonton prototipe (4 Nov 2026): "smooth, gak restart", lalu "gas".
+  Uji v1.22.0 di aplikasi: Ruang Kerja 33/33 (+ paku dari langkah asli OpenRouter tiruan, hijau setelah selesai), alur Pandu/Vera 15/16
+  (yang gagal = tes lama mengharap versi 1.21.0), WebKit iPhone 3 menit tanpa tumbang ("Gaby tersambung" gagal = WebKit tanpa mic tiruan,
+  sudah begitu sebelumnya), Ruang Kerja ditutup saat Pandu bekerja lalu dibuka → papan langsung sesuai. Berikutnya: prototipe **Vera**.
 - **Rara menghadap bola bumi (keluhan pemilik 4 Nov 2026: "kerjanya membelakangi bola dunia"):** dulu `RARA_KERJA` = kursi `raraK`
   (7,3 ; 5,4) + `faceFront` → bola di punggungnya. Prototipe: berdiri di (7,4 ; 3,3) di kanan bola, `view: 'back', face: -1` → bola &
-  layar tetap terlihat. Ikut dipindah ke `js/office.js` saat rilis v1.22.
+  layar tetap terlihat. Ikut terbit di v1.22.0.
 - **Bug kecil di `js/office.js` (v1.21.x):** `SHOW_FPS = /[?&]fps<BACKSPACE>/` (karakter \x08 dari skrip patch lama) → `?fps` tidak
-  pernah jalan. Sudah benar di prototipe; perbaiki di aplikasi saat rilis v1.22. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
+  pernah jalan. Diperbaiki di v1.22.0. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.22.0 | Ruang Kerja: papan rute Pandu (paku + benang mengikuti langkah asli, hijau setelah lolos Vera), pesawat kertas Pandu → Rara, Rara bekerja menghadap bola bumi, `?fps` diperbaiki |
 | 1.21.0 | 🏢 Ruang Kerja (beta): kantor 2.5D tim Gaby yang bergerak sesuai pekerjaan & ucapan asli, mic ON = standby / OFF = waktu bebas, kartu keluar dari hologram, benda bisa diketuk |
 | 1.20.0 | Pandu memperbaiki sampai 2× (OpenRouter) setelah ditolak Vera; masih kurang → Gaby menawarkan "lengkapi" (rencana turunan membawa catatan Vera); Vera mewajibkan jadwal tiap hari sampai hari terakhir + check-out + pulang; catatan Vera serius tampil di depan Kartu Rencana |
 | 1.19.1 | Pratinjau kamera mengikuti bentuk asli gambar (tidak dipotong/terlihat di-zoom); riwayat versi di Pengaturan bisa dilipat (quiet) |

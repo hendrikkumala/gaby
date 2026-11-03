@@ -420,7 +420,7 @@ const poly = (pts, attrs) => `<polygon points="${pts.map((p) => p.map((n) => n.t
 const PIN_MAX = 8;
 const PIN_COL = { todo: '#cbd5e1', run: '#facc15', done: '#ef4444', ok: '#22c55e', fail: '#94a3b8' };
 // Keadaan papan: tetap dicatat walau Ruang Kerja tertutup (murah), digambar saat dibuka.
-const route = { job: null, list: [], at: -1, end: null };
+const route = { job: null, list: [], at: -1, end: null, pinned: -1 };
 const BPT = (x, z, y = 0.05) => G(R.pandu.off[0] + x, R.pandu.off[1] + y, z);
 const pinXZ = (i, n) => [n > 1 ? 1.8 + (i / (n - 1)) * 4.4 : 4, (i % 2 ? 2.45 : 3.75) + (((i * 37) % 5) - 2) * 0.07];
 const routeG = el('g', { class: 'route', style: 'display:none' });
@@ -481,6 +481,9 @@ function panduPin(i, text) {
     const a = A.pandu, n = routeN();
     if (!running) return drawRoute();
     if (i >= n) { drawRoute(); return; }
+    // Pandu sering mengabarkan langkah yang SAMA berkali-kali (tiap memakai alat): cukup ganti tulisan gelembungnya.
+    if (i === route.pinned) { if (text) a.say(`📍 ${shortStep(text)}`, 1800); return; }
+    route.pinned = i;
     if (a.working != null) {
       const [x] = pinXZ(i, n);
       const t = { x: R.pandu.off[0] + Math.min(6, Math.max(1.9, x)), y: R.pandu.off[1] + 1.3, z: 0, view: 'back' };
@@ -1324,9 +1327,9 @@ function syncAll() {
 
 // Papan rute Pandu dicatat SELALU (juga saat Ruang Kerja tertutup) — hanya angka & teks, sangat ringan.
 function routeEvent(d) {
-  if (d.kind === 'start' && d.who === 'pandu') Object.assign(route, { job: d.id, list: [], at: -1, end: null });
+  if (d.kind === 'start' && d.who === 'pandu') Object.assign(route, { job: d.id, list: [], at: -1, end: null, pinned: -1 });
   if (d.id !== route.job) return;
-  if (d.kind === 'steps') { route.list = (d.list || []).filter((t) => !/^Vera\b/.test(t)); route.at = -1; }
+  if (d.kind === 'steps') { route.list = (d.list || []).filter((t) => !/^Vera\b/.test(t)); route.at = -1; route.pinned = -1; }
   if (d.kind === 'step') route.at = d.i;
   if (d.kind === 'end') route.job = null;
   if (!running) { if (d.kind === 'end') route.end = d.ok ? 'ok' : 'fail'; return; }

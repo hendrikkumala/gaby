@@ -325,7 +325,8 @@ const A = {
   vera: new Actor('vera', '✅ Vera', { main: CH.vera }, seatOf('vera')),
   lukas: new Actor('lukas', '🎨 Lukas', { main: CH.lukas }, seatOf('lukas')),
 };
-const RARA_KERJA = { ...seatOf('raraK'), seat: false, faceFront: true };
+// Rara bekerja di samping kanan bola bumi, menghadap bola (tampak belakang, serong kiri) — bola & layarnya tetap terlihat.
+const RARA_KERJA = { x: R.rara.off[0] + 7.4, y: R.rara.off[1] + 3.3, z: 0, seat: false, view: 'back', face: -1 };
 // Mic Gaby: dipegang saat bicara, ditaruh di meja saat tidak ngobrol.
 const deskMic = el('g', { class: 'deskmic' });
 function gabyMic(hold) {
@@ -413,6 +414,105 @@ const drawerPt = (k) => { const d = drawerGeo(k); return G(d.x + d.w / 2, d.y, d
 // Berdiri di samping laci (bukan tepat di depannya) supaya laci yang menyala tetap terlihat.
 const drawerStand = (k) => { const d = drawerGeo(k); return { x: Math.min(d.x + d.w + 0.45, R.meri.off[0] + 7.4), y: d.y + 0.9, z: 0, face: -1 }; };
 const poly = (pts, attrs) => `<polygon points="${pts.map((p) => p.map((n) => n.toFixed(1)).join(',')).join(' ')}" ${attrs}/>`;
+
+// ---------- v1.22: papan rute Pandu — paku & benang mengikuti langkah ASLI rencananya ----------
+// Semua elemen dibuat SEKALI (jumlah tetap, hanya disembunyikan/ditampilkan) supaya memori tidak bertambah — penting untuk iPhone.
+const PIN_MAX = 8;
+const PIN_COL = { todo: '#cbd5e1', run: '#facc15', done: '#ef4444', ok: '#22c55e', fail: '#94a3b8' };
+// Keadaan papan: tetap dicatat walau Ruang Kerja tertutup (murah), digambar saat dibuka.
+const route = { job: null, list: [], at: -1, end: null, pinned: -1 };
+const BPT = (x, z, y = 0.05) => G(R.pandu.off[0] + x, R.pandu.off[1] + y, z);
+const pinXZ = (i, n) => [n > 1 ? 1.8 + (i / (n - 1)) * 4.4 : 4, (i % 2 ? 2.45 : 3.75) + (((i * 37) % 5) - 2) * 0.07];
+const routeG = el('g', { class: 'route', style: 'display:none' });
+const routeLines = [], routePins = [];
+{
+  const f = (x, z, w, h, c, y) => poly([BPT(x, z, y), BPT(x + w, z, y), BPT(x + w, z + h, y), BPT(x, z + h, y)], `fill="${c}"`);
+  // peta bersih menutupi rute contoh yang tergambar di papan
+  routeG.innerHTML = f(1.3, 1.7, 5.2, 2.8, '#e7d3a4', 0.035) + f(1.6, 2.4, 1.8, 1.4, '#86efac', 0.04) + f(3.8, 2.0, 1.6, 1.8, '#86efac', 0.04) + f(5.6, 3.2, 0.7, 0.9, '#86efac', 0.04);
+  for (let i = 0; i < PIN_MAX - 1; i++) { const l = el('line', { stroke: '#dc2626', 'stroke-width': 1.8, 'stroke-linecap': 'round', style: 'display:none' }); routeLines.push(l); routeG.append(l); }
+  for (let i = 0; i < PIN_MAX; i++) {
+    const p = el('g', { style: 'display:none' }, `<circle r="${(4.4 * VK).toFixed(1)}" stroke="#0f172a" stroke-width=".8"/><text y="${(2.2 * VK).toFixed(1)}" text-anchor="middle" font-size="${(6 * VK).toFixed(1)}" font-weight="900" font-family="system-ui" fill="#0f172a">${i + 1}</text>`);
+    routePins.push(p); routeG.append(p);
+  }
+  R.pandu.fx0.append(routeG);
+}
+const routeN = () => Math.min(PIN_MAX, route.list.length);
+// Gambar papan sesuai `route` (tanpa animasi). Dipanggil saat ada kabar langkah & saat Ruang Kerja dibuka.
+function drawRoute() {
+  const n = routeN();
+  routeG.style.display = n ? '' : 'none';
+  if (!n) return;
+  for (let i = 0; i < PIN_MAX; i++) {
+    const p = routePins[i];
+    if (i >= n) { p.style.display = 'none'; continue; }
+    const [x, z] = pinXZ(i, n);
+    const [sx, sy] = BPT(x, z);
+    const st = route.end ? route.end : i < route.at ? 'done' : i === route.at ? 'run' : 'todo';
+    const big = st === 'run' ? 1.35 : 1;
+    p.style.display = '';
+    p.setAttribute('transform', `translate(${sx.toFixed(1)} ${sy.toFixed(1)}) scale(${big})`);
+    p.firstChild.setAttribute('fill', PIN_COL[st]);
+    p.style.opacity = st === 'todo' ? 0.55 : 1;
+  }
+  for (let i = 0; i < PIN_MAX - 1; i++) {
+    const l = routeLines[i];
+    const on = i < n - 1 && (route.end || i < route.at);
+    l.style.display = on ? '' : 'none';
+    if (!on) continue;
+    const [ax, ay] = BPT(...pinXZ(i, n)), [bx, by] = BPT(...pinXZ(i + 1, n));
+    l.setAttribute('x1', ax.toFixed(1)); l.setAttribute('y1', ay.toFixed(1)); l.setAttribute('x2', bx.toFixed(1)); l.setAttribute('y2', by.toFixed(1));
+    l.setAttribute('stroke', route.end === 'ok' ? '#16a34a' : route.end === 'fail' ? '#94a3b8' : '#dc2626');
+  }
+}
+// Benang baru "ditarik" dari paku sebelumnya ke paku yang sedang dikerjakan.
+function pullString(i) {
+  const n = routeN(), l = routeLines[i - 1];
+  if (!l || i >= n) return Promise.resolve();
+  const [ax, ay] = BPT(...pinXZ(i - 1, n)), [bx, by] = BPT(...pinXZ(i, n));
+  l.style.display = '';
+  l.setAttribute('x1', ax.toFixed(1)); l.setAttribute('y1', ay.toFixed(1));
+  return anim(500, (t) => { const e = ease(t); l.setAttribute('x2', (ax + (bx - ax) * e).toFixed(1)); l.setAttribute('y2', (ay + (by - ay) * e).toFixed(1)); });
+}
+const shortStep = (t) => { const s = String(t || '').replace(/…$/, ''); return s.length > 30 ? `${s.slice(0, 29)}…` : s; };
+// Pandu berjalan ke paku langkah ke-i, menancapkannya, lalu menarik benang.
+let pinBusy = Promise.resolve();
+function panduPin(i, text) {
+  pinBusy = pinBusy.then(async () => {
+    const a = A.pandu, n = routeN();
+    if (!running) return drawRoute();
+    if (i >= n) { drawRoute(); return; }
+    // Pandu sering mengabarkan langkah yang SAMA berkali-kali (tiap memakai alat): cukup ganti tulisan gelembungnya.
+    if (i === route.pinned) { if (text) a.say(`📍 ${shortStep(text)}`, 1800); return; }
+    route.pinned = i;
+    if (a.working != null) {
+      const [x] = pinXZ(i, n);
+      const t = { x: R.pandu.off[0] + Math.min(6, Math.max(1.9, x)), y: R.pandu.off[1] + 1.3, z: 0, view: 'back' };
+      a.pose('working', false);
+      if (dist(a, t) > 0.15) await a.walk(t, { run: true });
+      if (a.working == null) return drawRoute();
+      a.pose('reaching');
+      await wait(350);
+    }
+    drawRoute();
+    if (i > 0) await pullString(i);
+    if (text) a.say(`📍 ${shortStep(text)}`, 1800);
+    await wait(250);
+    if (a.working != null) { a.pose('reaching', false); a.pose('working'); }
+  }).catch((e) => console.warn('[Gaby] papan Pandu', e));
+}
+async function routeFinish(ok) {
+  route.end = ok ? 'ok' : 'fail';
+  if (!running) return;
+  if (!ok) { drawRoute(); return; }
+  // paku menghijau satu per satu, lalu bendera 🏁 di paku terakhir
+  const n = routeN(), save = route.end;
+  route.end = null; route.at = n;
+  for (let i = 0; i < n; i++) { routePins[i].firstChild.setAttribute('fill', PIN_COL.ok); await wait(90); }
+  route.end = save; drawRoute();
+  const [x, y] = BPT(...pinXZ(n - 1, n));
+  rise([x, y - 6], '🏁', 16, 1400);
+}
+
 function drawer(k, mode) {
   const d = drawerGeo(k);
   const old = R.meri.fx0.querySelector(`[data-k="${k}"]`);
@@ -854,7 +954,7 @@ function tick(now) {
 let lightOn = false;
 const UA = navigator.userAgent;
 const IS_WEBKIT_SAFARI = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || (/Safari/.test(UA) && !/Chrome|Chromium|CriOS|FxiOS|Edg|Android/.test(UA));
-const SHOW_FPS = /[?&]fps/.test(location.search);
+const SHOW_FPS = /[?&]fps\b/.test(location.search);
 if (SHOW_FPS) $('fps').hidden = false;
 async function setLight(on) {
   lightOn = on;
@@ -1054,7 +1154,7 @@ async function goWork(j, a, teleport = false) {
     for (let i = 0; a.working === j.id && !j.ended && j.who === a.key; i++) {
       a.progress(j.progress != null ? j.progress : ((performance.now() / 1800) % 1));
       if (a.key === 'lukas' && i % 2 === 0) { const [x, y] = CANVAS(); rise([x + rnd(-20, 20), y + rnd(-14, 10)], pick(['🔴', '🟡', '🔵', '🟣']), 8, 900); }
-      if (a.key === 'pandu' && i % 4 === 0) rise(BOARD(), '📍', 15, 1300);
+      if (a.key === 'pandu' && i % 4 === 0 && !routeN()) rise(BOARD(), '📍', 15, 1300); // tanpa daftar langkah: paku hiasan
       await wait(500);
     }
     if (a.working === j.id) stopWork(a);
@@ -1145,7 +1245,7 @@ async function jobStep(j, d, teleport = false) {
     if (to !== j.owner) {
       j.helpers.add(to);
       fa.say(`${NAMES[to]}, tolong! 🙏`, 1000);
-      await fly(fa.headPt(), ta.headPt(), 'note', 700);
+      await fly(fa.headPt(), ta.headPt(), from === 'pandu' ? 'plane' : 'note', from === 'pandu' ? 1000 : 700); // Pandu: pesawat kertas
       ta.say('❗ Oke!', 700); ta.hop();
     } else if (A[from] && from !== j.owner) {
       // teman selesai membantu: hasilnya dikirim ke pemilik pekerjaan
@@ -1188,6 +1288,7 @@ function onJob(d) {
   }
   if (!j) return;
   if (d.kind === 'progress') { j.progress = d.frac; return; }
+  if (d.kind === 'steps' || d.kind === 'step') return; // ditangani routeEvent (papan Pandu)
   if (d.kind === 'end') j.ended = true;
   // Vera mengoper ke teman: tunggu sebentar — kalau pekerjaan langsung selesai, artinya DISETUJUI, bukan ditolak.
   const fromVera = d.kind === 'pass' && j.who === 'vera' && d.who !== 'vera';
@@ -1203,6 +1304,7 @@ function onJob(d) {
 // ---------- menyamakan keadaan saat Ruang Kerja dibuka ----------
 function syncAll() {
   onGabyState(officeState.gaby, true);
+  drawRoute();
   // pekerjaan yang selesai saat Ruang Kerja tertutup
   for (const [id, j] of JOBS) {
     if (officeState.jobs.has(id)) continue;
@@ -1223,7 +1325,21 @@ function syncAll() {
   }
 }
 
+// Papan rute Pandu dicatat SELALU (juga saat Ruang Kerja tertutup) — hanya angka & teks, sangat ringan.
+function routeEvent(d) {
+  if (d.kind === 'start' && d.who === 'pandu') Object.assign(route, { job: d.id, list: [], at: -1, end: null, pinned: -1 });
+  if (d.id !== route.job) return;
+  if (d.kind === 'steps') { route.list = (d.list || []).filter((t) => !/^Vera\b/.test(t)); route.at = -1; route.pinned = -1; }
+  if (d.kind === 'step') route.at = d.i;
+  if (d.kind === 'end') route.job = null;
+  if (!running) { if (d.kind === 'end') route.end = d.ok ? 'ok' : 'fail'; return; }
+  if (d.kind === 'start' || d.kind === 'steps') drawRoute();
+  else if (d.kind === 'step') panduPin(d.i, d.text);
+  else if (d.kind === 'end') pinBusy = pinBusy.then(() => routeFinish(d.ok));
+}
+
 officeListen((type, d) => {
+  if (type === 'job') routeEvent(d);
   if (!running) return; // tertutup: tidak ada animasi; disamakan lagi saat dibuka (syncAll)
   if (type === 'gaby') onGabyState(d);
   else if (type === 'say') onSay(d);
@@ -1305,4 +1421,4 @@ export function closeOffice() {
 }
 
 // Untuk uji otomatis (tidak dipakai aplikasi).
-export const _test = { A, state, JOBS, R, TAKEN };
+export const _test = { A, state, JOBS, R, TAKEN, route, routePins, routeLines };

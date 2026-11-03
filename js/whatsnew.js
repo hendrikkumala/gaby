@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.22.0',
+    items: [
+      'Di Ruang Kerja, Pandu sekarang menancapkan paku di papan petanya untuk tiap langkah rencanamu, lalu menarik benang merah sampai rutenya jadi. Kalau rencananya lolos Vera, semuanya jadi hijau',
+      'Pandu juga menerbangkan pesawat kertas ke Rara kalau butuh dicarikan info',
+      'Rara sekarang kerja menghadap bola buminya, nggak membelakangi lagi',
+    ],
+  },
+  {
     version: '1.21.5',
     quiet: true,
     items: ['Ruang Kerja memakai mode hemat di iPhone supaya tidak berhenti mendadak'],
