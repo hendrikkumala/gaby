@@ -179,6 +179,11 @@ melihat versi lama → cache 10 menit (lihat "Cara menjalankan & menguji"); belu
 
 **v1.21.0 — 🏢 Ruang Kerja di aplikasi (beta) TERBIT 3 Nov 2026** (run Pages `178d58c` sukses, `config.js` live = 1.21.0) — lihat "Proyek berjalan" di bawah.
 Angka FPS Ruang Kerja disembunyikan atas permintaan pemilik (v1.21.1); tampilkan dengan menambah `?fps` di alamat untuk pengujian.
+**iPhone menutup paksa halaman** ("A problem repeatedly occurred on …/gaby/", 3 Nov 2026, saat didiamkan) — dugaan: memori penuh oleh
+foto-foto besar "mode ringan" (dinyalakan otomatis di HP) di layar 3×. v1.21.2: mode ringan TIDAK dipakai di iPhone/Safari
+(`IS_WEBKIT_SAFARI`), foto lebih kecil (`sc` 1,25) di Android, versi karakter dibuat saat pertama dibutuhkan (`Actor.make`).
+Belum dikonfirmasi pemilik apakah crash berhenti; kalau masih: kurangi beban gambar di iPhone (misalnya karakter tanpa gradien,
+lebih sedikit animasi CSS) atau tampilkan Ruang Kerja versi lebih sederhana di iPhone.
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 

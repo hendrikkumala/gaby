@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.21.2',
+    quiet: true,
+    items: ['Ruang Kerja lebih hemat memori, terutama di iPhone'],
+  },
+  {
     version: '1.21.1',
     quiet: true,
     items: ['Perbaikan kecil di Ruang Kerja: angka FPS tidak ditampilkan lagi'],

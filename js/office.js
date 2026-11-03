@@ -201,11 +201,12 @@ class Actor {
     this.hopG = el('g');
     this.bob = el('g', { class: 'bob' });
     this.lines = el('g', { class: 'speedlines' }, '<path d="M-34,-70 h-16 M-32,-56 h-22 M-34,-42 h-14" stroke="#e2e8f0" stroke-width="2.5" stroke-linecap="round" opacity=".8"/>');
-    this.vars = {};
+    this.vars = {}; // versi yang sudah dibuat
+    this.make = {}; // resep versi (dibuat saat pertama kali dibutuhkan → hemat memori, penting di iPhone)
     for (const [bk, o] of Object.entries(bases)) {
-      for (const v of ['front', 'back']) { const g = el('g', {}, charSvg(o, v)); this.vars[`${bk}:${v}`] = g; this.bob.append(g); }
+      for (const v of ['front', 'back']) this.make[`${bk}:${v}`] = () => el('g', {}, charSvg(o, v));
       // versi tangan kosong (barangnya ditaruh di meja saat keluar ruangan); tampak belakang memang tanpa barang
-      if (o.item && (FREE_BASES[key] || []).includes(bk)) { const f = el('g', {}, charSvg({ ...o, item: undefined }, 'front')); this.vars[`${bk}-free:front`] = f; this.bob.append(f); }
+      if (o.item && (FREE_BASES[key] || []).includes(bk)) this.make[`${bk}-free:front`] = () => el('g', {}, charSvg({ ...o, item: undefined }, 'front'));
     }
     this.carryG = el('g', { transform: `translate(0 ${-0.3 * HEAD})` });
     this.bob.append(this.carryG);
@@ -223,11 +224,17 @@ class Actor {
     this.show();
     this.place();
   }
-  show() { const fk = `${this.base}-free:${this.view}`; const k = this.free && this.vars[fk] ? fk : `${this.base}:${this.view}`; for (const [n, g] of Object.entries(this.vars)) g.style.display = n === k ? '' : 'none'; }
+  show() {
+    const fk = `${this.base}-free:${this.view}`;
+    const k = this.free && this.make[fk] ? fk : `${this.base}:${this.view}`;
+    if (!this.vars[k]) { this.vars[k] = this.make[k](); this.bob.insertBefore(this.vars[k], this.carryG); if (this.held) this.holdL(this.held); }
+    for (const [n, g] of Object.entries(this.vars)) g.style.display = n === k ? '' : 'none';
+  }
   variant(b) { this.base = b; this.show(); }
   setView(v) { if (v !== this.view) { this.view = v; this.show(); } }
   carry(kind) { this.carryG.innerHTML = kind ? PROPS[kind] : ''; }
   holdL(kind) {
+    this.held = kind;
     for (const lp of this.g.querySelectorAll('.lprop')) lp.innerHTML = kind ? `<g transform="translate(${lp.dataset.hx} ${lp.dataset.hy})">${LPROPS[kind]}</g>` : '';
   }
   cls(name, on = true) { this.g.classList.toggle(name, on); }
@@ -342,7 +349,7 @@ for (const [k, d] of Object.entries(DESK_ITEM)) {
   deskItemG[k] = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})`, style: 'display:none' }, d.svg);
   (d.back ? it.fx0 : it.overG).append(deskItemG[k]);
 }
-const canFree = (a) => !!deskItemG[a.key] && !!a.vars[`${a.base}-free:front`];
+const canFree = (a) => !!deskItemG[a.key] && !!a.make[`${a.base}-free:front`];
 async function putDown(a) {
   if (a.free || !canFree(a)) return;
   a.pose('reaching'); await wait(380); a.pose('reaching', false);
@@ -802,7 +809,7 @@ function tick(now) {
     frames = 0; fpsT = now;
     // HP kurang kuat: kalau beberapa detik di bawah 40 FPS, mode ringan menyala sendiri
     lowFps = fps < 40 ? lowFps + 1 : 0;
-    if (lowFps >= 3 && !lightOn && !document.hidden) { setLight(true); toast('Mode ringan dinyalakan otomatis supaya lebih lancar'); }
+    if (lowFps >= 3 && !lightOn && !IS_WEBKIT_SAFARI && !document.hidden) { setLight(true); toast('Mode ringan dinyalakan otomatis supaya lebih lancar'); }
   }
   requestAnimationFrame(tick);
 }
@@ -810,6 +817,8 @@ function tick(now) {
 
 // ---------- mode ringan: gambar diam dijadikan foto sekali, hanya yang bergerak digambar ulang ----------
 let lightOn = false;
+const UA = navigator.userAgent;
+const IS_WEBKIT_SAFARI = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) || (/Safari/.test(UA) && !/Chrome|Chromium|CriOS|FxiOS|Edg|Android/.test(UA));
 const SHOW_FPS = /[?&]fps/.test(location.search);
 if (SHOW_FPS) $('fps').hidden = false;
 async function setLight(on) {
@@ -820,7 +829,7 @@ async function setLight(on) {
       if (!g._img) {
         const bb = g.getBBox();
         if (bb.width < 1 || bb.height < 1) continue;
-        const sc = 2;
+        const sc = 1.25; // resolusi foto (lebih kecil = hemat memori)
         const src = `<svg xmlns="${NS}" width="${Math.ceil(bb.width * sc)}" height="${Math.ceil(bb.height * sc)}" viewBox="${bb.x} ${bb.y} ${bb.width} ${bb.height}">${g.innerHTML}</svg>`;
         g._img = el('image', { href: URL.createObjectURL(new Blob([src], { type: 'image/svg+xml' })), x: bb.x, y: bb.y, width: bb.width, height: bb.height });
       }
@@ -1253,7 +1262,7 @@ export function openOffice() {
   for (const id of CARD_IDS) { const c = document.getElementById(id); shown.set(id, cardVisible(c)); if (c) cardObserver.observe(c, { attributes: true, attributeFilter: ['class', 'hidden'] }); }
   syncAll();
   // HP (layar sentuh): gambar diam langsung dijadikan foto supaya lancar sejak awal
-  if (!lightOn && window.matchMedia && matchMedia('(pointer: coarse)').matches) setLight(true);
+  if (!lightOn && !IS_WEBKIT_SAFARI && window.matchMedia && matchMedia('(pointer: coarse)').matches) setLight(true);
   focus(A.gaby);
   { const [x, y] = G(A.gaby.x, A.gaby.y, 2); camT = fitFull(); zoomTo(svg.clientWidth < 900 ? 520 : 900, x, y); cam = { ...camT }; }
   status(idleStatus());
