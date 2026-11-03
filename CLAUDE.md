@@ -199,7 +199,8 @@ repeatedly occurred"). Tidak bisa ditiru: WebKit Playwright (Windows) 3 menit ta
 (tanpa animasi variabel CSS `--al/--ar/--ll/--lr`, gerak sederhana), cetakan `PRINT_RES` 0,6 (memori gambar ±1/3), `MAXPX` 2048,
 maks 3 teman beraktivitas bersamaan. **Pendeteksi tumbang** (app.js): `sessionStorage['gaby.officeOpen']` diisi saat Ruang Kerja dibuka,
 dihapus saat ditutup / `pagehide`; kalau masih ada saat aplikasi dimuat (halaman restart saat Ruang Kerja terbuka) → mode hemat
-permanen + notifikasi. BELUM dikonfirmasi di iPhone asli. Kalau masih restart: Ruang Kerja versi statis (tanpa animasi) di iPhone.
+permanen + notifikasi. ✅ **Dikonfirmasi pemilik (3 Nov 2026): iPhone 17 Pro v1.21.5 berjalan, tidak restart lagi.**
+Oppo Find N5 (APK) mulus sejak v1.21.4. Belum ada tombol untuk kembali dari mode hemat (ide: Pengaturan "Ruang Kerja: Otomatis / Lengkap / Hemat").
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
