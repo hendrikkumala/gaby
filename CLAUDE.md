@@ -177,7 +177,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 (web saja, APK tidak berubah; run Pages `66f1775` sukses & `config.js` live = 1.20.0). Pemilik mencoba tepat setelah terbit dan masih
 melihat versi lama → cache 10 menit (lihat "Cara menjalankan & menguji"); belum dikonfirmasi pemilik sudah melihat 1.20.0.
 
-**Siap terbit (commit lokal, menunggu push pemilik): v1.21.0 — 🏢 Ruang Kerja di aplikasi (beta)** — lihat "Proyek berjalan" di bawah.
+**v1.21.0 — 🏢 Ruang Kerja di aplikasi (beta) TERBIT 3 Nov 2026** (run Pages `178d58c` sukses, `config.js` live = 1.21.0) — lihat "Proyek berjalan" di bawah.
+Angka FPS Ruang Kerja disembunyikan atas permintaan pemilik (v1.21.1); tampilkan dengan menambah `?fps` di alamat untuk pengujian.
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 

@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.21.1',
+    quiet: true,
+    items: ['Perbaikan kecil di Ruang Kerja: angka FPS tidak ditampilkan lagi'],
+  },
+  {
     version: '1.21.0',
     items: [
       'Sekarang ada Ruang Kerja! Ketuk tombol gedung 🏢 di bawah, kamu bisa lihat aku dan teman-teman di kantor kartun: Rara mencari di hologram bumi, Pandu menancapkan pin di peta, Lukas melukis, Vera mengecap ✅, Meri membuka laci ingatan. Semuanya bergerak sesuai pekerjaan sungguhan',

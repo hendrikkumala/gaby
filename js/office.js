@@ -798,7 +798,7 @@ function tick(now) {
   frames++;
   if (now - fpsT >= 1000) {
     const fps = Math.round(frames * 1000 / (now - fpsT));
-    $('fps').textContent = `${fps} FPS`;
+    if (SHOW_FPS) $('fps').textContent = `${fps} FPS`; // angka FPS hanya untuk pengujian (?fps di alamat)
     frames = 0; fpsT = now;
     // HP kurang kuat: kalau beberapa detik di bawah 40 FPS, mode ringan menyala sendiri
     lowFps = fps < 40 ? lowFps + 1 : 0;
@@ -810,6 +810,8 @@ function tick(now) {
 
 // ---------- mode ringan: gambar diam dijadikan foto sekali, hanya yang bergerak digambar ulang ----------
 let lightOn = false;
+const SHOW_FPS = /[?&]fps/.test(location.search);
+if (SHOW_FPS) $('fps').hidden = false;
 async function setLight(on) {
   lightOn = on;
   for (const g of svg.querySelectorAll('g.static')) {
