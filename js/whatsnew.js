@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.21.0',
+    items: [
+      'Sekarang ada Ruang Kerja! Ketuk tombol gedung 🏢 di bawah, kamu bisa lihat aku dan teman-teman di kantor kartun: Rara mencari di hologram bumi, Pandu menancapkan pin di peta, Lukas melukis, Vera mengecap ✅, Meri membuka laci ingatan. Semuanya bergerak sesuai pekerjaan sungguhan',
+      'Di Ruang Kerja, ketuk layar PUSH TO TALK di atas mejaku untuk ngobrol. Kata-kataku muncul di gelembung di atas kepalaku. Kalau kamu selesai bicara, kami semua dapat waktu bebas: ngopi di pantry, main ping-pong, sampai joget',
+      'Benda di kantor bisa diketuk: papan peta Pandu membuka daftar rencana, kanvas Lukas membuka galeri, laci Meri membuka ingatan, bola bumi Rara membuka berita terakhir',
+    ],
+  },
+  {
     version: '1.20.0',
     items: [
       'Pandu dan Vera makin kompak: kalau Vera menemukan kekurangan, Pandu memperbaiki rencananya sampai dua kali sebelum diserahkan. Kalau masih ada catatan, aku tawarkan "mau aku minta Pandu lengkapi?", jadi rencana lamanya tetap ada untuk dibandingkan',

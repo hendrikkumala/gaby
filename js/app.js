@@ -8,6 +8,7 @@ import { summarizeSession, tidyProfile } from './journal.js';
 import { researchStatus, researchReasons, resetResearch, quickSearchMode } from './research.js';
 import { groqLabel } from './groq.js';
 import { startJob, boardBusy, hideBoard, boardVisible } from './teamboard.js';
+import { officeEmit } from './officebus.js';
 import { WHATS_NEW, newsSince, cmpVersion } from './whatsnew.js';
 import { dailyHint } from './daily.js';
 import { APPS, buildAppLink } from './apps.js';
@@ -361,6 +362,7 @@ function setMood(m) {
 }
 
 let lastChip = '';
+let lastOfficeS = '';
 function render() {
   let s, text;
   if (phase === 'locked') { s = 'sleep'; text = 'Halo!'; }
@@ -375,6 +377,13 @@ function render() {
     text = micMuted ? 'Mikrofon mati' : m === 'wake' ? 'Bilang "Hai Gaby"' : 'Ketuk bola untuk bicara';
   }
   visual.setState(s);
+  if (s !== lastOfficeS) {
+    lastOfficeS = s;
+    officeEmit('gaby', s); // Ruang Kerja: mic ON (standby) / OFF (waktu bebas)
+    const on = phase === 'active' || phase === 'connecting';
+    $('of-mic').classList.toggle('on', on);
+    $('of-mic').textContent = on ? '🔇 Selesai bicara' : '🎤 Bicara';
+  }
   const chip = `${MOOD_EMOJI[mood]} ${text}`;
   if (chip !== lastChip) {
     $('chip-text').textContent = chip;
@@ -457,6 +466,7 @@ const brain = new Brain({
     audio.interrupt();
     audio.duck(false);
     finishCaption('gaby');
+    officeEmit('say', { who: 'gaby', end: true });
   },
   onUserText(t) {
     if (!diag.text && diag.end) diag.text = Date.now();
@@ -465,11 +475,13 @@ const brain = new Brain({
       awaitingReply = true;
     }
     caption('user', t);
+    officeEmit('say', { who: 'user', text: t });
     memory.addHistory('user', t);
     touch();
   },
   onGabyText(t) {
     caption('gaby', t);
+    officeEmit('say', { who: 'gaby', text: t });
     memory.addHistory('gaby', t);
     gabyTurnText = (gabyTurnText + t).slice(-120);
     const m = detectMood(gabyTurnText.slice(-60));
@@ -477,14 +489,18 @@ const brain = new Brain({
   },
   onTurnComplete() {
     gabyTurnText = '';
+    officeEmit('say', { who: 'gaby', end: true });
     if (diag.state === 'Gaby menjawab') diag.state = 'mendengarkan';
     finishCaption('gaby');
     touch();
   },
   async onToolCall(name, args) {
     thinking++;
+    officeEmit('tool', { name, args });
     try {
-      return await runTool(name, args, ui);
+      const result = await runTool(name, args, ui);
+      officeEmit('toolDone', { name, args, result });
+      return result;
     } finally {
       thinking--;
       touch();
@@ -879,6 +895,51 @@ function toggleMic() {
   render();
 }
 $('btn-mic').addEventListener('click', toggleMic);
+
+// ---------- Ruang Kerja (🏢): kantor 2.5D tim Gaby, dimuat hanya saat dibuka ----------
+let officeMod = null;
+function officePtt() {
+  if (phase === 'locked') { toast('Ketuk "Mulai" dulu ya.', 'warn'); return; }
+  if (phase === 'sleep') {
+    if (micMuted) toggleMic();
+    activate('tap');
+  } else if (phase === 'active') {
+    goSleep();
+  }
+}
+async function openOfficeScreen() {
+  $('office').hidden = false; // tampil dulu supaya ukuran layar terbaca saat kantor dibangun
+  document.body.classList.add('office-open');
+  visual.paused = true; // bola hologram tertutup: jeda dulu
+  try {
+    if (!officeMod) {
+      $('of-status').textContent = 'Memuat kantor…';
+      officeMod = await import('./office.js');
+      officeMod.mountOffice({
+        ptt: officePtt,
+        openPlans: () => showPlanList(),
+        openGallery: async () => { const r = await ui.gallery('buka'); if (!r.ok) toast(r.catatan || 'Galeri masih kosong.'); },
+        openMemory: () => { memFilter = 'semua'; $('mem-search').value = ''; renderMemories(); $('memories').hidden = false; },
+        openNews: () => { if (lastSources) showSources(...lastSources); else toast('Belum ada berita dari Rara. Coba tanya Gaby sesuatu yang perlu dicari.'); },
+      });
+    }
+    officeMod.openOffice();
+    touch();
+  } catch (e) {
+    console.warn('[Gaby] Ruang Kerja gagal dibuka', e);
+    closeOfficeScreen();
+    toast(`Ruang Kerja belum bisa dibuka: ${e.message}`, 'err');
+  }
+}
+function closeOfficeScreen() {
+  if (officeMod) officeMod.closeOffice();
+  $('office').hidden = true;
+  document.body.classList.remove('office-open');
+  visual.paused = false;
+}
+$('btn-office').addEventListener('click', openOfficeScreen);
+$('of-back').addEventListener('click', closeOfficeScreen);
+$('of-mic').addEventListener('click', officePtt);
 
 async function keepAwake() {
   try {
@@ -1815,7 +1876,9 @@ $('cam-video').addEventListener('resize', fitCamBox); // berubah saat ganti kame
 let srcTimer = 0;
 
 // Kartu kecil berisi sumber jawaban; hilang sendiri setelah 60 detik.
+let lastSources = null;
 function showSources(query, sources, queries = [], badge = '') {
+  lastSources = [query, sources, queries, badge];
   // Peta (misal dari cari_tempat) lebih berguna: jangan ditutup oleh kartu sumber.
   if (!$('mapcard').hidden) return;
   hideCards('src');

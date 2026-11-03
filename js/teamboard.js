@@ -2,6 +2,8 @@
 // (Rara mencari, Lukas menggambar, Vera mengecek, Pandu menyusun rencana), supaya pengguna
 // tidak menunggu tanpa kabar. Ketuk papan untuk melihat langkah-langkahnya.
 
+import { officeEmit } from './officebus.js';
+
 const WHO = {
   rara: '🔎 Rara',
   lukas: '🎨 Lukas',
@@ -92,19 +94,27 @@ export function startJob(who, text, { steps = [] } = {}) {
   const setSteps = (list) => { job.steps = (list || []).map((t) => ({ text: String(t), state: 'todo' })); };
   setSteps(steps);
   render();
+  officeEmit('job', { id, kind: 'start', who, text: job.text }); // Ruang Kerja: teman mulai bekerja
+  const progress = () => officeEmit('job', { id, kind: 'progress', frac: progressOf(job) });
   const finish = (state, msg, ms) => {
     if (!jobs.has(id) || job.state !== 'run') return;
     job.state = state;
     if (msg) job.text = String(msg);
     for (const s of job.steps) if (s.state === 'run') s.state = state === 'done' ? 'done' : 'todo';
     render();
+    officeEmit('job', { id, kind: 'end', ok: state === 'done' });
     setTimeout(() => { jobs.delete(id); render(); }, ms);
   };
   return {
     id,
     // Ganti siapa yang sedang bekerja (misal dari Rara ke Vera) dan keterangannya.
-    pass(nextWho, msg) { if (job.state !== 'run') return; job.who = nextWho; if (msg != null) job.text = String(msg); job.frac = null; render(); },
-    update(msg, frac = null) { if (job.state !== 'run') return; if (msg != null) job.text = String(msg); job.frac = frac; render(); },
+    pass(nextWho, msg) {
+      if (job.state !== 'run') return;
+      const changed = job.who !== nextWho;
+      job.who = nextWho; if (msg != null) job.text = String(msg); job.frac = null; render();
+      if (changed) officeEmit('job', { id, kind: 'pass', who: nextWho, text: job.text });
+    },
+    update(msg, frac = null) { if (job.state !== 'run') return; if (msg != null) job.text = String(msg); job.frac = frac; render(); progress(); },
     setSteps(list) { if (job.state !== 'run') return; setSteps(list); render(); },
     // Tandai langkah ke-i sedang dikerjakan (langkah sebelumnya dianggap selesai).
     step(i, msg) {
@@ -112,6 +122,7 @@ export function startJob(who, text, { steps = [] } = {}) {
       job.steps.forEach((s, k) => { if (k < i) s.state = 'done'; else if (k === i) s.state = 'run'; });
       if (msg != null) job.text = String(msg);
       render();
+      progress();
     },
     addStep(text) { if (job.state !== 'run') return job.steps.length - 1; job.steps.push({ text: String(text), state: 'todo' }); render(); return job.steps.length - 1; },
     done(msg) { finish('done', msg, 2500); },
@@ -134,6 +145,7 @@ setInterval(() => {
       j.state = 'fail';
       j.text = 'Terlalu lama, dihentikan';
       changed = true;
+      officeEmit('job', { id, kind: 'end', ok: false });
       setTimeout(() => { jobs.delete(id); render(); }, 7000);
     }
   }

@@ -186,9 +186,12 @@ export class Visual {
     if (this.canvas.clientWidth !== this.w || this.canvas.clientHeight !== this.h) this.resize();
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    this.t += dt;
-    this.update(dt, now);
-    this.draw();
+    // Dijeda saat layar lain menutupi bola (Ruang Kerja): tidak menggambar = hemat baterai & lebih lancar.
+    if (!this.paused) {
+      this.t += dt;
+      this.update(dt, now);
+      this.draw();
+    }
     requestAnimationFrame((t) => this.frame(t));
   }
 

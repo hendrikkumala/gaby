@@ -42,6 +42,10 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS + `browser_search`), Lukas (Qwen3 32B → …), Vera (Qwen3 / Llama 4 penglihatan) & Pandu cadangan; penjaga token per menit (`waitNeeded`), pilih model pengganti dari daftar model Groq |
 | `js/native.js` | Jembatan ke APK: notifikasi pengingat, alarm, cek update APK |
 | `js/calendar.js`, `camera.js`, `gallery.js`, `imagegen.js`, `wake.js` | Kalender (.ics), kamera/layar, galeri, gambar (**Lukas** menulis prompt via Gemini teks, lalu Pollinations gratis / Google berbayar), "Hai Gaby" (tidak aktif di Android) |
+| `js/office.js` | **Ruang Kerja** (🏢, v1.21): kantor 2.5D tim Gaby, dimuat saat dibuka (`import()`), berhenti total saat ditutup. Mesin dari prototipe + pengatur adegan dari kejadian asli |
+| `js/office-art.js` | Gambar Ruang Kerja (karakter 2.5D, meja, denah) — gabungan prototipe/karakter.js + karakter25.js + meja.js + kantor.js |
+| `js/officebus.js` | Jalur kabar kecil aplikasi → Ruang Kerja (`officeEmit`/`officeListen`, `officeState`) |
+| `css/office.css` | Tampilan & gerakan Ruang Kerja (semua dibatasi `#office`) |
 | `sw.js` | Service worker: tetap bisa dibuka walau GitHub down |
 | `android-app/` | Cangkang Android (Capacitor 6). Memuat Gaby dari GitHub Pages; plugin native sendiri: `GabyAlarmPlugin.java` |
 | `.github/workflows/android-apk.yml` | Merakit APK otomatis & menerbitkannya di Releases `apk-terbaru` |
@@ -173,7 +177,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 (web saja, APK tidak berubah; run Pages `66f1775` sukses & `config.js` live = 1.20.0). Pemilik mencoba tepat setelah terbit dan masih
 melihat versi lama → cache 10 menit (lihat "Cara menjalankan & menguji"); belum dikonfirmasi pemilik sudah melihat 1.20.0.
 
-**Sedang dikerjakan: 🏢 Ruang Kerja Gaby** (tahap sketsa, BELUM ada kode di aplikasi) — lihat bagian "Proyek berjalan" di bawah.
+**Siap terbit (commit lokal, menunggu push pemilik): v1.21.0 — 🏢 Ruang Kerja di aplikasi (beta)** — lihat "Proyek berjalan" di bawah.
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
@@ -300,15 +304,29 @@ mic ON = **standby** (`setBebas(false)`: yang jauh kembali ke ruangannya; masih 
 `w: 0` untuk tidur/microwave/gosip). Awal = bebas. **Barang khas ditaruh di meja saat keluar ruangan** (`go()` → `putDown`, versi
 karakter `-free` tanpa barang, `DESK_ITEM` per teman) dan diambil lagi saat sampai di meja (`pickUp` di `step`). Gaby: mic (`gabyMic`).
 
-**Langkah berikutnya:** (1) pemilik mencoba prototipe (di HP: cek FPS & rasa animasi) dan memberi masukan; perbaiki di
-`prototipe/` sampai pemilik bilang lucu & lancar; (2) v1.21: tombol + kantor di aplikasi + animasi Gaby/Meri/Rara; (3) v1.22:
-Pandu/Vera/Lukas lengkap. Di HP tegak: kamera mendekat ke ruangan yang sibuk + bisa digeser jari; benda tinggi di ruangan depan bisa
-dibuat transparan saat fokus ke Gaby. Animasi berhenti saat layar Ruang Kerja tertutup (hemat baterai). Tetap minta "gas" sebelum
-menyentuh kode aplikasi.
+**v1.21.0 — Ruang Kerja di aplikasi (pemilik bilang "gas", 3 Nov 2026):** tombol 🏢 (`.corner-office`, sebelah galeri) →
+`#office` (z-index 7: di bawah kartu 9 / notifikasi 20 / pengaturan 30; papan kerja disembunyikan, bola hologram dijeda
+`visual.paused`). Kabar dari aplikasi lewat `officebus.js`: `render()` → 'gaby' (status), `onUserText/onGabyText/onTurnComplete/
+onInterrupted` → 'say' (gelembung ucapan ASLI di atas Gaby & "Kamu: …"), `onToolCall` → 'tool'/'toolDone' (`ingat` → Meri menyimpan
+ke laci kategori; `buka_ingatan` → Meri mengambil map; alat lain → Gaby mengetik di hologram), `teamboard.js` → 'job'
+(start/pass/progress/end). Pengatur adegan (`onJob`/`jobStep`): tugas → catatan tempel dari Gaby, teman lari ke tempat kerja
+(Rara bola bumi, Pandu papan peta, Lukas kanvas); pass ke Vera → map diantar, Vera memeriksa; pass dari Vera → **ditunda 600 ms**:
+kalau pekerjaan langsung selesai = disetujui (✅), kalau tidak = ditolak (⚠️, map kembali); end → pesawat kertas ke layar Gaby.
+Rantai kejadian per pekerjaan berurutan; animasi kerja TIDAK ditunggu; kalau tertinggal (`pending > 1` / sudah selesai) jalan kaki
+dilompati (teleport) supaya tidak terlambat dari kartu. Peserta pekerjaan dicatat (`parts`) agar semua dilepas. Mic: status
+connecting/listening/thinking/speaking = mic ON (standby), sleep = waktu bebas (ngulet). Tombol bawah "🎤 Bicara / 🔇 Selesai bicara"
+& layar hologram = `officePtt()` (sama dengan mengetuk bola). Benda diketuk: papan Pandu → `showPlanList`, kanvas Lukas → galeri,
+laci Meri → daftar ingatan, bola bumi Rara → kartu berita terakhir (`lastSources`). Kartu yang muncul saat Ruang Kerja terbuka
+diberi "bayangan" yang terbang dari layar hologram (`MutationObserver` pada kartu). Saat dibuka: `syncAll()` menyamakan mic &
+pekerjaan yang sedang berjalan. Di HP (pointer: coarse) mode ringan langsung menyala. Uji: 28/28 (Gemini/OpenRouter/Groq tiruan,
+skrip di folder sementara) + uji v1.20 tetap lulus. Kinerja emulasi HP layar tajam + CPU 4× lebih lambat: ±20–31 FPS (beban utama:
+karakter bergerak). FPS di HP asli BELUM diukur (angka FPS tampil kecil di kanan atas Ruang Kerja).
+Ide berikutnya (belum disetujui): optimasi kalau HP asli berat; ucapan panjang Gaby lebih dari satu baris; "Malam" otomatis.
 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.21.0 | 🏢 Ruang Kerja (beta): kantor 2.5D tim Gaby yang bergerak sesuai pekerjaan & ucapan asli, mic ON = standby / OFF = waktu bebas, kartu keluar dari hologram, benda bisa diketuk |
 | 1.20.0 | Pandu memperbaiki sampai 2× (OpenRouter) setelah ditolak Vera; masih kurang → Gaby menawarkan "lengkapi" (rencana turunan membawa catatan Vera); Vera mewajibkan jadwal tiap hari sampai hari terakhir + check-out + pulang; catatan Vera serius tampil di depan Kartu Rencana |
 | 1.19.1 | Pratinjau kamera mengikuti bentuk asli gambar (tidak dipotong/terlihat di-zoom); riwayat versi di Pengaturan bisa dilipat (quiet) |
 | 1.19.0 | Pandu: OpenRouter (Nemotron Ultra 550B) + cadangan Groq, irit (3 pencarian, tanpa Vera per pencarian, 1.700/2.500 token) & tahan banting; pilihan hemat/seimbang/nyaman; jenis rencana (proyek, acara, belajar, dll.), transportasi & kuliner bernama; simpan kartu ke HP; APK + plugin Share & Filesystem (android-app 1.0.4) |
