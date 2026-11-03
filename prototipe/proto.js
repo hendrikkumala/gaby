@@ -186,13 +186,14 @@ const LPROPS = {
   juice: '<rect x="-7" y="-22" width="14" height="20" rx="2" fill="#f97316"/><rect x="-7" y="-16" width="14" height="7" fill="#fde68a"/><path d="M3,-22 l3,-7" stroke="#e5e7eb" stroke-width="2"/>',
   paddle: '<circle cx="-2" cy="-14" r="10" fill="#dc2626" stroke="#7f1d1d"/><rect x="-4" y="-5" width="4" height="10" rx="2" fill="#78350f"/>',
 };
+const FREE_BASES = { meri: ['main'], rara: ['santai'], pandu: ['main'], vera: ['main'], lukas: ['main'] };
 const POSES = ['ngulet', 'working', 'painting', 'stamping', 'reaching', 'sipL', 'sipR', 'stretch', 'waving', 'dance', 'sleeping', 'listening', 'rush', 'talking'];
 
 class Actor {
   constructor(key, label, bases, home) {
     this.key = key; this.label = label; this.home = home;
     Object.assign(this, { x: home.x, y: home.y, z: home.z || 0, seated: !!home.seat });
-    this.path = null; this.tok = 0; this.act = null; this.face = 1; this.view = 'front'; this.restUntil = 0;
+    this.path = null; this.tok = 0; this.act = null; this.face = 1; this.view = 'front'; this.restUntil = 0; this.free = false;
     this.g = el('g', { class: `actor a-${key}` });
     this.flip = el('g', { class: 'flipG' });
     this.hopG = el('g');
@@ -201,6 +202,8 @@ class Actor {
     this.vars = {};
     for (const [bk, o] of Object.entries(bases)) {
       for (const v of ['front', 'back']) { const g = el('g', {}, charSvg(o, v)); this.vars[`${bk}:${v}`] = g; this.bob.append(g); }
+      // versi tangan kosong (barangnya ditaruh di meja saat keluar ruangan); tampak belakang memang tanpa barang
+      if (o.item && (FREE_BASES[key] || []).includes(bk)) { const f = el('g', {}, charSvg({ ...o, item: undefined }, 'front')); this.vars[`${bk}-free:front`] = f; this.bob.append(f); }
     }
     this.carryG = el('g', { transform: `translate(0 ${-0.3 * HEAD})` });
     this.bob.append(this.carryG);
@@ -218,7 +221,7 @@ class Actor {
     this.show();
     this.place();
   }
-  show() { const k = `${this.base}:${this.view}`; for (const [n, g] of Object.entries(this.vars)) g.style.display = n === k ? '' : 'none'; }
+  show() { const fk = `${this.base}-free:${this.view}`; const k = this.free && this.vars[fk] ? fk : `${this.base}:${this.view}`; for (const [n, g] of Object.entries(this.vars)) g.style.display = n === k ? '' : 'none'; }
   variant(b) { this.base = b; this.show(); }
   setView(v) { if (v !== this.view) { this.view = v; this.show(); } }
   carry(kind) { this.carryG.innerHTML = kind ? PROPS[kind] : ''; }
@@ -263,6 +266,7 @@ class Actor {
     if (!this.path.length) {
       this.path = null;
       const t = this.target;
+      if (t === this.home && this.free) pickUp(this);
       this.z = t.z || 0; this.seated = !!t.seat;
       this.cls('walking', false); this.cls('running', false);
       this.setView(t.view || 'front');
@@ -321,6 +325,34 @@ function gabyMic(hold) {
   deskMic.innerHTML = hold ? '' : `<g transform="translate(${x} ${y})"><ellipse rx="7" ry="2.5" fill="#334155"/><rect x="-1.2" y="-14" width="2.4" height="14" fill="#475569"/><rect x="-3" y="-27" width="6" height="14" rx="3" fill="#27272a"/><circle cy="-29" r="5" fill="#9ca3af"/></g>`;
 }
 const VERA_DROP = { ...spot('vera', 'drop'), faceFront: true };
+// Barang khas tiap teman: ditaruh di meja saat keluar ruangan, diambil lagi saat kembali.
+const DESK_ITEM = {
+  meri: { at: [4.5, 4.4, 1.25], svg: '<path d="M-12,-2 h8 l2,-3 h5 l2,3 h6 v10 h-23 z" fill="#fbbf24" stroke="#d97706"/><rect x="-8" y="2" width="12" height="2.5" fill="#fde68a"/>' },
+  rara: { at: [1.75, 2.0, 1.0], back: true, svg: '<ellipse rx="9" ry="3" fill="#f1f5f9"/><path d="M-6,-9 h12 q-1,9 -6,9 q-5,0 -6,-9 z" fill="#fef3c7" stroke="#d6b88a"/><path d="M6,-7 q4,1 0,5" stroke="#d6b88a" stroke-width="1.6" fill="none"/><path d="M-2,-12 q-2,-4 0,-7 M2,-12 q-2,-4 0,-7" stroke="#e2e8f0" stroke-width="1.2" fill="none" opacity=".7"/>' },
+  pandu: { at: [4.1, 5.2, 1.35], svg: '<ellipse rx="9" ry="4.5" fill="#d4a017" stroke="#92400e"/><ellipse rx="6" ry="3" fill="#fff8e1"/><path d="M-4,0 L4,0" stroke="#ef4444" stroke-width="1.8"/>' },
+  vera: { at: [5.7, 4.6, 1.4], svg: '<path d="M2,-2 L13,3" stroke="#78350f" stroke-width="3" stroke-linecap="round"/><ellipse cx="-4" cy="-3" rx="8" ry="4.5" fill="rgba(186,230,253,.65)" stroke="#b45309" stroke-width="2.2"/>' },
+  lukas: { at: [6.3, 6.15, 1.1], svg: '<path d="M-12,2 L9,-3" stroke="#92400e" stroke-width="2.6" stroke-linecap="round"/><path d="M9,-3 l6,-1.5" stroke="#ef4444" stroke-width="3.6" stroke-linecap="round"/>' },
+};
+const deskItemG = {};
+for (const [k, d] of Object.entries(DESK_ITEM)) {
+  const it = R[k];
+  const [x, y] = G(it.off[0] + d.at[0], it.off[1] + d.at[1], d.at[2]);
+  deskItemG[k] = el('g', { transform: `translate(${x.toFixed(1)} ${y.toFixed(1)})`, style: 'display:none' }, d.svg);
+  (d.back ? it.fx0 : it.overG).append(deskItemG[k]);
+}
+const canFree = (a) => !!deskItemG[a.key] && !!a.vars[`${a.base}-free:front`];
+async function putDown(a) {
+  if (a.free || !canFree(a)) return;
+  a.pose('reaching'); await wait(380); a.pose('reaching', false);
+  a.free = true; a.show(); deskItemG[a.key].style.display = '';
+}
+function pickUp(a) {
+  if (!a.free) return;
+  a.free = false; a.show(); if (deskItemG[a.key]) deskItemG[a.key].style.display = 'none';
+  a.pose('reaching'); setTimeout(() => a.pose('reaching', false), 350 / SPD);
+}
+const inBox = (p, b) => !!b && p.x >= b[0] && p.x <= b[2] && p.y >= b[1] && p.y <= b[3];
+const ownBox = (a) => (R[a.key] ? R[a.key].box : null);
 const atHome = (a) => dist(a, a.home) < 0.05 && !a.path;
 const arrive = async (a) => { while (a.path) await wait(120); };
 
@@ -433,11 +465,11 @@ async function work(a, room, ms, text, pose = 'working') {
 }
 
 // ---------- status & kunci adegan ----------
-const state = { busy: new Set(), santai: false, tidur: false, ptt: false };
+const state = { busy: new Set(), santai: true, tidur: false, ptt: false }; // santai = waktu bebas (mic OFF)
 const NAMES = { gaby: 'Gaby', meri: 'Meri', rara: 'Rara', pandu: 'Pandu', vera: 'Vera', lukas: 'Lukas' };
 function toast(t) { const d = $('toast'); d.textContent = t; d.classList.add('show'); clearTimeout(d.t); d.t = setTimeout(() => d.classList.remove('show'), 2200); }
 function status(t) { $('status').textContent = t; }
-const idleStatus = () => (state.tidur ? 'Malam: Gaby tidur 💤' : state.santai ? 'Waktu bebas ☕🎮 (tidak sedang ngobrol)' : 'Kantor hidup: semua sibuk sendiri-sendiri');
+const idleStatus = () => (state.tidur ? 'Malam: Gaby tidur 💤' : state.ptt ? 'Mic ON: kamu ngobrol dengan Gaby · tim standby 👂' : state.santai ? 'Mic OFF: waktu bebas ☕🎮' : 'Tim standby');
 const TAKEN = new Map(); // tempat yang sedang dipakai (kursi pantry, arcade, …) → pemain
 function cancelAct(a) {
   if (!a.act) return;
@@ -593,7 +625,7 @@ async function pushToTalk() {
   if (state.tidur) await flowTidur(); // dibangunkan dulu
   if (!claim(['gaby'], 'Push to talk ON: kamu bicara, Gaby mendengarkan')) return;
   state.ptt = true; pttButton();
-  if (state.santai) flowSantai(); // waktu bebas selesai, semua kembali kerja
+  setBebas(false); // mic ON: semua standby
   focus(A.gaby);
   await arrive(A.gaby);
   A.gaby.pose('reaching'); await wait(350); A.gaby.pose('reaching', false);
@@ -614,7 +646,7 @@ async function pushToTalk() {
   A.gaby.pose('ngulet', false);
   release(['gaby']);
   A.gaby.restUntil = performance.now() + 600;
-  if (!state.santai) flowSantai();
+  setBebas(true); // mic OFF: waktu bebas
 }
 function pttButton() { $('b-ptt').textContent = state.ptt ? '🔇 Selesai bicara (push to talk OFF)' : '🎤 Push to talk (mulai bicara)'; $('b-ptt').classList.toggle('on', state.ptt); }
 {
@@ -635,7 +667,17 @@ const JUNCTIONS = [[8, 8], [18.5, 8], [8, 18.5], [18.5, 18.5]];
 const WINDOWS = [{ x: 9.25, y: 0.9, view: 'back' }, { x: 19.75, y: 0.9, view: 'back' }, { x: 0.9, y: 9.25, view: 'back', face: -1 }, { x: 0.9, y: 19.75, view: 'back', face: -1 }];
 function takeSpot(cands, a) { const s = cands.filter((c) => !TAKEN.has(c.id)); if (!s.length) return null; const c = pick(s); TAKEN.set(c.id, a); return c; }
 const pt = (x, y, opt = {}) => ({ x, y, z: 0, ...opt });
-async function go(a, t, ok, run = false) { if (!ok()) return false; const r = await a.walk(t, { run }); return r && ok(); }
+async function go(a, t, ok, run = false) {
+  if (!ok()) return false;
+  const box = ownBox(a);
+  if (box && !a.free && canFree(a) && inBox(a, box) && !inBox(t, box)) {
+    if (!atHome(a)) { const r = await a.walk(a.home); if (!r || !ok()) return false; }
+    await putDown(a);
+    if (!ok()) return false;
+  }
+  const r = await a.walk(t, { run });
+  return r && ok();
+}
 async function hold(ms, ok) { await wait(ms); return ok(); }
 async function chat(a, b, ok, rounds = 3) {
   for (let i = 0; i < rounds; i++) {
@@ -685,7 +727,7 @@ const ACTS = [
   // ----- Rara -----
   { who: ['rara'], w: 3, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.say('📖 hmm, seru…', 2600); await hold(3000, ok); } },
   { who: ['rara'], w: 3, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.say('🍵 teh melati', 1300); await sipLoop(a, 'sipR', ok, 2); } },
-  { who: ['rara'], w: 1.5, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.pose('sleeping'); await zzzOf(a, 3600); a.pose('sleeping', false); a.say('Eh, ketiduran 😳', 1200); await hold(1000, ok); } },
+  { who: ['rara'], w: 0, s: 1.5, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.pose('sleeping'); await zzzOf(a, 3600); a.pose('sleeping', false); a.say('Eh, ketiduran 😳', 1200); await hold(1000, ok); } },
   { who: ['rara'], w: 2, s: 0.5, run: async ([a], ok) => {
     a.variant('kerja');
     if (!await go(a, RARA_KERJA, ok)) return;
@@ -726,7 +768,7 @@ const ACTS = [
     if (seat) { if (!await go(a, seat, ok)) return; await sipLoop(a, 'sipL', ok, 3); }
     else { if (!await go(a, a.home, ok)) return; await sipLoop(a, 'sipL', ok, 2); }
   } },
-  { who: 'any', w: 0.5, s: 2, run: async ([a], ok) => {
+  { who: 'any', w: 0, s: 2, run: async ([a], ok) => {
     const c = takeSpot([spot('pantry', 'micro')], a); if (!c) return;
     if (!await go(a, c, ok)) return;
     a.say('⏳ panasin mie', 1500); await hold(1700, ok); rise(G(c.x, c.y - 0.6, 2.6), '🔔', 18); a.say('Ting! 😋', 900); a.holdL('bowl'); TAKEN.delete(c.id);
@@ -753,7 +795,7 @@ const ACTS = [
   { who: 'any', w: 0, s: 1.5, run: async ([a], ok) => { a.say('🏃 olahraga dulu!', 1300); for (let i = 0; i < 4; i++) { const [x, y] = pick(CORRIDOR); if (!await go(a, pt(x, y), ok, true)) return; } a.say('Fiuh 😅', 1000); } },
   { who: 'any', w: 0.6, s: 1, run: async ([a], ok) => { const w = pick(WINDOWS); if (!await go(a, pt(w.x, w.y, { view: 'back', face: w.face }), ok)) return; a.say('🌤️ cerah ya', 1400); await hold(2200, ok); } },
   // ----- berdua -----
-  { who: 'any', n: 2, w: 0.3, s: 4, run: async ([a, b], ok) => {
+  { who: 'any', n: 2, w: 0, s: 4, run: async ([a, b], ok) => {
     const seats = ['s1', 's2', 's3'].map((k) => spot('pantry', k));
     const sa = takeSpot(seats, a), sb = takeSpot(seats, b); if (!sa || !sb) return;
     const [ra, rb] = await Promise.all([go(a, sa, ok), go(b, sb, ok)]); if (!ra || !rb) return;
@@ -801,7 +843,7 @@ const ACTS = [
 function isFree(a) { return !state.busy.has(a.key) && !a.act && !a.path; }
 async function runAct(def, actors) {
   const tok = {};
-  actors.forEach((a) => { a.act = tok; });
+  actors.forEach((a) => { a.act = tok; a.actDef = def; });
   const ok = () => actors.every((a) => a.act === tok) && !state.tidur;
   try { await def.run(actors, ok); } catch (e) { console.warn('[aktivitas]', e); }
   for (const a of actors) {
@@ -832,21 +874,19 @@ setInterval(() => {
   }
 }, 600);
 
-function flowSantai() {
-  state.santai = !state.santai;
-  $('b-santai').textContent = state.santai ? '💼 Kembali kerja' : '☕ Waktu bebas';
-  if (!state.santai) {
-    for (const a of Object.values(A)) {
-      if (state.busy.has(a.key)) continue;
-      cancelAct(a);
-      if (!atHome(a)) { a.say('Balik kerja! 🏃', 900); a.walk(a.home, { run: true }); }
-    }
-  } else {
-    // semua langsung istirahat sebentar lalu memilih aktivitas santai
-    for (const a of Object.values(A)) if (!state.busy.has(a.key)) { cancelAct(a); a.restUntil = performance.now() + rnd(0, 1500); }
+// Mode kantor mengikuti mic Gaby: mic OFF = WAKTU BEBAS, mic ON = STANDBY
+// (yang jauh kembali ke ruangannya; masih boleh jalan-jalan & aktivitas ringan, bobot `w`).
+function setBebas(on) {
+  if (state.santai === on) return;
+  state.santai = on;
+  for (const a of Object.values(A)) {
+    if (state.busy.has(a.key)) continue;
+    if (on) { if (!a.act) a.restUntil = performance.now() + rnd(0, 1500); continue; }
+    if (a.act && inBox(a, ownBox(a)) && a.actDef && a.actDef.w > 0) continue; // aktivitas ringan di ruangannya: lanjut
+    cancelAct(a);
+    if (!atHome(a)) { a.say('Standby! 👍', 900); a.walk(a.home); }
   }
   if (!state.busy.size) status(idleStatus());
-  return Promise.resolve();
 }
 
 async function flowTidur() {
@@ -972,7 +1012,6 @@ $('b-ingat').onclick = run(flowIngat);
 $('b-butuh').onclick = run(flowButuh);
 $('b-rara').onclick = run(() => flowRara(false));
 $('b-tolak').onclick = run(() => flowRara(true));
-$('b-santai').onclick = run(flowSantai);
 $('b-tidur').onclick = run(flowTidur);
 $('b-ptt').onclick = run(pushToTalk);
 $('spd').oninput = (e) => { SPD = Number(e.target.value); $('spdv').textContent = `${SPD}×`; };
@@ -991,5 +1030,5 @@ gabyMic(false);
 pttButton();
 status(idleStatus());
 requestAnimationFrame(tick);
-window.proto = { A, R, plan, state, NODES, ACTS, TAKEN, flowIngat, flowButuh, flowRara, flowSantai, flowTidur, pushToTalk, setLight, startRandom, runAct };
+window.proto = { A, R, plan, state, NODES, ACTS, TAKEN, flowIngat, flowButuh, flowRara, setBebas, flowTidur, pushToTalk, setLight, startRandom, runAct };
 })();
