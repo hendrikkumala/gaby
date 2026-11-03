@@ -371,6 +371,23 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 - **Bug kecil di `js/office.js` (v1.21.x):** `SHOW_FPS = /[?&]fps<BACKSPACE>/` (karakter \x08 dari skrip patch lama) → `?fps` tidak
   pernah jalan. Diperbaiki di v1.22.0. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
 
+**v1.23 — prototipe `prototipe/v123/` (4 Nov 2026, pemilik: "gas vera")** = salinan `js/office.js` v1.22.0 (impor `../../js/…`, kunci
+`proto123.lite`) + tambahan di bawah; panel 🧪 Uji: rencana/berita/gambar × lolos/ditolak, 🔁 uji tahan lama semua jenis. CSS duduk
+SEMENTARA ada di `<style>` `prototipe/v123/index.html` → saat rilis pindahkan ke `css/office.css`.
+- **Vera — meja periksa:** kertas sesuai pemilik pekerjaan (`docKind`: pandu = daftar centang 4 baris, rara = koran, lukas = foto
+  berbingkai), elemen dibuat SEKALI (`veraDocs`, 4 `veraMarks`, `roundTag`). `startInspect(j)`: centang muncul satu per satu (baris
+  terakhir menunggu hasil asli), lalu Vera bergumam (`DOC_THINK`). `stamp(ok, j)`: ✓ semua / ✗ di baris terakhir + stempel
+  "RENCANA/FAKTA/GAMBAR LOLOS" atau "PERBAIKI". Ditolak → gelembung **alasan ASLI** (`reasonOf`): dari teks kabar `pass`/`step`
+  "Memperbaiki (ke-N): …" (Pandu: `onFix` → `pass`; Lukas: `step(iFix, 'Memperbaiki: <missing>')`); Rara ("Vera minta cek ulang…") →
+  "sumbernya kurang kuat". `j.veraRounds` dihitung tiap `pass` ke Vera → label "Putaran N" (≥ 2), lolos setelahnya → "Sekarang sudah
+  beres!". Tempat pengantar `vera.drop` dipindah ke (7,4 ; 3,7) di samping kanan meja (dulu di depan meja, menutupi kertas).
+- **DUDUK di kursi (keluhan pemilik 4 Nov 2026: "tidak ada yang benar-benar duduk, semua berdiri di kursi"):** dulu z tempat duduk
+  0,2–0,35 dengan kaki lurus. Sekarang angka z di `NAV…spots` = TINGGI DUDUKAN (pantry 0,6, kursi baca Rara 0,75, sofa 0,6, bean bag
+  0,45 `deep`), kursi meja `SEAT_TOP` (Gaby 0,75, Vera 0,9); `sitZ(top, back)` = top − `HIP` 0,6 − `SIT_DROP` 0,35 (pinggul di tepi
+  depan dudukan; membelakangi kamera / bean bag: tanpa SIT_DROP). `Actor.place()` memberi kelas `.sit` (kaki `scaleY(.5)` dari
+  pinggul, bayangan kaki disembunyikan) dan `.sit-back` (duduk membelakangi: kaki disembunyikan). Tanpa elemen baru.
+  Uji: Edge 20/20 (Vera semua jenis + duduk), WebKit UA iPhone (lite) 6 menit/13 putaran tanpa tumbang, elemen datar ±3.500.
+
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
