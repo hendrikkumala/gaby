@@ -266,8 +266,20 @@ SVG murni tanpa gambar luar: `karakter.js` (fungsi `character(o)`, chibi), `meja
   di `app.js` (`ingat`, `buka_ingatan`, `cari_info`, `buat_rencana`, gambar…), status Gaby (`audio.isSpeaking`, `thinking`, `vad.active`,
   `phase`), `announce()` saat hasil disampaikan.
 
-**Langkah berikutnya:** (1) prototipe BERGERAK di folder sketsa dengan tombol uji ("Gaby simpan/butuh ingatan", "Minta Rara cari info",
-"Vera menolak", "Waktu santai") untuk dinilai pemilik; (2) v1.21: tombol + kantor di aplikasi + animasi Gaby/Meri/Rara; (3) v1.22:
+**Prototipe bergerak (3 Nov 2026): `prototipe/`** (di repo, ikut terbit: https://hendrikkumala.github.io/gaby/prototipe/, `noindex`;
+juga bisa dibuka langsung dari file). Salinan sketsa ada di sana juga (`karakter.html`, `meja.html`, `kantor.html`). Isi: `proto.js`
+(dibungkus IIFE — nama global `HEAD`/`ITEMS`/`poly` bentrok dengan `karakter.js`/`meja.js`), `index.html` (tombol uji, CSS animasi).
+Cara kerja: `window.PROTO = true` → `charAt` mencatat kursi ke `window.PROTO_SEATS` dan memotong gambar ruangan di `<!--SLOT-->`;
+`officeLayers()` (kantor.js) mengembalikan per ruangan `back` / `front2`. Di DOM: tiap ruangan = back · fx0 · slot · front · over, plus
+`afterG` untuk yang lewat lorong; pemain di ruangan masuk `slotG` kalau y lokal < `NAV[room].frontY`, di lorong diselipkan sebelum
+ruangan pertama yang pasti di depannya. Jalan: graf visibilitas pojok perabot (`NAV.obs` + sekat berpintu, ruang Gaby tertutup untuk
+dilintasi), Dijkstra. Adegan: simpan ingatan, butuh ingatan, Rara → Vera → Gaby (+ Vera menolak ⚠️), waktu santai (pantry gosip,
+ping-pong; tugas masuk → teman lari balik, Vera ditunggu duduk dulu), Gaby tidur (malam, Zzz, Meri menulis jurnal), push to talk
+(ketuk layar hologram). Kecepatan 0,5–2×, kamera ikut, papan nama, penghitung FPS, "mode ringan" (gambar diam dijadikan foto).
+Uji laptop (Edge headless): ±100–120 FPS, emulasi HP ±58 FPS; FPS di HP asli pemilik BELUM diukur.
+
+**Langkah berikutnya:** (1) pemilik mencoba prototipe (di HP: cek FPS & rasa animasi) dan memberi masukan; perbaiki di
+`prototipe/` sampai pemilik bilang lucu & lancar; (2) v1.21: tombol + kantor di aplikasi + animasi Gaby/Meri/Rara; (3) v1.22:
 Pandu/Vera/Lukas lengkap. Di HP tegak: kamera mendekat ke ruangan yang sibuk + bisa digeser jari; benda tinggi di ruangan depan bisa
 dibuat transparan saat fokus ke Gaby. Animasi berhenti saat layar Ruang Kerja tertutup (hemat baterai). Tetap minta "gas" sebelum
 menyentuh kode aplikasi.

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prototipe Ruang Kerja Gaby</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #070d1c; color: #e2e8f0; font-family: system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+  #scene { position: fixed; inset: 0 0 var(--panel, 132px) 0; width: 100%; height: calc(100% - var(--panel, 132px)); touch-action: none; cursor: grab;
+    background: radial-gradient(circle at 50% 30%, #14284a, #070d1c 75%); }
+  #top { position: fixed; top: 8px; left: 8px; right: 8px; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+  #top > * { pointer-events: auto; }
+  .pill { background: rgba(2,6,23,.8); border: 1px solid rgba(56,189,248,.4); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+  #status { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #fps { font-variant-numeric: tabular-nums; color: #67e8f9; font-weight: 700; }
+  #zoom { position: fixed; right: 8px; top: 48px; display: flex; flex-direction: column; gap: 6px; }
+  #zoom button { width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(56,189,248,.4); background: rgba(2,6,23,.8); color: #e0f2fe; font-size: 16px; }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; height: var(--panel, 132px); box-sizing: border-box; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(2,6,23,.92); border-top: 1px solid rgba(56,189,248,.3); overflow-y: auto; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btns button { flex: 1 1 auto; min-width: 140px; padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(56,189,248,.35); background: #0f2747; color: #e0f2fe; font-size: 14px; font-weight: 600; }
+  .btns button:active { transform: scale(.97); }
+  .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 13px; color: #94a3b8; align-items: center; }
+  .opts a { color: #7dd3fc; }
+  #toast { position: fixed; left: 50%; top: 52px; transform: translateX(-50%) translateY(-20px); opacity: 0; transition: .25s; background: #fef3c7; color: #78350f; padding: 8px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; pointer-events: none; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (max-width: 760px) { :root { --panel: 196px; } .btns button { min-width: 44%; font-size: 13px; padding: 8px; } }
+
+  /* ---- gerakan karakter ---- */
+  .eyes { transform-box: fill-box; transform-origin: center; animation: blink 4.3s infinite; }
+  .a-meri .eyes { animation-delay: -1.1s; } .a-rara .eyes { animation-delay: -2.3s; } .a-pandu .eyes { animation-delay: -3s; } .a-vera .eyes { animation-delay: -.6s; } .a-lukas .eyes { animation-delay: -1.8s; }
+  @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  .talking .mouth { transform-box: fill-box; transform-origin: center top; animation: talk .17s infinite alternate; }
+  @keyframes talk { from { transform: scaleY(.4); } to { transform: scaleY(1.7); } }
+  .sleeping .eyes { animation: none; transform: scaleY(.12); }
+  .sleeping .bob { animation: breathe 2.4s infinite ease-in-out; }
+  @keyframes breathe { 50% { transform: translateY(2px) rotate(3deg); } }
+  .walking .bob { animation: bob .3s infinite alternate ease-in-out; }
+  .running .bob { animation: bob .14s infinite alternate ease-in-out; }
+  @keyframes bob { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
+  .speedlines { display: none; } .running .speedlines { display: inline; animation: lines .2s infinite; }
+  @keyframes lines { 50% { opacity: .3; transform: translateX(-4px); } }
+  .hop { animation: hop .42s ease-out; }
+  @keyframes hop { 40% { transform: translateY(-18px); } }
+  .sweat { display: none; } .rush .sweat { display: inline; } .rush .sweat path { animation: drip .7s infinite; }
+  .rush .sweat path:last-child { animation-delay: -.35s; }
+  @keyframes drip { from { transform: translateY(0); opacity: 1; } to { transform: translateY(12px); opacity: 0; } }
+  .rush .bob { animation: jitter .12s infinite alternate; }
+  @keyframes jitter { from { transform: translateX(-1px); } to { transform: translateX(1px); } }
+  .rings { display: none; } .listening .rings { display: inline; }
+  .rings circle { transform-box: fill-box; transform-origin: center; animation: ring 1s infinite; } .rings circle:last-child { animation-delay: -.5s; }
+  @keyframes ring { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
+  .notags .tag { display: none; }
+
+  /* ---- efek ---- */
+  .pop { animation: pop .25s ease-out; transform-box: fill-box; transform-origin: center bottom; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } }
+  .stamp { animation: stamp .35s cubic-bezier(.2,1.6,.4,1); transform-box: fill-box; transform-origin: center; }
+  @keyframes stamp { from { transform: scale(2.4); opacity: 0; } }
+  .rise { animation: rise 1.4s ease-out forwards; }
+  @keyframes rise { to { transform: translateY(-34px); opacity: 0; } }
+  .sweep { animation: sweep .5s infinite alternate ease-in-out; }
+  @keyframes sweep { from { transform: translateX(-16px); } to { transform: translateX(16px); } }
+  .glow { animation: glow .5s infinite alternate; }
+  @keyframes glow { to { opacity: .45; } }
+  .ptt { cursor: pointer; }
+  /* bola bumi berputar (lebih cepat saat Rara bekerja) & baris hologram mengetik */
+  .globe .m { transform-box: fill-box; transform-origin: center; animation: mer 7s linear infinite; }
+  .globe .m2 { animation-delay: -2.3s; } .globe .m3 { animation-delay: -4.6s; }
+  @keyframes mer { 0% { transform: scaleX(1); } 50% { transform: scaleX(.04); } 100% { transform: scaleX(1); } }
+  .globe .land { animation: drift 7s linear infinite; }
+  @keyframes drift { 0% { transform: translateX(-7px); opacity: .25; } 50% { opacity: 1; } 100% { transform: translateX(7px); opacity: .25; } }
+  .globe .dot { animation: dot 1.2s infinite; } .globe .d2 { animation-delay: -.4s; } .globe .d3 { animation-delay: -.8s; }
+  @keyframes dot { 50% { opacity: .2; } }
+  .busy .globe .m { animation-duration: 1.1s; } .busy .globe .land { animation-duration: 1.1s; } .busy .globe .dot { animation-duration: .35s; }
+  .busy .hl { animation: type .5s infinite steps(2); } .busy .hl1 { animation-delay: -.12s; } .busy .hl2 { animation-delay: -.25s; } .busy .hl3 { animation-delay: -.37s; }
+  @keyframes type { 50% { opacity: .15; } }
+</style>
+</head>
+<body>
+<svg id="scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 920"></svg>
+<div id="top"><span class="pill" id="status">Memuat…</span><span class="pill" id="fps">– FPS</span></div>
+<div id="zoom"><button id="zin" title="Perbesar">＋</button><button id="zout" title="Perkecil">－</button><button id="zall" title="Lihat semua">⤢</button></div>
+<div id="toast"></div>
+<div id="panel">
+  <div class="btns">
+    <button id="b-ingat">📥 Gaby simpan ingatan</button>
+    <button id="b-butuh">🔍 Gaby butuh ingatan</button>
+    <button id="b-rara">🔎 Minta Rara cari info</button>
+    <button id="b-tolak">⚠️ Rara + Vera menolak</button>
+    <button id="b-santai">☕ Waktu santai</button>
+    <button id="b-tidur">🌙 Gaby tidur</button>
+    <button id="b-ptt">🎤 Push to talk</button>
+  </div>
+  <div class="opts">
+    <label>Kecepatan <input id="spd" type="range" min="0.5" max="2" step="0.25" value="1"> <b id="spdv">1×</b></label>
+    <label><input id="autocam" type="checkbox" checked> Kamera ikut</label>
+    <label><input id="tags" type="checkbox" checked> Papan nama</label>
+    <label><input id="light" type="checkbox"> Mode ringan</label>
+    <span>Sketsa: <a href="karakter.html">karakter</a> · <a href="meja.html">meja</a> · <a href="kantor.html">denah</a></span>
+  </div>
+</div>
+<script>window.PROTO = true;</script>
+<script src="karakter.js"></script>
+<script src="meja.js"></script>
+<script src="kantor.js"></script>
+<script src="proto.js"></script>
+</body>
+</html>
