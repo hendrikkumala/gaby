@@ -173,17 +173,16 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 3 Nov 2026
-**Yang terbit (cabang `main` / GitHub Pages): v1.20.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem). v1.20.0 terbit 3 Nov 2026
-(web saja, APK tidak berubah; run Pages `66f1775` sukses & `config.js` live = 1.20.0). Pemilik mencoba tepat setelah terbit dan masih
-melihat versi lama → cache 10 menit (lihat "Cara menjalankan & menguji"); belum dikonfirmasi pemilik sudah melihat 1.20.0.
+**Yang terbit (cabang `main` / GitHub Pages): v1.21.5 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
+Run Pages `1ddf6e2` sukses & `config.js` live = 1.21.5. Uji otomatis 3 Nov 2026 (Edge + tiruan): Ruang Kerja 30/30, alur Pandu/Vera lulus,
+HP (CPU 4×) ±53 FPS. ✅ **Pemilik menguji v1.21.5 di iPhone 17 Pro dan Android (Oppo Find N5, APK): berjalan baik, tidak restart lagi.**
 
 **v1.21.0 — 🏢 Ruang Kerja di aplikasi (beta) TERBIT 3 Nov 2026** (run Pages `178d58c` sukses, `config.js` live = 1.21.0) — lihat "Proyek berjalan" di bawah.
 Angka FPS Ruang Kerja disembunyikan atas permintaan pemilik (v1.21.1); tampilkan dengan menambah `?fps` di alamat untuk pengujian.
 **iPhone menutup paksa halaman** ("A problem repeatedly occurred on …/gaby/", 3 Nov 2026, saat didiamkan) — dugaan: memori penuh oleh
 foto-foto besar "mode ringan" (dinyalakan otomatis di HP) di layar 3×. v1.21.2: mode ringan TIDAK dipakai di iPhone/Safari
 (`IS_WEBKIT_SAFARI`), foto lebih kecil (`sc` 1,25) di Android, versi karakter dibuat saat pertama dibutuhkan (`Actor.make`).
-Belum dikonfirmasi pemilik apakah crash berhenti; kalau masih: kurangi beban gambar di iPhone (misalnya karakter tanpa gradien,
-lebih sedikit animasi CSS) atau tampilkan Ruang Kerja versi lebih sederhana di iPhone.
+Tidak cukup → akhirnya diselesaikan dengan mode hemat v1.21.5 (lihat di bawah).
 v1.21.3: iPhone (masih v1.21.0 karena cache) crash lagi saat mengetuk kanvas Lukas (galeri dibuka di atas kantor) → selama
 layar penuh (`#memories`, `#viewer`, `#settings`, `#gate`) terbuka, Ruang Kerja dijeda (`.office.paused`: SVG disembunyikan,
 animasi CSS berhenti, `tick` tidak menggambar).
@@ -199,8 +198,7 @@ repeatedly occurred"). Tidak bisa ditiru: WebKit Playwright (Windows) 3 menit ta
 (tanpa animasi variabel CSS `--al/--ar/--ll/--lr`, gerak sederhana), cetakan `PRINT_RES` 0,6 (memori gambar ±1/3), `MAXPX` 2048,
 maks 3 teman beraktivitas bersamaan. **Pendeteksi tumbang** (app.js): `sessionStorage['gaby.officeOpen']` diisi saat Ruang Kerja dibuka,
 dihapus saat ditutup / `pagehide`; kalau masih ada saat aplikasi dimuat (halaman restart saat Ruang Kerja terbuka) → mode hemat
-permanen + notifikasi. ✅ **Dikonfirmasi pemilik (3 Nov 2026): iPhone 17 Pro v1.21.5 berjalan, tidak restart lagi.**
-Oppo Find N5 (APK) mulus sejak v1.21.4. Belum ada tombol untuk kembali dari mode hemat (ide: Pengaturan "Ruang Kerja: Otomatis / Lengkap / Hemat").
+permanen + notifikasi. ✅ **Dikonfirmasi pemilik (3 Nov 2026): iPhone 17 Pro & Android (Oppo Find N5, APK) v1.21.5 berjalan baik, tidak restart lagi.** Belum ada tombol untuk kembali dari mode hemat (ide: Pengaturan "Ruang Kerja: Otomatis / Lengkap / Hemat").
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
