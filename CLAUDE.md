@@ -187,6 +187,12 @@ lebih sedikit animasi CSS) atau tampilkan Ruang Kerja versi lebih sederhana di i
 v1.21.3: iPhone (masih v1.21.0 karena cache) crash lagi saat mengetuk kanvas Lukas (galeri dibuka di atas kantor) → selama
 layar penuh (`#memories`, `#viewer`, `#settings`, `#gate`) terbuka, Ruang Kerja dijeda (`.office.paused`: SVG disembunyikan,
 animasi CSS berhenti, `tick` tidak menggambar).
+**v1.21.4 — kamera "lembaran" (pemilik: Oppo Find N5 berkedip & lag saat layar digeser):** dulu kamera mengubah `viewBox` tiap
+gambar (seluruh ±3.000 elemen digambar ulang) + "mode ringan" foto yang dicetak ulang tiap ganti skala (berkedip). Sekarang
+`#of-scene` berukuran kantor × skala zoom dan DIGESER dengan `transform: translate3d()` (GPU); cetak ulang hanya sekali setelah zoom
+selesai (`applyCam`, `printS`); sisi cetakan dibatasi `MAXPX` 4096 px asli (zoom minimum `minW`); seret jari langsung (tanpa
+jeda). Mode ringan TIDAK dipakai lagi (`setLight` tersisa tapi tidak dipanggil). Emulasi HP CPU 4×: digeser 9 → ±35–49 FPS,
+diam 18 → ±30–45 FPS. `toScreen()` dipakai untuk posisi layar (bukan `getScreenCTM`).
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 

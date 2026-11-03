@@ -13,7 +13,9 @@
 .office.paused #of-scene { visibility: hidden; }
 .office.paused * { animation-play-state: paused !important; }
 body.office-open #teamboard { display: none; } /* di Ruang Kerja, kerja tim terlihat langsung */
-#of-scene { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+/* "lembaran" kantor: ukuran = kantor pada skala zoom, digeser dengan transform (GPU), bukan digambar ulang */
+#of-scene { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; touch-action: none; cursor: grab; }
+#office { touch-action: none; }
 #of-top { position: absolute; top: calc(8px + var(--safe-top, 0px)); left: 8px; right: 56px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
 #of-top > * { pointer-events: auto; }
 #office .of-row { display: flex; gap: 8px; align-items: center; }

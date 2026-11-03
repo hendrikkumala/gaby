@@ -738,30 +738,48 @@ function setBebas(on) {
 
 
 // ---------- kamera ----------
+// Kantor DICETAK SEKALI pada ukuran zoom saat ini; menggeser = memindahkan "lembaran" itu (CSS transform,
+// dikerjakan GPU) — tidak menggambar ulang ±3.000 elemen (dulu viewBox diubah tiap gambar → lag & berkedip di HP).
+// Cetakan baru dibuat sekali setelah zoom selesai; selama zoom berjalan lembaran hanya diperbesar/diperkecil.
+const officeEl = document.getElementById('office');
 let cam = { ...FULL }, camT = { ...FULL }, follow = null, manualUntil = 0;
-function aspect() { return svg.clientHeight / Math.max(1, svg.clientWidth); }
+const VW = () => Math.max(1, officeEl.clientWidth);
+const VH = () => Math.max(1, officeEl.clientHeight);
+function aspect() { return VH() / VW(); }
+const MAXPX = 4096; // batas sisi cetakan (piksel asli layar) supaya memori aman, terutama di iPhone
+const minW = () => Math.max(300, (FULL.w * VW() * (window.devicePixelRatio || 1)) / MAXPX);
 function fitFull() { const ar = aspect(); const w = Math.max(FULL.w, FULL.h / ar); return { x: (FULL.w - w) / 2, y: (FULL.h - w * ar) / 2, w, h: w * ar }; }
-function zoomTo(w, cx, cy) { const ar = aspect(); camT = { x: cx - w / 2, y: cy - w * ar / 2, w, h: w * ar }; }
+function zoomTo(w, cx, cy) { w = Math.max(minW(), w); const ar = aspect(); camT = { x: cx - w / 2, y: cy - w * ar / 2, w, h: w * ar }; }
 function focus(a) { follow = a; manualUntil = 0; }
+let printS = 0; // skala cetakan saat ini (piksel per satuan kantor)
+function applyCam() {
+  const sc = VW() / cam.w;
+  const settled = Math.abs(camT.w - cam.w) < 0.4;
+  if (!printS || (settled && Math.abs(sc - printS) / printS > 0.002)) {
+    printS = sc;
+    svg.style.width = `${(FULL.w * sc).toFixed(1)}px`;
+    svg.style.height = `${(FULL.h * sc).toFixed(1)}px`;
+  }
+  svg.style.transform = `translate3d(${(-cam.x * sc).toFixed(1)}px, ${(-cam.y * sc).toFixed(1)}px, 0) scale(${(sc / printS).toFixed(4)})`;
+}
 let camLast = '';
 function camStep() {
   if (follow && performance.now() > manualUntil && camT.w < fitFull().w * 0.95) {
-    // Zona tenang: kamera baru bergeser kalau yang diikuti mendekati tepi layar
-    // (menggeser kamera = seluruh kantor digambar ulang, berat di HP).
+    // Zona tenang: kamera baru bergeser kalau yang diikuti mendekati tepi layar.
     const [x, y] = G(follow.x, follow.y, follow.z);
     const cx = camT.x + camT.w / 2, cy = camT.y + camT.h / 2;
     if (Math.abs(x - cx) > camT.w * 0.22 || Math.abs(y - HEAD * 0.6 - cy) > camT.h * 0.22) zoomTo(camT.w, x, y - HEAD * 0.6);
   }
-  let moving = false;
   for (const k of ['x', 'y', 'w', 'h']) {
     const d = camT[k] - cam[k];
-    if (Math.abs(d) < 0.4) cam[k] = camT[k]; else { cam[k] += d * 0.08; moving = true; }
+    if (Math.abs(d) < 0.4) cam[k] = camT[k]; else cam[k] += d * 0.12;
   }
-  const vb = `${cam.x.toFixed(1)} ${cam.y.toFixed(1)} ${cam.w.toFixed(1)} ${cam.h.toFixed(1)}`;
-  if (vb !== camLast || moving) { camLast = vb; svg.setAttribute('viewBox', vb); } // kamera diam = tidak menggambar ulang
+  const key = `${cam.x.toFixed(1)},${cam.y.toFixed(1)},${cam.w.toFixed(1)}`;
+  if (key !== camLast || (printS && Math.abs(VW() / cam.w - printS) / printS > 0.002)) { camLast = key; applyCam(); }
 }
+const toScreen = (x, y) => { const r = officeEl.getBoundingClientRect(), sc = VW() / cam.w; return { x: r.left + (x - cam.x) * sc, y: r.top + (y - cam.y) * sc }; };
 const center = () => [camT.x + camT.w / 2, camT.y + camT.h / 2];
-$('zin').onclick = () => zoomTo(Math.max(300, camT.w * 0.75), ...center());
+$('zin').onclick = () => zoomTo(camT.w * 0.75, ...center());
 $('zout').onclick = () => zoomTo(Math.min(fitFull().w, camT.w / 0.75), ...center());
 $('zall').onclick = () => { camT = fitFull(); };
 {
@@ -769,22 +787,23 @@ $('zall').onclick = () => { camT = fitFull(); };
   svg.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, cx: camT.x, cy: camT.y }; });
   window.addEventListener('pointermove', (e) => {
     if (!drag) return;
-    const k = cam.w / svg.clientWidth;
+    const k = cam.w / VW();
     camT.x = drag.cx - (e.clientX - drag.x) * k; camT.y = drag.cy - (e.clientY - drag.y) * k;
+    cam.x = camT.x; cam.y = camT.y; // langsung ikut jari (tanpa jeda)
     manualUntil = performance.now() + 6000;
   });
   window.addEventListener('pointerup', () => { drag = null; });
 }
-window.addEventListener('resize', () => zoomTo(Math.min(camT.w, fitFull().w), ...center()));
+window.addEventListener('resize', () => { printS = 0; zoomTo(Math.min(camT.w, fitFull().w), ...center()); }); // HP lipat dibuka/ditutup
 // tombol pintas ruangan
 for (const b of document.querySelectorAll('#office [data-room]')) {
   b.onclick = () => {
     const k = b.dataset.room;
     const actor = A[k];
-    if (actor) { focus(actor); zoomTo(Math.min(camT.w, svg.clientWidth < 900 ? 520 : 760), ...G(actor.x, actor.y, 2)); return; }
+    if (actor) { focus(actor); zoomTo(Math.min(camT.w, VW() < 900 ? 520 : 760), ...G(actor.x, actor.y, 2)); return; }
     const it = R[k];
     follow = null; manualUntil = performance.now() + 8000;
-    zoomTo(Math.min(camT.w, svg.clientWidth < 900 ? 560 : 800), ...G(it.off[0] + it.size[0] / 2, it.off[1] + it.size[1] / 2, 1.5));
+    zoomTo(Math.min(camT.w, VW() < 900 ? 560 : 800), ...G(it.off[0] + it.size[0] / 2, it.off[1] + it.size[1] / 2, 1.5));
   };
 }
 
@@ -793,7 +812,6 @@ let last = performance.now(), frames = 0, fpsT = last, lowFps = 0;
 // Layar penuh lain (galeri, ingatan, pengaturan) menutupi kantor: kantor berhenti digambar
 // supaya memori & tenaga HP dipakai layar itu (iPhone sempat menutup paksa halaman saat galeri dibuka dari kanvas Lukas).
 const OVERLAYS = ['memories', 'viewer', 'settings', 'gate'].map((id) => document.getElementById(id)).filter(Boolean);
-const officeEl = document.getElementById('office');
 function tick(now) {
   if (!running) return; // Ruang Kerja ditutup: berhenti total (hemat baterai)
   const covered = OVERLAYS.some((o) => !o.hidden);
@@ -816,7 +834,6 @@ function tick(now) {
     frames = 0; fpsT = now;
     // HP kurang kuat: kalau beberapa detik di bawah 40 FPS, mode ringan menyala sendiri
     lowFps = fps < 40 ? lowFps + 1 : 0;
-    if (lowFps >= 3 && !lightOn && !IS_WEBKIT_SAFARI && !document.hidden) { setLight(true); toast('Mode ringan dinyalakan otomatis supaya lebih lancar'); }
   }
   requestAnimationFrame(tick);
 }
@@ -1235,9 +1252,7 @@ function cardVisible(c) { return c && !c.hidden && (c.classList.contains('show')
 function ghostFromHolo(card) {
   const r = card.getBoundingClientRect();
   if (!r.width) return;
-  const p = svg.createSVGPoint();
-  [p.x, p.y] = GABY_SCREEN();
-  const s = p.matrixTransform(svg.getScreenCTM());
+  const s = toScreen(...GABY_SCREEN());
   const g = document.createElement('div');
   g.className = 'office-ghost';
   document.body.append(g);
@@ -1268,10 +1283,8 @@ export function openOffice() {
   last = performance.now();
   for (const id of CARD_IDS) { const c = document.getElementById(id); shown.set(id, cardVisible(c)); if (c) cardObserver.observe(c, { attributes: true, attributeFilter: ['class', 'hidden'] }); }
   syncAll();
-  // HP (layar sentuh): gambar diam langsung dijadikan foto supaya lancar sejak awal
-  if (!lightOn && !IS_WEBKIT_SAFARI && window.matchMedia && matchMedia('(pointer: coarse)').matches) setLight(true);
   focus(A.gaby);
-  { const [x, y] = G(A.gaby.x, A.gaby.y, 2); camT = fitFull(); zoomTo(svg.clientWidth < 900 ? 520 : 900, x, y); cam = { ...camT }; }
+  { const [x, y] = G(A.gaby.x, A.gaby.y, 2); camT = fitFull(); zoomTo(VW() < 900 ? 520 : 900, x, y); cam = { ...camT }; printS = 0; camLast = ''; applyCam(); }
   status(idleStatus());
   requestAnimationFrame(tick);
 }

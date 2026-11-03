@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.21.4',
+    quiet: true,
+    items: ['Ruang Kerja jauh lebih lancar saat digeser, tidak berkedip lagi'],
+  },
+  {
     version: '1.21.3',
     quiet: true,
     items: ['Ruang Kerja berhenti sejenak saat galeri, ingatan, atau pengaturan dibuka, supaya HP tidak berat'],
