@@ -325,7 +325,8 @@ const A = {
   vera: new Actor('vera', '✅ Vera', { main: CH.vera }, seatOf('vera')),
   lukas: new Actor('lukas', '🎨 Lukas', { main: CH.lukas }, seatOf('lukas')),
 };
-const RARA_KERJA = { ...seatOf('raraK'), seat: false, faceFront: true };
+// Rara bekerja di samping kanan bola bumi, menghadap bola (tampak belakang, serong kiri) — bola & layarnya tetap terlihat.
+const RARA_KERJA = { x: R.rara.off[0] + 7.4, y: R.rara.off[1] + 3.3, z: 0, seat: false, view: 'back', face: -1 };
 // Mic Gaby: dipegang saat bicara, ditaruh di meja saat tidak ngobrol.
 const deskMic = el('g', { class: 'deskmic' });
 function gabyMic(hold) {

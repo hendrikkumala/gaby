@@ -360,6 +360,9 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
   Untuk rilis: `teamboard.js` harus mengirim `steps` (di `setSteps`) & `step` (di `step(i, msg)`), lalu salin bagian ini ke `js/office.js`.
   Uji: Edge 13/14 (yang "gagal" = elemen +63 karena versi karakter dibuat sekali), Edge HP 8 menit/10 putaran elemen datar ±3.460 &
   heap ±4 MB, WebKit UA iPhone (lite) 5 menit/6 putaran tanpa tumbang/error. Menunggu tontonan & tes iPhone pemilik.
+- **Rara menghadap bola bumi (keluhan pemilik 4 Nov 2026: "kerjanya membelakangi bola dunia"):** dulu `RARA_KERJA` = kursi `raraK`
+  (7,3 ; 5,4) + `faceFront` → bola di punggungnya. Prototipe: berdiri di (7,4 ; 3,3) di kanan bola, `view: 'back', face: -1` → bola &
+  layar tetap terlihat. Ikut dipindah ke `js/office.js` saat rilis v1.22.
 - **Bug kecil di `js/office.js` (v1.21.x):** `SHOW_FPS = /[?&]fps<BACKSPACE>/` (karakter \x08 dari skrip patch lama) → `?fps` tidak
   pernah jalan. Sudah benar di prototipe; perbaiki di aplikasi saat rilis v1.22. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
 
