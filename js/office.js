@@ -790,8 +790,15 @@ for (const b of document.querySelectorAll('#office [data-room]')) {
 
 // ---------- loop utama + FPS ----------
 let last = performance.now(), frames = 0, fpsT = last, lowFps = 0;
+// Layar penuh lain (galeri, ingatan, pengaturan) menutupi kantor: kantor berhenti digambar
+// supaya memori & tenaga HP dipakai layar itu (iPhone sempat menutup paksa halaman saat galeri dibuka dari kanvas Lukas).
+const OVERLAYS = ['memories', 'viewer', 'settings', 'gate'].map((id) => document.getElementById(id)).filter(Boolean);
+const officeEl = document.getElementById('office');
 function tick(now) {
   if (!running) return; // Ruang Kerja ditutup: berhenti total (hemat baterai)
+  const covered = OVERLAYS.some((o) => !o.hidden);
+  if (officeEl.classList.contains('paused') !== covered) officeEl.classList.toggle('paused', covered);
+  if (covered) { last = now; requestAnimationFrame(tick); return; }
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   for (const a of Object.values(A)) a.step(dt);

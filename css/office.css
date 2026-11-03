@@ -9,6 +9,9 @@
   color: #e2e8f0; font-family: system-ui, "Segoe UI", sans-serif; overflow: hidden;
 }
 .office[hidden] { display: none; }
+/* tertutup galeri/ingatan/pengaturan: kantor disembunyikan & semua animasi dihentikan */
+.office.paused #of-scene { visibility: hidden; }
+.office.paused * { animation-play-state: paused !important; }
 body.office-open #teamboard { display: none; } /* di Ruang Kerja, kerja tim terlihat langsung */
 #of-scene { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #of-top { position: absolute; top: calc(8px + var(--safe-top, 0px)); left: 8px; right: 56px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }

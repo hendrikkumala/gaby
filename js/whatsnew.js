@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.21.3',
+    quiet: true,
+    items: ['Ruang Kerja berhenti sejenak saat galeri, ingatan, atau pengaturan dibuka, supaya HP tidak berat'],
+  },
+  {
     version: '1.21.2',
     quiet: true,
     items: ['Ruang Kerja lebih hemat memori, terutama di iPhone'],

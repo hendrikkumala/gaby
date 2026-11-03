@@ -184,6 +184,9 @@ foto-foto besar "mode ringan" (dinyalakan otomatis di HP) di layar 3×. v1.21.2:
 (`IS_WEBKIT_SAFARI`), foto lebih kecil (`sc` 1,25) di Android, versi karakter dibuat saat pertama dibutuhkan (`Actor.make`).
 Belum dikonfirmasi pemilik apakah crash berhenti; kalau masih: kurangi beban gambar di iPhone (misalnya karakter tanpa gradien,
 lebih sedikit animasi CSS) atau tampilkan Ruang Kerja versi lebih sederhana di iPhone.
+v1.21.3: iPhone (masih v1.21.0 karena cache) crash lagi saat mengetuk kanvas Lukas (galeri dibuka di atas kantor) → selama
+layar penuh (`#memories`, `#viewer`, `#settings`, `#gate`) terbuka, Ruang Kerja dijeda (`.office.paused`: SVG disembunyikan,
+animasi CSS berhenti, `tick` tidak menggambar).
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
