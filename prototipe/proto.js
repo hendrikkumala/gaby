@@ -10,7 +10,7 @@ const CS = 0.4 * VK; // skala karakter
 const HEAD = 232 * CS; // dari kaki sampai ubun-ubun (piksel)
 const NS = 'http://www.w3.org/2000/svg';
 const FULL = { x: 0, y: 0, w: 1264, h: 920 };
-let SPD = 1; // pengali kecepatan semua animasi
+let SPD = 1.5; // pengali kecepatan semua animasi (1,5× = pilihan pemilik; 1× terasa "seperti siput")
 
 const $ = (id) => document.getElementById(id);
 function el(tag, attrs = {}, html) {

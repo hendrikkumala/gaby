@@ -290,6 +290,7 @@ siram tanaman, lari di lorong, lihat jendela, gosip, ping-pong, ngobrol di loron
 ruangan. Tugas masuk → `claim()` membatalkan aktivitas (`cancelAct`) dan teman lari balik. HP: panel uji dilipat ("🧪 Tombol uji"),
 tombol pintas ruangan, `hp.html` = pratinjau bingkai HP tegak & miring. Kinerja: kamera bergerak memaksa seluruh SVG digambar ulang
 (laptop 34 FPS) → **mode ringan otomatis** kalau < 40 FPS selama 3 dtk (gambar diam jadi foto); emulasi HP lemah (CPU 6×) ±30–36 FPS.
+Pemilik: "sudah cakep" (3 Nov 2026); kecepatan animasi bawaan **1,5×** (1× "kayak siput") — pakai juga di aplikasi nanti.
 
 **Langkah berikutnya:** (1) pemilik mencoba prototipe (di HP: cek FPS & rasa animasi) dan memberi masukan; perbaiki di
 `prototipe/` sampai pemilik bilang lucu & lancar; (2) v1.21: tombol + kantor di aplikasi + animasi Gaby/Meri/Rara; (3) v1.22:
