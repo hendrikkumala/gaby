@@ -91,6 +91,12 @@
   .actor.dance .flipG { animation: kDance .4s infinite alternate ease-in-out; }
   @keyframes kDance { from { --al: 120deg; --ar: -40deg; --ll: -6px; --lr: 0px; } to { --al: 40deg; --ar: -120deg; --ll: 0px; --lr: -6px; } }
   .actor.dance .bob { animation: walk .4s infinite alternate ease-in-out; }
+  /* ngulet: tangan ke atas, kaki diregangkan bergantian, badan memanjang */
+  .actor.ngulet .flipG { animation: kNgulet .9s 2 alternate ease-in-out; }
+  @keyframes kNgulet { from { --al: 120deg; --ar: -120deg; --ll: 0px; --lr: 0px; } to { --al: 175deg; --ar: -175deg; --ll: -9px; --lr: -3px; } }
+  .actor.ngulet .bob { animation: nguletBody .9s 2 alternate ease-in-out; }
+  @keyframes nguletBody { to { transform: translateY(-5px) scaleY(1.05) rotate(-3deg); } }
+  #b-ptt.on { background: #7f1d1d; border-color: #f87171; }
   .actor.talking .flipG { animation: kTalk .5s infinite alternate ease-in-out; }
   @keyframes kTalk { from { --al: 8deg; } to { --al: 38deg; } }
   .sleeping .eyes { animation: none; transform: scaleY(.12); }
@@ -148,9 +154,9 @@
     <button id="b-butuh">🔍 Gaby butuh ingatan</button>
     <button id="b-rara">🔎 Minta Rara cari info</button>
     <button id="b-tolak">⚠️ Rara + Vera menolak</button>
-    <button id="b-santai">☕ Waktu santai</button>
-    <button id="b-tidur">🌙 Gaby tidur</button>
-    <button id="b-ptt">🎤 Push to talk</button>
+    <button id="b-santai">☕ Waktu bebas</button>
+    <button id="b-tidur">🌙 Malam (Gaby tidur)</button>
+    <button id="b-ptt">🎤 Push to talk (mulai bicara)</button>
   </div>
   <div class="opts">
     <label>Kecepatan <input id="spd" type="range" min="0.5" max="2.5" step="0.25" value="1.5"> <b id="spdv">1.5×</b></label>

@@ -186,7 +186,7 @@ const LPROPS = {
   juice: '<rect x="-7" y="-22" width="14" height="20" rx="2" fill="#f97316"/><rect x="-7" y="-16" width="14" height="7" fill="#fde68a"/><path d="M3,-22 l3,-7" stroke="#e5e7eb" stroke-width="2"/>',
   paddle: '<circle cx="-2" cy="-14" r="10" fill="#dc2626" stroke="#7f1d1d"/><rect x="-4" y="-5" width="4" height="10" rx="2" fill="#78350f"/>',
 };
-const POSES = ['working', 'painting', 'stamping', 'reaching', 'sipL', 'sipR', 'stretch', 'waving', 'dance', 'sleeping', 'listening', 'rush', 'talking'];
+const POSES = ['ngulet', 'working', 'painting', 'stamping', 'reaching', 'sipL', 'sipR', 'stretch', 'waving', 'dance', 'sleeping', 'listening', 'rush', 'talking'];
 
 class Actor {
   constructor(key, label, bases, home) {
@@ -305,7 +305,7 @@ class Actor {
 }
 
 const A = {
-  gaby: new Actor('gaby', '👑 Gaby', { main: CH.gaby }, seatOf('gaby')),
+  gaby: new Actor('gaby', '👑 Gaby', { nomic: { ...CH.gaby, item: undefined }, main: CH.gaby }, seatOf('gaby')),
   meri: new Actor('meri', '📝 Meri', { main: CH.meri }, seatOf('meri')),
   rara: new Actor('rara', '🔎 Rara', { santai: CH.rara, kerja: CH.raraK }, spot('rara', 'santai')),
   pandu: new Actor('pandu', '🗺️ Pandu', { main: CH.pandu }, seatOf('pandu')),
@@ -313,6 +313,13 @@ const A = {
   lukas: new Actor('lukas', '🎨 Lukas', { main: CH.lukas }, seatOf('lukas')),
 };
 const RARA_KERJA = { ...seatOf('raraK'), seat: false, faceFront: true };
+// Mic Gaby: dipegang saat bicara, ditaruh di meja saat tidak ngobrol.
+const deskMic = el('g', { class: 'deskmic' });
+function gabyMic(hold) {
+  A.gaby.variant(hold ? 'main' : 'nomic');
+  const [x, y] = G(R.gaby.off[0] + 5.7, R.gaby.off[1] + 4.6, 1.3);
+  deskMic.innerHTML = hold ? '' : `<g transform="translate(${x} ${y})"><ellipse rx="7" ry="2.5" fill="#334155"/><rect x="-1.2" y="-14" width="2.4" height="14" fill="#475569"/><rect x="-3" y="-27" width="6" height="14" rx="3" fill="#27272a"/><circle cy="-29" r="5" fill="#9ca3af"/></g>`;
+}
 const VERA_DROP = { ...spot('vera', 'drop'), faceFront: true };
 const atHome = (a) => dist(a, a.home) < 0.05 && !a.path;
 const arrive = async (a) => { while (a.path) await wait(120); };
@@ -426,11 +433,11 @@ async function work(a, room, ms, text, pose = 'working') {
 }
 
 // ---------- status & kunci adegan ----------
-const state = { busy: new Set(), santai: false, tidur: false };
+const state = { busy: new Set(), santai: false, tidur: false, ptt: false };
 const NAMES = { gaby: 'Gaby', meri: 'Meri', rara: 'Rara', pandu: 'Pandu', vera: 'Vera', lukas: 'Lukas' };
 function toast(t) { const d = $('toast'); d.textContent = t; d.classList.add('show'); clearTimeout(d.t); d.t = setTimeout(() => d.classList.remove('show'), 2200); }
 function status(t) { $('status').textContent = t; }
-const idleStatus = () => (state.tidur ? 'Gaby tidur 💤' : state.santai ? 'Waktu santai ☕🎮' : 'Kantor hidup: semua sibuk sendiri-sendiri');
+const idleStatus = () => (state.tidur ? 'Malam: Gaby tidur 💤' : state.santai ? 'Waktu bebas ☕🎮 (tidak sedang ngobrol)' : 'Kantor hidup: semua sibuk sendiri-sendiri');
 const TAKEN = new Map(); // tempat yang sedang dipakai (kursi pantry, arcade, …) → pemain
 function cancelAct(a) {
   if (!a.act) return;
@@ -460,6 +467,7 @@ async function flowIngat() {
   if (!claim(['gaby', 'meri'], 'Gaby menyimpan ingatan baru → Meri')) return;
   focus(A.gaby);
   await arrive(A.gaby);
+  gabyMic(true);
   A.gaby.talk('Oke, aku ingat: kamu suka rendang 🍜', 2000);
   await wait(800);
   pop(GABY_SCREEN(), '<rect x="-20" y="-14" width="40" height="28" rx="5" fill="rgba(14,165,233,.85)" stroke="#e0f2fe"/><text y="6" text-anchor="middle" font-size="16">🍜</text>', 700);
@@ -479,6 +487,7 @@ async function flowIngat() {
   await wait(900);
   drawer(k, 'off');
   await A.meri.walk(A.meri.home);
+  if (!state.ptt) gabyMic(false);
   release(['gaby', 'meri']);
 }
 
@@ -487,6 +496,7 @@ async function flowButuh() {
   if (!claim(['gaby', 'meri'], 'Gaby butuh ingatan → Meri mengambilkan')) return;
   focus(A.gaby);
   await arrive(A.gaby);
+  gabyMic(true);
   A.gaby.say('🔍 butuh: laci 🍜 makanan', 1500);
   await wait(800);
   await fly(GABY_SCREEN(), A.meri.headPt(), 'signal', 650);
@@ -515,6 +525,7 @@ async function flowButuh() {
   busy('gaby', false);
   await A.gaby.talk('Kamu suka rendang! Mau aku carikan resepnya? 🍛', 2600);
   await back;
+  if (!state.ptt) gabyMic(false);
   release(['gaby', 'meri']);
 }
 
@@ -522,6 +533,7 @@ async function flowRara(reject) {
   if (!claim(['gaby', 'rara', 'vera'], reject ? 'Rara cari info → Vera menolak dulu → diperbaiki' : 'Gaby → Rara cari info → Vera → Gaby')) return;
   focus(A.gaby);
   await arrive(A.gaby);
+  gabyMic(true);
   await A.gaby.talk('Rara, tolong carikan harga tiket ke Bali ya! ✈️', 1900);
   await fly(GABY_SCREEN(), A.rara.headPt(), 'note', 1000);
   A.rara.say('❗ Siap, Bos!', 900); A.rara.hop();
@@ -569,21 +581,42 @@ async function flowRara(reject) {
   busy('gaby', false);
   await A.gaby.talk('Tiket Jakarta–Bali mulai Rp1,2 juta! ✅ dicek Vera', 2800);
   await back;
+  if (!state.ptt) gabyMic(false);
   release(['gaby', 'rara', 'vera']);
 }
 
+// Push to talk: tekan = mulai ngobrol (Gaby pegang mic & mendengarkan sampai selesai);
+// tekan lagi = selesai → Gaby menaruh mic, ngulet, lalu WAKTU BEBAS untuk semua (bukan tidur).
+const CHAT = ['Halo! Ada yang bisa aku bantu? 😊', 'Oke, aku catat ya 📝', 'Hmm, menarik! 🤔', 'Siap, nanti aku minta Rara cek 🔎', 'Hahaha lucu 😆', 'Boleh, aku ingat ya 💙'];
 async function pushToTalk() {
-  if (state.tidur) { toast('Gaby sedang tidur 💤'); return; }
-  if (!claim(['gaby'], 'Push to talk: Gaby mendengarkan → menjawab')) return;
+  if (state.ptt) { state.ptt = false; pttButton(); return; } // selesai bicara (urusan selanjutnya di bawah)
+  if (state.tidur) await flowTidur(); // dibangunkan dulu
+  if (!claim(['gaby'], 'Push to talk ON: kamu bicara, Gaby mendengarkan')) return;
+  state.ptt = true; pttButton();
+  if (state.santai) flowSantai(); // waktu bebas selesai, semua kembali kerja
   focus(A.gaby);
   await arrive(A.gaby);
-  A.gaby.cls('listening', true);
-  A.gaby.say('🎧 aku dengar…', 1700);
-  await wait(1800);
-  A.gaby.cls('listening', false);
-  await A.gaby.talk('Halo! Ada yang bisa aku bantu? 😊', 2200);
+  A.gaby.pose('reaching'); await wait(350); A.gaby.pose('reaching', false);
+  gabyMic(true);
+  for (let i = 0; state.ptt; i++) {
+    A.gaby.cls('listening', true); A.gaby.say('🎧 aku dengar…');
+    await wait(1900);
+    A.gaby.cls('listening', false);
+    if (!state.ptt) break;
+    await A.gaby.talk(CHAT[i % CHAT.length], 2300);
+  }
+  A.gaby.cls('listening', false); A.gaby.cls('talking', false);
+  // taruh mic di meja → ngulet → bebas
+  A.gaby.pose('reaching'); await wait(350); A.gaby.pose('reaching', false);
+  gabyMic(false);
+  A.gaby.pose('ngulet'); A.gaby.say('Ahh~ waktu bebas! 🙆‍♀️', 1900);
+  await wait(2000);
+  A.gaby.pose('ngulet', false);
   release(['gaby']);
+  A.gaby.restUntil = performance.now() + 600;
+  if (!state.santai) flowSantai();
 }
+function pttButton() { $('b-ptt').textContent = state.ptt ? '🔇 Selesai bicara (push to talk OFF)' : '🎤 Push to talk (mulai bicara)'; $('b-ptt').classList.toggle('on', state.ptt); }
 {
   const o = R.gaby.off;
   const hit = el('polygon', { points: [G(o[0] + 1.4, o[1] + 1.8, 3.3), G(o[0] + 6.8, o[1] + 1.8, 3.3), G(o[0] + 6.8, o[1] + 1.8, 5.8), G(o[0] + 1.4, o[1] + 1.8, 5.8)].map((p) => p.join(',')).join(' '), fill: 'rgba(0,0,0,0)', class: 'ptt' });
@@ -801,7 +834,7 @@ setInterval(() => {
 
 function flowSantai() {
   state.santai = !state.santai;
-  $('b-santai').textContent = state.santai ? '💼 Kembali kerja' : '☕ Waktu santai';
+  $('b-santai').textContent = state.santai ? '💼 Kembali kerja' : '☕ Waktu bebas';
   if (!state.santai) {
     for (const a of Object.values(A)) {
       if (state.busy.has(a.key)) continue;
@@ -817,8 +850,9 @@ function flowSantai() {
 }
 
 async function flowTidur() {
+  if (state.ptt) { toast('Selesaikan obrolan dulu (push to talk OFF)'); return; }
   state.tidur = !state.tidur;
-  $('b-tidur').textContent = state.tidur ? '☀️ Bangunkan Gaby' : '🌙 Gaby tidur';
+  $('b-tidur').textContent = state.tidur ? '☀️ Pagi (bangunkan Gaby)' : '🌙 Malam (Gaby tidur)';
   nightG.innerHTML = state.tidur ? `<rect x="-200" y="-200" width="1700" height="1400" fill="rgba(2,6,23,.55)"/><circle cx="${GABY_SCREEN()[0]}" cy="${GABY_SCREEN()[1] + 60}" r="90" fill="rgba(56,189,248,.10)"/>` : '';
   if (state.tidur) {
     status('Gaby tidur 💤 · Meri menulis jurnal & merapikan laci');
@@ -952,6 +986,9 @@ camT = fitFull();
 { const [x, y] = G(A.gaby.x, A.gaby.y, 2); zoomTo(svg.clientWidth < 760 ? 520 : 900, x, y); }
 cam = { ...camT };
 focus(A.gaby);
+R.gaby.overG.append(deskMic);
+gabyMic(false);
+pttButton();
 status(idleStatus());
 requestAnimationFrame(tick);
 window.proto = { A, R, plan, state, NODES, ACTS, TAKEN, flowIngat, flowButuh, flowRara, flowSantai, flowTidur, pushToTalk, setLight, startRandom, runAct };
