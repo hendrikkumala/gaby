@@ -53,6 +53,14 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   **Tunggu pemasangan Pages sebelumnya selesai** sebelum push ke `main` lagi: kalau masih berjalan, pemasangan baru GAGAL ("in progress
   deployment") dan website tetap versi lama (terjadi pada v1.18.2, 1 Nov 2026). Perbaikan: jalankan ulang SELURUH run Pages
   (`rerun_workflow_run`, bukan hanya job yang gagal — artefaknya tidak ikut dibuat ulang). Selalu cek hasil run Pages setelah terbit.
+- **Dari laptop pemilik (VS Code lokal):** Claude TIDAK bisa `git push` (tidak ada login GitHub di shell non-interaktif) → commit lokal
+  (pesan commit lewat berkas `git commit -F`, karena PowerShell 5.1 merusak `-m` bertanda kutip), lalu pemilik klik **Push origin** di
+  GitHub Desktop. `gh` tidak terpasang: cek Pages lewat `https://api.github.com/repos/hendrikkumala/gaby/actions/runs?per_page=3` dan
+  `VERSION` di `https://hendrikkumala.github.io/gaby/js/config.js`. Uji lokal: Node (modul Gaby + `fetch`/`localStorage` tiruan) dan
+  `playwright-core` + Edge terpasang (`channel: 'msedge'`) di folder sementara — Playwright penuh tidak terpasang.
+- Setelah terbit, HP/browser bisa masih memakai versi lama sampai **±10 menit** (GitHub Pages `Cache-Control: max-age=600`, dan `sw.js`
+  memanggil `fetch(e.request)` biasa yang ikut memakai cache itu). Solusi pengguna: tunggu, tutup-buka Gaby / Ctrl+Shift+R; APK: Hapus cache
+  (BUKAN Hapus data). Ide perbaikan (belum disetujui): `fetch(e.request, { cache: 'no-cache' })` di `sw.js`.
 - Perubahan di `android-app/**` memicu perakitan APK (versionCode = nomor run). Setelah selesai, di HP: Pengaturan → Fitur → Cek update aplikasi.
   Naikkan `version` di `android-app/package.json` kalau hanya ingin memicu perakitan.
 - Uji otomatis memakai Playwright dengan WebSocket Gemini palsu, kamera/mikrofon palsu, UA iPhone/Android, dan jembatan Capacitor tiruan (`window.Capacitor`).
@@ -161,7 +169,11 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 3 Nov 2026
-**Yang terbit (cabang `main` / GitHub Pages): v1.20.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem). v1.20.0 terbit 3 Nov 2026 (web saja, APK tidak berubah).
+**Yang terbit (cabang `main` / GitHub Pages): v1.20.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem). v1.20.0 terbit 3 Nov 2026
+(web saja, APK tidak berubah; run Pages `66f1775` sukses & `config.js` live = 1.20.0). Pemilik mencoba tepat setelah terbit dan masih
+melihat versi lama → cache 10 menit (lihat "Cara menjalankan & menguji"); belum dikonfirmasi pemilik sudah melihat 1.20.0.
+
+**Sedang dikerjakan: 🏢 Ruang Kerja Gaby** (tahap sketsa, BELUM ada kode di aplikasi) — lihat bagian "Proyek berjalan" di bawah.
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 
@@ -211,6 +223,55 @@ di Pengaturan → Otak Gaby; Vera → `js/vera.js`; pengingat/alarm → `js/nati
 Rara → Pengaturan → Fitur → alasan di bawah "Pencarian internet (Rara)" + `js/research.js`, `js/groq.js`; Lukas → `js/imagegen.js`;
 kamera → `fitCamBox` di `js/app.js`, `js/camera.js`.
 
+## Proyek berjalan: 🏢 Ruang Kerja Gaby (ide pemilik, 3 Nov 2026)
+Tombol **🏢 Ruang Kerja** (bawah tengah, di antara kamera & galeri) → layar kantor kartun **2.5D (isometrik)** berisi tim Gaby yang
+bergerak sesuai pekerjaan SUNGGUHAN. Obrolan tidak terputus saat pindah layar. Tanpa perubahan Android.
+
+**Sketsa (disetujui pemilik)** — di `D:\HK\APP Project\Gaby Assistent\sketsa-ruang-kerja\` (di LUAR repo, hanya di laptop pemilik):
+`karakter.html` (18 pilihan karakter + "⭐ Tim terpilih"), `meja.html` (18 pilihan ruangan), `kantor.html` (denah utuh). Kode gambarnya
+SVG murni tanpa gambar luar: `karakter.js` (fungsi `character(o)`, chibi), `meja.js` (mesin isometrik: `P(x,y,z)`, `box`, `faceX/faceY`,
+`textX/textY`, `at`, `charAt`, `room`, sekat `lowX/lowY`, `onL/onR`), `kantor.js` (`officeSvg`). Kode ini akan dipakai ulang di aplikasi.
+- **Karakter terpilih:** Gaby = Bos Hologram (bob biru, jas putih, TANPA headset, pegang mic) · Meri = Pustakawan (sanggul, kacamata
+  bulat, kardigan hijau, map) · Rara = Kutu Buku (rambut panjang hitam, sweater ungu, headphone, teh; mode kerja = kacamata hologram +
+  tablet) · Pandu = Penjelajah (topi safari, rompi khaki, kompas) · Vera = Detektif dengan jas **abu-abu tua** (beda dari khaki Pandu) ·
+  Lukas = Klasik (baret merah, celemek cat, kuas).
+- **Ruangan terpilih:** Gaby = Kokpit Hologram (layar hologram melayang PUSH TO TALK di ATAS kepala Gaby, meja putih bercahaya) · Meri =
+  Lemari Laci Ajaib (18 laci bergambar = `CATEGORIES` di `memory.js`, lampu hias, meja bundar + laptop + teh) · Rara = Observatorium
+  (dinding berbintang; santai: kursi baca di sebelah lemari buku menghadap bola bumi + meja teh besar; kerja: panggung hologram bumi
+  berputar dengan titik merah/kuning/biru + layar hologram) · Pandu = Basecamp (papan gabus peta, pin & benang merah) · Vera = Kantor
+  Detektif (papan bukti ✅/⚠️, lampu hijau, stempel) · Lukas = Atelier Klasik (penyangga kanvas, cipratan cat).
+- **Denah (kantor terbuka 29×29 satuan):** pemilik menolak ruangan menempel ("kayak dikurung di kotak") dan lorong abu-abu bergaris
+  ("kayak jalan raya"). Sekarang: ruangan 8×8 dengan **lorong 2,5 berlantai kayu hangat**, karpet bundar toska + tanaman + dispenser air di
+  persimpangan, hanya dinding luar yang tinggi (jendela di bagian lorong), antar-ruangan **sekat kaca setinggi pinggang dengan pintu di
+  tengah**, papan nama melayang di atas kepala karakter.
+  ```
+  [ Rara ] ░ [ Pandu ] ░ [ Lukas ]
+  [ Meri ] ░ [ GABY  ] ░ [ Vera  ]
+  [   Pantry   ] ░ [ Ruang Game  ]
+  ```
+  Pantry: kulkas, meja dapur + mesin kopi + microwave, papan "MENU HARI INI", dispenser, meja bundar + gorengan. Ruang game: TV + konsol,
+  sofa, ping-pong, arcade, bean bag, papan neon "GAME ON".
+
+**Alur animasi yang disepakati** (dipicu kejadian nyata; animasi TIDAK BOLEH menunda jawaban Gaby):
+- Meri ↔ Gaby: `ingat` → kartu di layar Gaby jadi pesawat kertas → Meri menangkap → laci kategori menyala/terbuka → disimpan ✨.
+  `buka_ingatan` → "🔍 butuh: <laci>" + sinyal ke Meri → Meri lari ke laci → map terbang ke Gaby → layar Gaby menyala (baris tulisan
+  berjalan) → Gaby menjawab sambil pegang mic. Gaby tidur → Meri menulis jurnal & merapikan laci. Meri TIDAK lewat Vera.
+- Tim: Gaby bicara ke interkom → lampu meja teman berkedip + catatan tempel terbang → teman lari ke meja kerja → kerja **buru-buru**
+  (💦, garis kecepatan, bar progres = papan kerja asli) → hasil jadi map, teman lari mengantar ke Vera → Vera menyapu dengan kaca pembesar,
+  centang satu per satu → ✅ DOK! (lolos) atau ⚠️ (map kembali, teman mengerjakan ulang = putaran perbaikan Pandu maks 2×) → map ✅ jadi
+  pesawat kertas ke Gaby → layar Gaby menyala → Gaby menyampaikan. Pandu bisa lari ke Rara saat butuh riset.
+- Santai: Gaby kopi/peregangan (tidur: "Zzz" di meja), Meri kemoceng, Rara baca + teh, Pandu putar kompas, Vera lap kaca pembesar/koran,
+  Lukas sketsa. Sesekali ke pantry (gosip, gelembung emoji) atau ruang game; ada tugas → lari balik (kadang masih menggigit gorengan).
+- Sumber sinyal di kode: papan kerja (`startJob`/`pass`/`step`/`done`/`fail` di `teamboard.js`, termasuk `pass('vera')`), `onToolCall`
+  di `app.js` (`ingat`, `buka_ingatan`, `cari_info`, `buat_rencana`, gambar…), status Gaby (`audio.isSpeaking`, `thinking`, `vad.active`,
+  `phase`), `announce()` saat hasil disampaikan.
+
+**Langkah berikutnya:** (1) prototipe BERGERAK di folder sketsa dengan tombol uji ("Gaby simpan/butuh ingatan", "Minta Rara cari info",
+"Vera menolak", "Waktu santai") untuk dinilai pemilik; (2) v1.21: tombol + kantor di aplikasi + animasi Gaby/Meri/Rara; (3) v1.22:
+Pandu/Vera/Lukas lengkap. Di HP tegak: kamera mendekat ke ruangan yang sibuk + bisa digeser jari; benda tinggi di ruangan depan bisa
+dibuat transparan saat fokus ke Gaby. Animasi berhenti saat layar Ruang Kerja tertutup (hemat baterai). Tetap minta "gas" sebelum
+menyentuh kode aplikasi.
+
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
@@ -228,6 +289,7 @@ kamera → `fitCamBox` di `js/app.js`, `js/camera.js`.
 | 1.14.0 | Pengingat berbunyi saat HP terkunci, `pasang_alarm` (APK #6) |
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
+- `sw.js`: ambil file dengan `cache: 'no-cache'` supaya versi baru langsung masuk tanpa menunggu cache 10 menit GitHub Pages.
 - Ekspor/impor ingatan & rencana ke satu file (berguna kalau pindah alamat/hosting atau ganti HP).
 - APK berdiri sendiri (offline penuh dari `www`) atau pindah hosting — hanya kalau pemilik ingin lepas dari GitHub.
 - "Hai Gaby" tanpa sentuh di Android (butuh layanan latar depan + notifikasi tetap; ditolak untuk sekarang).
