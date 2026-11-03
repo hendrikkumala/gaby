@@ -277,6 +277,19 @@ dilintasi), Dijkstra. Adegan: simpan ingatan, butuh ingatan, Rara → Vera → G
 ping-pong; tugas masuk → teman lari balik, Vera ditunggu duduk dulu), Gaby tidur (malam, Zzz, Meri menulis jurnal), push to talk
 (ketuk layar hologram). Kecepatan 0,5–2×, kamera ikut, papan nama, penghitung FPS, "mode ringan" (gambar diam dijadikan foto).
 Uji laptop (Edge headless): ±100–120 FPS, emulasi HP ±58 FPS; FPS di HP asli pemilik BELUM diukur.
+**Revisi 2 (masukan pemilik: "karakter masih seperti kertas", "tangan diam saat kerja", "santai membosankan", "Gaby minim
+aktivitas", "di HP seperti apa?"):** `karakter25.js` = karakter 2.5D (tampak ¾ + tampak belakang saat berjalan menjauh, bayangan
+sisi/wajah/leher, garis tepi) dengan lengan/kaki terpisah; sudut lengan lewat CSS `@property --al/--ar`, kaki `--ll/--lr`; barang
+tangan kanan `.ritem` & kiri `.lprop` diputar balik supaya tetap tegak. Pose CSS di `.flipG`: working, painting, stamping, reaching,
+sipL/sipR, stretch, waving, dance, talking, sleeping; berjalan = lengan mengayun + kaki melangkah. **Kantor hidup** (`ACTS` di
+proto.js, ±40 aktivitas berbobot jam kerja `w` / santai `s`, berdua `n: 2`, tempat dipesan lewat `TAKEN`): Gaby (kopi, peregangan,
+cek laporan, bersenandung, putar kursi, melambai, bola hologram), Meri (kemoceng laci, merapikan map, jurnal, teh), Rara (baca, teh,
+ketiduran, cek bola bumi), Pandu (kompas, pin peta, mondar-mandir, ransel), Vera (lap kaca pembesar, koran, latihan stempel, topi),
+Lukas (melukis, mengagumi lukisan, sketsa, cuci kuas), bersama (kopi/microwave/air/kulkas pantry, arcade, bean bag, konsol, joget,
+siram tanaman, lari di lorong, lihat jendela, gosip, ping-pong, ngobrol di lorong, berkunjung, tos). Saat santai Gaby boleh keluar
+ruangan. Tugas masuk → `claim()` membatalkan aktivitas (`cancelAct`) dan teman lari balik. HP: panel uji dilipat ("🧪 Tombol uji"),
+tombol pintas ruangan, `hp.html` = pratinjau bingkai HP tegak & miring. Kinerja: kamera bergerak memaksa seluruh SVG digambar ulang
+(laptop 34 FPS) → **mode ringan otomatis** kalau < 40 FPS selama 3 dtk (gambar diam jadi foto); emulasi HP lemah (CPU 6×) ±30–36 FPS.
 
 **Langkah berikutnya:** (1) pemilik mencoba prototipe (di HP: cek FPS & rasa animasi) dan memberi masukan; perbaiki di
 `prototipe/` sampai pemilik bilang lucu & lancar; (2) v1.21: tombol + kantor di aplikasi + animasi Gaby/Meri/Rara; (3) v1.22:

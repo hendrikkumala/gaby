@@ -6,49 +6,100 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Prototipe Ruang Kerja Gaby</title>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; --panel: 150px; }
   html, body { margin: 0; height: 100%; background: #070d1c; color: #e2e8f0; font-family: system-ui, "Segoe UI", sans-serif; overflow: hidden; }
-  #scene { position: fixed; inset: 0 0 var(--panel, 132px) 0; width: 100%; height: calc(100% - var(--panel, 132px)); touch-action: none; cursor: grab;
+  #scene { position: fixed; left: 0; top: 0; width: 100%; height: calc(100% - var(--panel)); touch-action: none; cursor: grab;
     background: radial-gradient(circle at 50% 30%, #14284a, #070d1c 75%); }
-  #top { position: fixed; top: 8px; left: 8px; right: 8px; display: flex; gap: 8px; align-items: center; pointer-events: none; }
+  #top { position: fixed; top: 8px; left: 8px; right: 56px; display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
   #top > * { pointer-events: auto; }
+  .row1 { display: flex; gap: 8px; }
   .pill { background: rgba(2,6,23,.8); border: 1px solid rgba(56,189,248,.4); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
   #status { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   #fps { font-variant-numeric: tabular-nums; color: #67e8f9; font-weight: 700; }
-  #zoom { position: fixed; right: 8px; top: 48px; display: flex; flex-direction: column; gap: 6px; }
+  #chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  #chips button { flex: none; border-radius: 999px; border: 1px solid rgba(56,189,248,.35); background: rgba(2,6,23,.75); color: #e0f2fe; padding: 5px 10px; font-size: 12.5px; }
+  #zoom { position: fixed; right: 8px; top: 8px; display: flex; flex-direction: column; gap: 6px; }
   #zoom button { width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(56,189,248,.4); background: rgba(2,6,23,.8); color: #e0f2fe; font-size: 16px; }
-  #panel { position: fixed; left: 0; right: 0; bottom: 0; height: var(--panel, 132px); box-sizing: border-box; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-    background: rgba(2,6,23,.92); border-top: 1px solid rgba(56,189,248,.3); overflow-y: auto; }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; height: var(--panel); box-sizing: border-box; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(2,6,23,.94); border-top: 1px solid rgba(56,189,248,.3); overflow-y: auto; }
   .btns { display: flex; flex-wrap: wrap; gap: 6px; }
   .btns button { flex: 1 1 auto; min-width: 140px; padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(56,189,248,.35); background: #0f2747; color: #e0f2fe; font-size: 14px; font-weight: 600; }
   .btns button:active { transform: scale(.97); }
   .opts { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 13px; color: #94a3b8; align-items: center; }
   .opts a { color: #7dd3fc; }
-  #toast { position: fixed; left: 50%; top: 52px; transform: translateX(-50%) translateY(-20px); opacity: 0; transition: .25s; background: #fef3c7; color: #78350f; padding: 8px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; pointer-events: none; }
+  #ptoggle { display: none; }
+  #toast { position: fixed; left: 50%; top: 92px; transform: translateX(-50%) translateY(-20px); opacity: 0; transition: .25s; background: #fef3c7; color: #78350f; padding: 8px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; pointer-events: none; z-index: 5; }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  @media (max-width: 760px) { :root { --panel: 196px; } .btns button { min-width: 44%; font-size: 13px; padding: 8px; } }
+  /* HP: panel uji dilipat, kantor penuh layar */
+  @media (max-width: 760px), (max-height: 500px) {
+    :root { --panel: 0px; }
+    #panel { height: auto; max-height: 62%; transform: translateY(100%); transition: transform .25s; }
+    body.panel-open #panel { transform: none; }
+    #ptoggle { display: block; position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 4;
+      border-radius: 999px; border: 1px solid rgba(56,189,248,.5); background: #0f2747; color: #e0f2fe; font-weight: 700; padding: 10px 18px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
+    body.panel-open #ptoggle { bottom: calc(62% + 10px); }
+    .btns button { min-width: 44%; font-size: 13px; padding: 8px; }
+  }
 
-  /* ---- gerakan karakter ---- */
+  /* ---- karakter: sudut lengan & angkat kaki lewat variabel CSS (lihat karakter25.js) ---- */
+  @property --al { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+  @property --ar { syntax: '<angle>'; inherits: true; initial-value: 0deg; }
+  @property --ll { syntax: '<length>'; inherits: true; initial-value: 0px; }
+  @property --lr { syntax: '<length>'; inherits: true; initial-value: 0px; }
+  .arm-l { transform: rotate(var(--al)); transform-origin: 74px 166px; }
+  .arm-r { transform: rotate(var(--ar)); transform-origin: 126px 166px; }
+  .ritem { transform: rotate(calc(var(--ar) * -1)); }
+  .lprop { transform: rotate(calc(var(--al) * -1)); }
+  .leg-l { transform: translateY(var(--ll)); } .leg-r { transform: translateY(var(--lr)); }
+  .flipG { transition: --al .25s, --ar .25s; }
+
   .eyes { transform-box: fill-box; transform-origin: center; animation: blink 4.3s infinite; }
   .a-meri .eyes { animation-delay: -1.1s; } .a-rara .eyes { animation-delay: -2.3s; } .a-pandu .eyes { animation-delay: -3s; } .a-vera .eyes { animation-delay: -.6s; } .a-lukas .eyes { animation-delay: -1.8s; }
   @keyframes blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  .bob { animation: breathe 3.2s infinite ease-in-out; }
+  @keyframes breathe { 50% { transform: translateY(1.5px); } }
   .talking .mouth { transform-box: fill-box; transform-origin: center top; animation: talk .17s infinite alternate; }
   @keyframes talk { from { transform: scaleY(.4); } to { transform: scaleY(1.7); } }
-  .sleeping .eyes { animation: none; transform: scaleY(.12); }
-  .sleeping .bob { animation: breathe 2.4s infinite ease-in-out; }
-  @keyframes breathe { 50% { transform: translateY(2px) rotate(3deg); } }
-  .walking .bob { animation: bob .3s infinite alternate ease-in-out; }
-  .running .bob { animation: bob .14s infinite alternate ease-in-out; }
-  @keyframes bob { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
+
+  /* berjalan / berlari: badan memantul, lengan mengayun, kaki melangkah */
+  .walking .bob { animation: walk .3s infinite alternate ease-in-out; }
+  .running .bob { animation: walk .15s infinite alternate ease-in-out; }
+  @keyframes walk {
+    from { transform: translateY(0) rotate(-2deg); --al: -24deg; --ar: 24deg; --ll: -7px; --lr: 0px; }
+    to { transform: translateY(-5px) rotate(2deg); --al: 24deg; --ar: -24deg; --ll: 0px; --lr: -7px; }
+  }
   .speedlines { display: none; } .running .speedlines { display: inline; animation: lines .2s infinite; }
   @keyframes lines { 50% { opacity: .3; transform: translateX(-4px); } }
   .hop { animation: hop .42s ease-out; }
   @keyframes hop { 40% { transform: translateY(-18px); } }
+
+  /* pose kerja & santai (dipasang di .flipG supaya tidak bentrok dengan gerakan berjalan) */
+  .actor.working .flipG { animation: kWork .18s infinite alternate; }
+  @keyframes kWork { from { --al: -4deg; --ar: 4deg; } to { --al: -16deg; --ar: 16deg; } }
+  .actor.rush.working .flipG { animation-duration: .11s; }
+  .actor.painting .flipG { animation: kPaint .42s infinite alternate ease-in-out; }
+  @keyframes kPaint { from { --ar: -70deg; --al: 10deg; } to { --ar: -20deg; --al: 18deg; } }
+  .actor.stamping .flipG { animation: kStamp .5s infinite; }
+  @keyframes kStamp { 0%, 100% { --ar: 0deg; } 45% { --ar: -80deg; } 70% { --ar: 12deg; } }
+  .actor.reaching .flipG { --ar: -150deg; }
+  .actor.sipL .flipG { --al: -150deg; }
+  .actor.sipR .flipG { --ar: 150deg; }
+  .actor.stretch .flipG { animation: kStretch .6s infinite alternate ease-in-out; }
+  @keyframes kStretch { from { --al: 150deg; --ar: -150deg; } to { --al: 170deg; --ar: -170deg; } }
+  .actor.waving .flipG { animation: kWave .22s infinite alternate; }
+  @keyframes kWave { from { --ar: -140deg; } to { --ar: -165deg; } }
+  .actor.dance .flipG { animation: kDance .4s infinite alternate ease-in-out; }
+  @keyframes kDance { from { --al: 120deg; --ar: -40deg; --ll: -6px; --lr: 0px; } to { --al: 40deg; --ar: -120deg; --ll: 0px; --lr: -6px; } }
+  .actor.dance .bob { animation: walk .4s infinite alternate ease-in-out; }
+  .actor.talking .flipG { animation: kTalk .5s infinite alternate ease-in-out; }
+  @keyframes kTalk { from { --al: 8deg; } to { --al: 38deg; } }
+  .sleeping .eyes { animation: none; transform: scaleY(.12); }
+  .sleeping .bob { animation: snooze 2.4s infinite ease-in-out; }
+  @keyframes snooze { 50% { transform: translateY(2px) rotate(4deg); } }
+
   .sweat { display: none; } .rush .sweat { display: inline; } .rush .sweat path { animation: drip .7s infinite; }
   .rush .sweat path:last-child { animation-delay: -.35s; }
   @keyframes drip { from { transform: translateY(0); opacity: 1; } to { transform: translateY(12px); opacity: 0; } }
-  .rush .bob { animation: jitter .12s infinite alternate; }
-  @keyframes jitter { from { transform: translateX(-1px); } to { transform: translateX(1px); } }
   .rings { display: none; } .listening .rings { display: inline; }
   .rings circle { transform-box: fill-box; transform-origin: center; animation: ring 1s infinite; } .rings circle:last-child { animation-delay: -.5s; }
   @keyframes ring { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
@@ -66,7 +117,6 @@
   .glow { animation: glow .5s infinite alternate; }
   @keyframes glow { to { opacity: .45; } }
   .ptt { cursor: pointer; }
-  /* bola bumi berputar (lebih cepat saat Rara bekerja) & baris hologram mengetik */
   .globe .m { transform-box: fill-box; transform-origin: center; animation: mer 7s linear infinite; }
   .globe .m2 { animation-delay: -2.3s; } .globe .m3 { animation-delay: -4.6s; }
   @keyframes mer { 0% { transform: scaleX(1); } 50% { transform: scaleX(.04); } 100% { transform: scaleX(1); } }
@@ -81,9 +131,17 @@
 </head>
 <body>
 <svg id="scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 920"></svg>
-<div id="top"><span class="pill" id="status">Memuat…</span><span class="pill" id="fps">– FPS</span></div>
+<div id="top">
+  <div class="row1"><span class="pill" id="status">Memuat…</span><span class="pill" id="fps">– FPS</span></div>
+  <div id="chips">
+    <button data-room="gaby">👑 Gaby</button><button data-room="meri">📝 Meri</button><button data-room="rara">🔎 Rara</button>
+    <button data-room="pandu">🗺️ Pandu</button><button data-room="vera">✅ Vera</button><button data-room="lukas">🎨 Lukas</button>
+    <button data-room="pantry">🍔 Pantry</button><button data-room="game">🎮 Game</button>
+  </div>
+</div>
 <div id="zoom"><button id="zin" title="Perbesar">＋</button><button id="zout" title="Perkecil">－</button><button id="zall" title="Lihat semua">⤢</button></div>
 <div id="toast"></div>
+<button id="ptoggle">🧪 Tombol uji</button>
 <div id="panel">
   <div class="btns">
     <button id="b-ingat">📥 Gaby simpan ingatan</button>
@@ -96,14 +154,16 @@
   </div>
   <div class="opts">
     <label>Kecepatan <input id="spd" type="range" min="0.5" max="2" step="0.25" value="1"> <b id="spdv">1×</b></label>
+    <label><input id="life" type="checkbox" checked> Kantor hidup (aktivitas acak)</label>
     <label><input id="autocam" type="checkbox" checked> Kamera ikut</label>
     <label><input id="tags" type="checkbox" checked> Papan nama</label>
     <label><input id="light" type="checkbox"> Mode ringan</label>
-    <span>Sketsa: <a href="karakter.html">karakter</a> · <a href="meja.html">meja</a> · <a href="kantor.html">denah</a></span>
+    <span>Lihat: <a href="hp.html">pratinjau HP</a> · <a href="karakter.html">karakter</a> · <a href="meja.html">meja</a> · <a href="kantor.html">denah</a></span>
   </div>
 </div>
 <script>window.PROTO = true;</script>
 <script src="karakter.js"></script>
+<script src="karakter25.js"></script>
 <script src="meja.js"></script>
 <script src="kantor.js"></script>
 <script src="proto.js"></script>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pratinjau HP — Ruang Kerja Gaby</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; min-height: 100vh; background: radial-gradient(circle at 50% 0, #14284a, #070d1c 70%); color: #e2e8f0; font-family: system-ui, "Segoe UI", sans-serif; }
+  header { text-align: center; padding: 18px 12px 4px; }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0 auto; max-width: 760px; color: #94a3b8; font-size: 14px; line-height: 1.5; }
+  .phones { display: flex; flex-wrap: wrap; gap: 34px; justify-content: center; align-items: flex-start; padding: 18px; }
+  .phone { background: #0b0f19; border: 3px solid #334155; border-radius: 44px; padding: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.5); position: relative; }
+  .phone::before { content: ''; position: absolute; top: 18px; left: 50%; transform: translateX(-50%); width: 90px; height: 22px; border-radius: 12px; background: #000; z-index: 2; }
+  .phone.land::before { top: 50%; left: 18px; transform: translateY(-50%); width: 22px; height: 90px; }
+  .phone iframe { display: block; border: 0; border-radius: 32px; background: #070d1c; }
+  .cap { text-align: center; color: #94a3b8; font-size: 13px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📱 Pratinjau di HP</h1>
+  <p>Ukuran layar HP biasa (390×844). Di HP, kantor tampil penuh layar. Kamera mengikuti teman yang sedang beraksi, kantor bisa digeser dengan jari, dan tombol uji dilipat di bawah ("🧪 Tombol uji"). Di aplikasi Gaby nanti tombol uji ini tidak ada, karena yang menggerakkan tim adalah pekerjaan sungguhan.</p>
+</header>
+<div class="phones">
+  <div><div class="phone"><iframe src="index.html" width="390" height="844" title="HP tegak"></iframe></div><div class="cap">HP tegak (cara pakai paling umum)</div></div>
+  <div><div class="phone land"><iframe src="index.html" width="844" height="390" title="HP miring"></iframe></div><div class="cap">HP dimiringkan</div></div>
+</div>
+</body>
+</html>
