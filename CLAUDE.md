@@ -193,6 +193,13 @@ gambar (seluruh ±3.000 elemen digambar ulang) + "mode ringan" foto yang dicetak
 selesai (`applyCam`, `printS`); sisi cetakan dibatasi `MAXPX` 4096 px asli (zoom minimum `minW`); seret jari langsung (tanpa
 jeda). Mode ringan TIDAK dipakai lagi (`setLight` tersisa tapi tidak dipanggil). Emulasi HP CPU 4×: digeser 9 → ±35–49 FPS,
 diam 18 → ±30–45 FPS. `toScreen()` dipakai untuk posisi layar (bukan `getScreenCTM`).
+**v1.21.5 — MODE HEMAT** (pemilik: Oppo Find N5 sudah mulus di v1.21.4, tapi iPhone 17 Pro v1.21.4 TETAP restart/"A problem
+repeatedly occurred"). Tidak bisa ditiru: WebKit Playwright (Windows) 3 menit tanpa tumbang & tanpa kebocoran (elemen/animasi stabil)
+→ dugaan batas memori/GPU khas iOS. `LITE` (iPhone/iPad/Safari, atau `localStorage['gaby.officeLite']='1'`): kelas `#office.lite`
+(tanpa animasi variabel CSS `--al/--ar/--ll/--lr`, gerak sederhana), cetakan `PRINT_RES` 0,6 (memori gambar ±1/3), `MAXPX` 2048,
+maks 3 teman beraktivitas bersamaan. **Pendeteksi tumbang** (app.js): `sessionStorage['gaby.officeOpen']` diisi saat Ruang Kerja dibuka,
+dihapus saat ditutup / `pagehide`; kalau masih ada saat aplikasi dimuat (halaman restart saat Ruang Kerja terbuka) → mode hemat
+permanen + notifikasi. BELUM dikonfirmasi di iPhone asli. Kalau masih restart: Ruang Kerja versi statis (tanpa animasi) di iPhone.
 Pemilik akan melanjutkan pengembangan juga dari VS Code lokal (pull → ubah → push). Selalu `git pull` dulu sebelum bekerja, dan
 jangan push ke `main` dari dua tempat sekaligus (pemasangan Pages bisa bentrok, lihat "Cara menjalankan & menguji").
 

@@ -125,3 +125,14 @@ body.office-open #teamboard { display: none; } /* di Ruang Kerja, kerja tim terl
 #office .busy .globe .m, #office .busy .globe .land { animation-duration: 1.1s; } #office .busy .globe .dot { animation-duration: .35s; }
 #office .busy .hl { animation: of-type .5s infinite steps(2); } #office .busy .hl1 { animation-delay: -.12s; } #office .busy .hl2 { animation-delay: -.25s; } #office .busy .hl3 { animation-delay: -.37s; }
 @keyframes of-type { 50% { opacity: .15; } }
+
+/* ---- MODE HEMAT (iPhone/Safari atau setelah "tumbang"): tanpa variabel CSS beranimasi, gerakan sederhana ---- */
+#office.lite .flipG { animation: none !important; transition: none; }
+#office.lite .bob { animation: none; }
+#office.lite .walking .bob, #office.lite .running .bob, #office.lite .actor.dance .bob { animation: of-walk-lite .3s infinite alternate ease-in-out; }
+#office.lite .running .bob { animation-duration: .16s; }
+@keyframes of-walk-lite { from { transform: translateY(0) rotate(-2deg); } to { transform: translateY(-5px) rotate(2deg); } }
+#office.lite .actor.working .bob, #office.lite .actor.painting .bob, #office.lite .actor.stamping .bob { animation: of-jit-lite .14s infinite alternate; }
+@keyframes of-jit-lite { from { transform: translateX(-1px); } to { transform: translateX(1px); } }
+#office.lite .actor.sleeping .bob { animation: of-snooze 2.4s infinite ease-in-out; }
+#office.lite .actor.ngulet .bob { animation: of-nguletBody .9s 2 alternate ease-in-out; }

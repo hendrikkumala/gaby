@@ -907,7 +907,21 @@ function officePtt() {
     goSleep();
   }
 }
+// Pendeteksi "tumbang": kalau halaman dimuat ulang saat Ruang Kerja masih terbuka (HP kehabisan memori,
+// misalnya iPhone), berikutnya Ruang Kerja otomatis memakai mode hemat.
+const OFFICE_OPEN_KEY = 'gaby.officeOpen';
+try {
+  if (sessionStorage.getItem(OFFICE_OPEN_KEY)) {
+    sessionStorage.removeItem(OFFICE_OPEN_KEY);
+    if (localStorage.getItem('gaby.officeLite') !== '1') {
+      localStorage.setItem('gaby.officeLite', '1');
+      setTimeout(() => toast('Ruang Kerja tadi berhenti mendadak. Sekarang memakai mode hemat supaya lebih ringan.', 'warn', 8000), 1500);
+    }
+  }
+} catch {}
+window.addEventListener('pagehide', () => { try { sessionStorage.removeItem(OFFICE_OPEN_KEY); } catch {} });
 async function openOfficeScreen() {
+  try { sessionStorage.setItem(OFFICE_OPEN_KEY, String(Date.now())); } catch {}
   $('office').hidden = false; // tampil dulu supaya ukuran layar terbaca saat kantor dibangun
   document.body.classList.add('office-open');
   visual.paused = true; // bola hologram tertutup: jeda dulu
@@ -932,6 +946,7 @@ async function openOfficeScreen() {
   }
 }
 function closeOfficeScreen() {
+  try { sessionStorage.removeItem(OFFICE_OPEN_KEY); } catch {}
   if (officeMod) officeMod.closeOffice();
   $('office').hidden = true;
   document.body.classList.remove('office-open');

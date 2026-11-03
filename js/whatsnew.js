@@ -5,6 +5,11 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.21.5',
+    quiet: true,
+    items: ['Ruang Kerja memakai mode hemat di iPhone supaya tidak berhenti mendadak'],
+  },
+  {
     version: '1.21.4',
     quiet: true,
     items: ['Ruang Kerja jauh lebih lancar saat digeser, tidak berkedip lagi'],

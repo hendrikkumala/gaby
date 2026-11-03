@@ -713,11 +713,19 @@ function startRandom(a) {
   if (def.n === 2) actors.push(pick(free.filter((b) => allowed(def, b) && (!def.partnerHome || atHome(b)))));
   runAct(def, actors);
 }
+// MODE HEMAT (iPhone/Safari, atau HP yang tadi "tumbang" saat Ruang Kerja terbuka — lihat app.js):
+// kantor dicetak resolusi lebih rendah, gerakan tangan/kaki sederhana, lebih sedikit teman beraktivitas bersamaan.
+const LITE = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  || (/Safari/.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Edg|Android/.test(navigator.userAgent))
+  || (() => { try { return localStorage.getItem('gaby.officeLite') === '1'; } catch { return false; } })();
+if (LITE) document.getElementById('office').classList.add('lite');
 setInterval(() => {
   if (!running || state.tidur) return;
+  const busyNow = Object.values(A).filter((a) => a.act || a.path).length;
   for (const a of Object.values(A)) {
     if (!isFree(a) || performance.now() < a.restUntil) continue;
-    if (Math.random() < (state.santai ? 0.4 : 0.25)) startRandom(a);
+    if (LITE && busyNow >= 3) break; // hemat: paling banyak 3 teman beraktivitas bersamaan
+    if (Math.random() < (state.santai ? 0.4 : 0.25) * (LITE ? 0.6 : 1)) startRandom(a);
   }
 }, 600);
 
@@ -746,8 +754,10 @@ let cam = { ...FULL }, camT = { ...FULL }, follow = null, manualUntil = 0;
 const VW = () => Math.max(1, officeEl.clientWidth);
 const VH = () => Math.max(1, officeEl.clientHeight);
 function aspect() { return VH() / VW(); }
-const MAXPX = 4096; // batas sisi cetakan (piksel asli layar) supaya memori aman, terutama di iPhone
-const minW = () => Math.max(300, (FULL.w * VW() * (window.devicePixelRatio || 1)) / MAXPX);
+const MAXPX = LITE ? 2048 : 4096; // batas sisi cetakan (piksel asli layar) supaya memori aman, terutama di iPhone
+const PRINT_RES = LITE ? 0.6 : 1; // mode hemat: dicetak lebih kecil lalu diperbesar (memori gambar ±1/3)
+const printTarget = () => (VW() / cam.w) * PRINT_RES;
+const minW = () => Math.max(300, (FULL.w * VW() * (window.devicePixelRatio || 1) * PRINT_RES) / MAXPX);
 function fitFull() { const ar = aspect(); const w = Math.max(FULL.w, FULL.h / ar); return { x: (FULL.w - w) / 2, y: (FULL.h - w * ar) / 2, w, h: w * ar }; }
 function zoomTo(w, cx, cy) { w = Math.max(minW(), w); const ar = aspect(); camT = { x: cx - w / 2, y: cy - w * ar / 2, w, h: w * ar }; }
 function focus(a) { follow = a; manualUntil = 0; }
@@ -755,10 +765,11 @@ let printS = 0; // skala cetakan saat ini (piksel per satuan kantor)
 function applyCam() {
   const sc = VW() / cam.w;
   const settled = Math.abs(camT.w - cam.w) < 0.4;
-  if (!printS || (settled && Math.abs(sc - printS) / printS > 0.002)) {
-    printS = sc;
-    svg.style.width = `${(FULL.w * sc).toFixed(1)}px`;
-    svg.style.height = `${(FULL.h * sc).toFixed(1)}px`;
+  const target = printTarget();
+  if (!printS || (settled && Math.abs(target - printS) / printS > 0.002)) {
+    printS = target;
+    svg.style.width = `${(FULL.w * printS).toFixed(1)}px`;
+    svg.style.height = `${(FULL.h * printS).toFixed(1)}px`;
   }
   svg.style.transform = `translate3d(${(-cam.x * sc).toFixed(1)}px, ${(-cam.y * sc).toFixed(1)}px, 0) scale(${(sc / printS).toFixed(4)})`;
 }
@@ -775,7 +786,7 @@ function camStep() {
     if (Math.abs(d) < 0.4) cam[k] = camT[k]; else cam[k] += d * 0.12;
   }
   const key = `${cam.x.toFixed(1)},${cam.y.toFixed(1)},${cam.w.toFixed(1)}`;
-  if (key !== camLast || (printS && Math.abs(VW() / cam.w - printS) / printS > 0.002)) { camLast = key; applyCam(); }
+  if (key !== camLast || (printS && Math.abs(printTarget() - printS) / printS > 0.002)) { camLast = key; applyCam(); }
 }
 const toScreen = (x, y) => { const r = officeEl.getBoundingClientRect(), sc = VW() / cam.w; return { x: r.left + (x - cam.x) * sc, y: r.top + (y - cam.y) * sc }; };
 const center = () => [camT.x + camT.w / 2, camT.y + camT.h / 2];
