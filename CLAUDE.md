@@ -344,6 +344,25 @@ skrip di folder sementara) + uji v1.20 tetap lulus. Kinerja emulasi HP layar taj
 karakter bergerak). FPS di HP asli BELUM diukur (angka FPS tampil kecil di kanan atas Ruang Kerja).
 Ide berikutnya (belum disetujui): optimasi kalau HP asli berat; ucapan panjang Gaby lebih dari satu baris; "Malam" otomatis.
 
+**v1.22 — animasi penuh Pandu/Vera/Lukas (pemilik bilang "gas", 3 Nov 2026), SYARAT PEMILIK: iPhone jangan sampai restart lagi.**
+Cara kerja yang disepakati: cadangan `backup-v1.21.5` (lokal, belum di-push) → prototipe dulu → terbit **satu teman per rilis**
+(Pandu → Vera → Lukas terakhir, karena gambar asli paling berat) → pemilik tes di iPhone tiap rilis. Aturan hemat: elemen dibuat
+SEKALI & dipakai ulang (jumlah tetap), mode hemat (`LITE`) lebih sederhana, uji tahan lama WebKit ≥ 5 menit, pendeteksi tumbang
+→ kembali ke perilaku v1.21.5 + tombol nyala/mati di Pengaturan (belum dibuat).
+**Prototipe `prototipe/v122/`** (https://hendrikkumala.github.io/gaby/prototipe/v122/): `office.js` = SALINAN `js/office.js`
+(impor `../../js/…`) + tambahan; `index.html` = kantor + panel 🧪 Uji (alur lengkap, alur + Vera menolak, 3/5/8 langkah, 🔁 uji tahan
+lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). Mode hemat prototipe memakai kunci `proto122.lite`
+(bukan `gaby.officeLite`, supaya aplikasi asli di alamat yang sama tidak ikut berubah).
+- **Pandu (prototipe selesai):** papan rute = peta bersih + maks 8 paku bernomor + 7 benang (`routeG`, dibuat sekali di `R.pandu.fx0`).
+  Kabar BARU `job` `steps` {list} & `step` {i, text} (Vera tidak jadi paku: `/^Vera\b/`). Pandu lari ke paku langkah ke-i, menancapkan
+  (pose `reaching`), benang ditarik (`pullString`), gelembung "📍 <langkah>"; minta Rara = pesawat kertas; selesai → paku hijau satu per
+  satu + 🏁, rute tetap di papan sampai rencana berikutnya. `route` dicatat walau Ruang Kerja tertutup (`routeEvent`), digambar di `syncAll`.
+  Untuk rilis: `teamboard.js` harus mengirim `steps` (di `setSteps`) & `step` (di `step(i, msg)`), lalu salin bagian ini ke `js/office.js`.
+  Uji: Edge 13/14 (yang "gagal" = elemen +63 karena versi karakter dibuat sekali), Edge HP 8 menit/10 putaran elemen datar ±3.460 &
+  heap ±4 MB, WebKit UA iPhone (lite) 5 menit/6 putaran tanpa tumbang/error. Menunggu tontonan & tes iPhone pemilik.
+- **Bug kecil di `js/office.js` (v1.21.x):** `SHOW_FPS = /[?&]fps<BACKSPACE>/` (karakter \x08 dari skrip patch lama) → `?fps` tidak
+  pernah jalan. Sudah benar di prototipe; perbaiki di aplikasi saat rilis v1.22. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
+
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|

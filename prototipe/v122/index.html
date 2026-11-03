@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prototipe v1.22 — Ruang Kerja (Pandu)</title>
+<link rel="icon" href="../../icons/icon-192.png">
+<link rel="stylesheet" href="../../css/style.css">
+<link rel="stylesheet" href="../../css/office.css">
+<style>
+  /* Panel uji (hanya di prototipe) */
+  #uji-btn { position: fixed; left: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 40; border-radius: 999px; border: 1px solid rgba(250,204,21,.6);
+    background: #422006; color: #fef3c7; font-weight: 800; padding: 10px 14px; font-size: 14px; }
+  #uji { position: fixed; left: 8px; right: 8px; bottom: calc(64px + env(safe-area-inset-bottom)); z-index: 40; max-width: 520px; max-height: 58%; overflow-y: auto;
+    background: rgba(2,6,23,.95); border: 1px solid rgba(250,204,21,.45); border-radius: 16px; padding: 10px; color: #e2e8f0; font: 13px system-ui, sans-serif; }
+  #uji[hidden] { display: none; }
+  #uji h3 { margin: 4px 2px 6px; font-size: 13px; color: #fde68a; }
+  #uji .b { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  #uji button { flex: 1 1 44%; padding: 9px 8px; border-radius: 12px; border: 1px solid rgba(56,189,248,.35); background: #0f2747; color: #e0f2fe; font-size: 13px; font-weight: 700; }
+  #uji button.main { background: #14532d; border-color: #22c55e; }
+  #uji button.stop { background: #450a0a; border-color: #ef4444; }
+  #uji .info { color: #94a3b8; line-height: 1.5; }
+  #uji .info b { color: #e0f2fe; }
+  #crash { position: fixed; left: 8px; right: 8px; top: calc(96px + env(safe-area-inset-top)); z-index: 41; background: #7f1d1d; color: #fff; padding: 10px 12px; border-radius: 12px; font: 700 14px system-ui; }
+  #crash[hidden] { display: none; }
+</style>
+</head>
+<body class="office-open">
+  <div id="office" class="office">
+    <svg id="of-scene" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1264 920"></svg>
+    <div id="of-top">
+      <div class="of-row"><button id="of-back" aria-label="Kembali">← Prototipe</button><span class="of-pill" id="of-status">Memuat kantor…</span><span class="of-pill" id="of-fps" hidden></span></div>
+      <div id="of-chips">
+        <button data-room="gaby">👑 Gaby</button><button data-room="meri">📝 Meri</button><button data-room="rara">🔎 Rara</button>
+        <button data-room="pandu">🗺️ Pandu</button><button data-room="vera">✅ Vera</button><button data-room="lukas">🎨 Lukas</button>
+        <button data-room="pantry">🍔 Pantry</button><button data-room="game">🎮 Game</button>
+      </div>
+    </div>
+    <div id="of-zoom"><button id="of-zin" aria-label="Perbesar">＋</button><button id="of-zout" aria-label="Perkecil">－</button><button id="of-zall" aria-label="Lihat semua">⤢</button></div>
+    <button id="of-mic">🎤 Bicara</button>
+    <div id="of-toast"></div>
+  </div>
+
+  <div id="crash" hidden></div>
+  <button id="uji-btn">🧪 Uji</button>
+  <div id="uji" hidden>
+    <h3>🗺️ Pandu — papan rute (v1.22 prototipe)</h3>
+    <div class="b">
+      <button class="main" id="u-full">▶️ Alur lengkap</button>
+      <button id="u-reject">⚠️ Alur + Vera menolak</button>
+    </div>
+    <div class="b">
+      <button id="u-n3">3 langkah</button><button id="u-n5">5 langkah</button><button id="u-n8">8 langkah</button>
+    </div>
+    <h3>📱 Uji tahan lama (untuk iPhone)</h3>
+    <div class="b">
+      <button class="main" id="u-soak">🔁 Ulang terus</button>
+      <button class="stop" id="u-stop">⏹ Berhenti</button>
+    </div>
+    <div class="b">
+      <button id="u-lite">📱 Mode hemat: …</button>
+      <button id="u-mic">🎤 Mic Gaby ON/OFF</button>
+    </div>
+    <div class="info" id="u-info"></div>
+  </div>
+
+<script type="module">
+// Prototipe: mesin Ruang Kerja ASLI (salinan js/office.js + papan rute Pandu) digerakkan kabar tiruan.
+// Kabar yang dipakai sama dengan yang nanti dikirim aplikasi (officebus): job start/steps/step/pass/end.
+import { officeEmit } from '../../js/officebus.js';
+
+const $ = (id) => document.getElementById(id);
+// Pendeteksi restart (seperti di aplikasi): kalau halaman dimuat ulang sendiri saat uji berjalan, beri tahu.
+const K = 'proto122.open';
+const crashes = +(localStorage.getItem('proto122.crash') || 0);
+if (sessionStorage.getItem(K)) {
+  localStorage.setItem('proto122.crash', crashes + 1);
+  $('crash').hidden = false;
+  $('crash').textContent = `⚠️ Halaman tadi restart sendiri (sudah ${crashes + 1}×). Tolong kabari Claude: berapa menit & sedang apa.`;
+}
+sessionStorage.setItem(K, '1');
+window.addEventListener('pagehide', () => sessionStorage.removeItem(K));
+
+const lite = localStorage.getItem('proto122.lite') === '1' || /iPhone|iPad|iPod/.test(navigator.userAgent);
+$('u-lite').textContent = `📱 Mode hemat: ${lite ? 'NYALA' : 'mati'}${/iPhone|iPad|iPod/.test(navigator.userAgent) ? ' (iPhone)' : ''}`;
+$('u-lite').onclick = () => {
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) return alert('Di iPhone mode hemat selalu nyala.');
+  localStorage.setItem('proto122.lite', lite ? '0' : '1'); sessionStorage.removeItem(K); location.reload();
+};
+
+let mic = true;
+const setMic = (on) => { mic = on; officeEmit('gaby', on ? 'listening' : 'sleep'); };
+const office = await import('./office.js');
+office.mountOffice({ ptt: () => setMic(!mic), openPlans: () => toast('(di aplikasi: Daftar Rencana)'), openGallery: () => toast('(di aplikasi: Galeri)'), openMemory: () => toast('(di aplikasi: Ingatan)'), openNews: () => toast('(di aplikasi: Berita Rara)') });
+office.openOffice();
+setMic(true);
+$('of-mic').onclick = () => setMic(!mic);
+$('u-mic').onclick = () => setMic(!mic);
+$('of-back').onclick = () => { location.href = '../'; };
+$('uji-btn').onclick = () => { $('uji').hidden = !$('uji').hidden; };
+function toast(t) { const e = $('of-toast'); e.textContent = t; e.classList.add('show'); setTimeout(() => e.classList.remove('show'), 1800); }
+
+// ---------- alur tiruan (waktunya mirip aslinya, dipercepat) ----------
+const STEPS = ['Riset transportasi', 'Cari penginapan', 'Kuliner & wisata', 'Susun jadwal per hari', 'Hitung biaya', 'Cek cuaca', 'Siapkan checklist', 'Rapikan rencana'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let seq = 9000, stopFlag = false, running = false;
+async function flow({ n = 4, reject = false } = {}) {
+  if (running) return toast('Tunggu alur sebelumnya selesai');
+  running = true;
+  const id = ++seq;
+  const job = (kind, o = {}) => officeEmit('job', { id, kind, ...o });
+  try {
+    job('start', { who: 'pandu', text: 'Menyusun langkah…' });
+    await sleep(2500);
+    const list = STEPS.slice(0, n);
+    job('steps', { list: [...list, 'Vera mengecek rencana'] });
+    job('step', { i: 0, text: list[0] });
+    for (let i = 0; i < n && !stopFlag; i++) {
+      if (i > 0) { job('step', { i, text: list[i] }); await sleep(2200); }
+      if (i < 3) { // 3 pencarian gabungan lewat Rara (seperti Pandu asli)
+        job('pass', { who: 'rara', text: `Mencari: ${list[i]}` }); await sleep(4500);
+        job('pass', { who: 'pandu', text: 'Mengolah hasil Rara…' }); await sleep(2000);
+      }
+    }
+    job('step', { i: n, text: 'Menyerahkan ke Vera…' });
+    job('pass', { who: 'vera' }); await sleep(5000);
+    if (reject && !stopFlag) {
+      job('pass', { who: 'pandu', text: 'Memperbaiki: check-out hotel belum ada…' }); await sleep(5000);
+      job('pass', { who: 'vera' }); await sleep(4000);
+    }
+    job('pass', { who: 'pandu' });
+    job('end', { ok: true });
+    await sleep(9000); // waktu Pandu kembali ke meja, rencana tetap terpasang di papan
+  } finally { running = false; }
+}
+$('u-full').onclick = () => flow({ n: 4 });
+$('u-reject').onclick = () => flow({ n: 4, reject: true });
+$('u-n3').onclick = () => flow({ n: 3 });
+$('u-n5').onclick = () => flow({ n: 5 });
+$('u-n8').onclick = () => flow({ n: 8 });
+
+// ---------- uji tahan lama ----------
+let rounds = 0, soakStart = 0, soaking = false;
+$('u-soak').onclick = async () => {
+  if (soaking) return;
+  soaking = true; stopFlag = false; soakStart = Date.now(); rounds = 0;
+  $('uji').hidden = true;
+  while (soaking) {
+    await flow({ n: [3, 4, 5, 8][rounds % 4], reject: rounds % 3 === 2 });
+    rounds++;
+  }
+};
+$('u-stop').onclick = () => { soaking = false; stopFlag = true; };
+
+// angka pengamatan: jumlah elemen kantor (harus TETAP, tidak naik terus) & lama uji
+const base = document.querySelectorAll('#of-scene *').length;
+let maxEl = base;
+setInterval(() => {
+  const n = document.querySelectorAll('#of-scene *').length;
+  maxEl = Math.max(maxEl, n);
+  const mins = soaking ? ((Date.now() - soakStart) / 60000).toFixed(1) : '-';
+  $('u-info').innerHTML = `Elemen kantor: <b>${n}</b> (awal ${base}, tertinggi ${maxEl})<br>Uji tahan lama: <b>${soaking ? `berjalan ${mins} menit, ${rounds} putaran` : 'tidak berjalan'}</b><br>Restart tercatat: <b>${+(localStorage.getItem('proto122.crash') || 0)}</b>`;
+  if (soaking) $('of-status').textContent = `🔁 Uji tahan lama: ${mins} menit · ${rounds} putaran`;
+}, 1000);
+</script>
+</body>
+</html>
