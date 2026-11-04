@@ -1,6 +1,6 @@
 // Service worker: simpan salinan Gaby di perangkat supaya tetap bisa dibuka walau
 // GitHub sedang down atau tidak bisa diakses.
-// Selalu coba ambil versi terbaru dulu; kalau gagal ATAU dibalas error (404/500),
+// Selalu coba ambil versi terbaru dulu (tanpa cache browser); kalau gagal ATAU dibalas error (404/500),
 // pakai salinan bagus terakhir. Halaman error tidak pernah disimpan.
 
 const CACHE = 'gaby-v1';
@@ -47,7 +47,9 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   e.respondWith((async () => {
     try {
-      const res = await fetch(e.request);
+      // cache: 'no-cache' = selalu tanya GitHub "masih sama?" (balasan 304 kecil), jadi versi baru langsung
+      // masuk tanpa menunggu cache browser ±10 menit. Kalau browser menolak pilihan ini, ambil biasa.
+      const res = await fetch(e.request, { cache: 'no-cache' }).catch(() => fetch(e.request));
       if (res.ok) {
         const copy = res.clone();
         caches.open(CACHE).then((c) => c.put(e.request, copy));

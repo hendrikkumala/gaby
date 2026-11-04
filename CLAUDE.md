@@ -64,7 +64,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   `playwright-core` + Edge terpasang (`channel: 'msedge'`) di folder sementara — Playwright penuh tidak terpasang.
 - Setelah terbit, HP/browser bisa masih memakai versi lama sampai **±10 menit** (GitHub Pages `Cache-Control: max-age=600`, dan `sw.js`
   memanggil `fetch(e.request)` biasa yang ikut memakai cache itu). Solusi pengguna: tunggu, tutup-buka Gaby / Ctrl+Shift+R; APK: Hapus cache
-  (BUKAN Hapus data). Ide perbaikan (belum disetujui): `fetch(e.request, { cache: 'no-cache' })` di `sw.js`.
+  (BUKAN Hapus data). Sejak v1.24.0 `sw.js` memakai `fetch(e.request, { cache: 'no-cache' })` (gagal → `fetch` biasa → salinan cache), jadi versi baru langsung masuk.
 - Perubahan di `android-app/**` memicu perakitan APK (versionCode = nomor run). Setelah selesai, di HP: Pengaturan → Fitur → Cek update aplikasi.
   Naikkan `version` di `android-app/package.json` kalau hanya ingin memicu perakitan.
 - Uji otomatis memakai Playwright dengan WebSocket Gemini palsu, kamera/mikrofon palsu, UA iPhone/Android, dan jembatan Capacitor tiruan (`window.Capacitor`).
@@ -173,7 +173,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 3 Nov 2026
-**v1.23.0 (Vera + duduk di kursi + Lukas) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.22.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
+**v1.24.0 (cadangan data + update langsung) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.23.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
 Run Pages `1ddf6e2` sukses & `config.js` live = 1.21.5. Uji otomatis 3 Nov 2026 (Edge + tiruan): Ruang Kerja 30/30, alur Pandu/Vera lulus,
 HP (CPU 4×) ±53 FPS. ✅ **Pemilik menguji v1.21.5 di iPhone 17 Pro dan Android (Oppo Find N5, APK): berjalan baik, tidak restart lagi.**
 
@@ -371,7 +371,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 - **Bug kecil di `js/office.js` (v1.21.x):** `SHOW_FPS = /[?&]fps<BACKSPACE>/` (karakter \x08 dari skrip patch lama) → `?fps` tidak
   pernah jalan. Diperbaiki di v1.22.0. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
 
-**v1.23 — TERBIT sebagai v1.23.0 (4 Nov 2026, pemilik "gas" setelah uji iPhone + Safari OK; commit lokal, menunggu push). `js/office.js` = `prototipe/v123/office.js` lewat sed (impor `./…`, kunci `gaby.officeLite`); CSS duduk sudah di `css/office.css`. Uji app: office22 33/33, browser 16/16, webkit hanya gagal lama (tanpa mic tiruan). Prototipe: `prototipe/v123/`** = salinan `js/office.js` v1.22.0 (impor `../../js/…`, kunci
+**v1.23 — TERBIT sebagai v1.23.0 (4 Nov 2026, pemilik "gas" setelah uji iPhone + Safari OK; live). `js/office.js` = `prototipe/v123/office.js` lewat sed (impor `./…`, kunci `gaby.officeLite`); CSS duduk sudah di `css/office.css`. Uji app: office22 33/33, browser 16/16, webkit hanya gagal lama (tanpa mic tiruan). Prototipe: `prototipe/v123/`** = salinan `js/office.js` v1.22.0 (impor `../../js/…`, kunci
 `proto123.lite`) + tambahan di bawah; panel 🧪 Uji: rencana/berita/gambar × lolos/ditolak, 🔁 uji tahan lama semua jenis. CSS duduk
 (salinan di `<style>` `prototipe/v123/index.html`, resmi di `css/office.css`).
 - **Vera — meja periksa:** kertas sesuai pemilik pekerjaan (`docKind`: pandu = daftar centang 4 baris, rara = koran, lukas = foto
@@ -398,6 +398,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.24.0 | 💾 Cadangan data: Pengaturan → Tentang kamu → Simpan cadangan / Pulihkan dari file (`memory.exportData/checkBackup/importData`; file `gaby-cadangan-YYYY-MM-DD.json` berisi nama, ingatan, harian, to-do, pengingat, rencana; TANPA API key/pengaturan/riwayat/galeri; pulihkan = GANTI semua setelah konfirmasi, data lama disimpan di `gaby.sebelumPulih`, lalu muat ulang; APK lewat `nativeShareFile`, HP browser lewat `navigator.share`, laptop lewat unduhan). `sw.js` `cache: 'no-cache'` → update langsung masuk. Uji: test-backup 17/17, offline Edge+WebKit OK |
 | 1.23.0 | Ruang Kerja: karakter benar-benar duduk di kursi (meja, pantry, sofa, bean bag); meja periksa Vera (kertas sesuai pekerjaan, alasan penolakan asli, "Putaran N"); Lukas melukis bertahap di kanvas (sketsa → warna → detail → bingkai emas + bingkai dinding), gambar asli sengaja tidak dimuat |
 | 1.22.0 | Ruang Kerja: papan rute Pandu (paku + benang mengikuti langkah asli, hijau setelah lolos Vera), pesawat kertas Pandu → Rara, Rara bekerja menghadap bola bumi, `?fps` diperbaiki |
 | 1.21.0 | 🏢 Ruang Kerja (beta): kantor 2.5D tim Gaby yang bergerak sesuai pekerjaan & ucapan asli, mic ON = standby / OFF = waktu bebas, kartu keluar dari hologram, benda bisa diketuk |
@@ -415,8 +416,8 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 | 1.14.0 | Pengingat berbunyi saat HP terkunci, `pasang_alarm` (APK #6) |
 
 ## Ide berikutnya (belum disetujui / belum dimulai)
-- `sw.js`: ambil file dengan `cache: 'no-cache'` supaya versi baru langsung masuk tanpa menunggu cache 10 menit GitHub Pages.
-- Ekspor/impor ingatan & rencana ke satu file (berguna kalau pindah alamat/hosting atau ganti HP).
+- ~~Pengaturan mode Ruang Kerja (Otomatis/Lengkap/Hemat)~~ DITOLAK pemilik 4 Nov 2026: kalau pengguna gonta-ganti, iPhone bisa restart lagi. Mode tetap otomatis saja.
+- ~~Gambar asli di kanvas Lukas~~ DITOLAK pemilik 4 Nov 2026 (risiko memori iPhone).
 - APK berdiri sendiri (offline penuh dari `www`) atau pindah hosting — hanya kalau pemilik ingin lepas dari GitHub.
 - "Hai Gaby" tanpa sentuh di Android (butuh layanan latar depan + notifikasi tetap; ditolak untuk sekarang).
 - Aplikasi iPhone asli (butuh Apple Developer $99/tahun; belum perlu).

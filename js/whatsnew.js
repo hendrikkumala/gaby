@@ -5,6 +5,13 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.24.0',
+    items: [
+      'Sekarang kamu bisa menyimpan cadangan ingatan, catatan, pengingat, dan rencana kita ke satu file, lalu memulihkannya di HP lain. Ada di Pengaturan, bagian Tentang kamu. API key nggak ikut tersimpan, jadi aman',
+      'Update Gaby sekarang langsung masuk begitu terbit, nggak perlu nunggu lama lagi',
+    ],
+  },
+  {
     version: '1.23.0',
     items: [
       'Di Ruang Kerja, kami sekarang benar-benar duduk di kursi, nggak berdiri di atasnya lagi. Di meja, kursi pantry, sofa, sampai bean bag',

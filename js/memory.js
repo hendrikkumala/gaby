@@ -502,6 +502,46 @@ export const memory = {
     return back.length;
   },
 
+  // ---------- Cadangan: ekspor / impor ke satu file ----------
+  // Ikut: nama panggilan, ingatan, catatan harian, catatan/to-do, pengingat, rencana.
+  // TIDAK ikut: API key (rahasia), pengaturan (bisa beda per HP), riwayat obrolan, galeri gambar.
+
+  exportData() {
+    const { nickname, profile, journal, reminders, todos, plans, nextPlanNo } = state;
+    return { app: 'gaby', jenis: 'cadangan', versi: VERSION, dibuat: new Date().toISOString(),
+      data: structuredClone({ nickname, profile, journal, reminders, todos, plans, nextPlanNo }) };
+  },
+
+  // Ringkasan isi file cadangan, atau null kalau bukan file cadangan Gaby.
+  checkBackup(obj) {
+    const d = obj && obj.app === 'gaby' && obj.jenis === 'cadangan' && obj.data;
+    if (!d || typeof d !== 'object') return null;
+    const n = (x) => (Array.isArray(x) ? x.length : 0);
+    return { ingatan: n(d.profile), harian: n(d.journal), catatan: n(d.todos), pengingat: n(d.reminders), rencana: n(d.plans),
+      dibuat: obj.dibuat || '', versi: obj.versi || '', nama: typeof d.nickname === 'string' ? d.nickname : '' };
+  },
+
+  // Ganti data di perangkat ini dengan isi file. Data lama disimpan sekali di 'gaby.sebelumPulih' (jaga-jaga).
+  importData(obj) {
+    if (!this.checkBackup(obj)) return false;
+    const d = obj.data;
+    const arr = (x) => (Array.isArray(x) ? x.filter((v) => v && typeof v === 'object') : []);
+    try { localStorage.setItem('gaby.sebelumPulih', localStorage.getItem(KEY) || ''); } catch { /* penyimpanan penuh: lanjut saja */ }
+    if (typeof d.nickname === 'string' && d.nickname.trim()) state.nickname = d.nickname.trim().slice(0, 40);
+    state.profile = arr(d.profile).filter((m) => m.text).slice(-300).map((m) => ({
+      id: typeof m.id === 'string' ? m.id : newId(), cat: CATEGORIES[m.cat] ? m.cat : 'lain',
+      text: String(m.text).slice(0, 300), rasa: cleanRasa(m.rasa), at: Number(m.at) || Date.now(),
+    }));
+    state.journal = arr(d.journal).filter((j) => j.text).slice(-400);
+    state.reminders = arr(d.reminders).filter((r) => r.text && r.due);
+    state.todos = arr(d.todos).filter((t) => t.text).slice(-200);
+    state.plans = arr(d.plans).filter((p) => Number(p.no) > 0);
+    state.nextPlanNo = Math.max(Number(d.nextPlanNo) || 1, 1, ...state.plans.map((p) => Number(p.no) + 1));
+    state.history = [];
+    save();
+    return true;
+  },
+
   setKeys(keys) {
     state.keys = { ...state.keys, ...keys };
     save();

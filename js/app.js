@@ -1445,6 +1445,46 @@ $('set-rename').addEventListener('click', () => {
   else if (phase === 'sleep') { pendingCue = cue; activate('rename'); }
 });
 
+// ---------- Cadangan data (ekspor / impor satu file) ----------
+$('set-backup').addEventListener('click', async () => {
+  const json = JSON.stringify(memory.exportData(), null, 1);
+  const filename = `gaby-cadangan-${new Date().toLocaleDateString('sv-SE')}.json`;
+  const blob = new Blob([json], { type: 'application/json' });
+  // APK: menu Bagikan Android (Simpan ke Drive / Files / WhatsApp ke diri sendiri).
+  if (isNativeApp) {
+    const res = await nativeShareFile(await blobToB64(blob), filename, { title: 'Cadangan Gaby' });
+    if (res === 'ok' || res === 'batal') return;
+    if (res === 'tidak_ada') { toast('Untuk menyimpan cadangan, aplikasi Android perlu di-update dulu (Pengaturan → Fitur → Cek update aplikasi).', 'warn', 8000); return; }
+  }
+  const file = new File([blob], filename, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    try { await navigator.share({ files: [file], title: 'Cadangan Gaby' }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  toast(`💾 Cadangan tersimpan: ${filename}`);
+});
+$('set-restore').addEventListener('click', () => $('set-restore-file').click());
+$('set-restore-file').addEventListener('change', async (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = ''; // supaya file yang sama bisa dipilih lagi
+  if (!f) return;
+  let obj = null;
+  try { obj = JSON.parse(await f.text()); } catch { /* bukan JSON */ }
+  const sum = memory.checkBackup(obj);
+  if (!sum) { toast('File ini bukan cadangan Gaby.', 'warn'); return; }
+  const tgl = sum.dibuat ? new Date(sum.dibuat).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '?';
+  if (!confirm(`Pulihkan cadangan tanggal ${tgl}${sum.nama ? ` (${sum.nama})` : ''}?\n\n`
+    + `${sum.ingatan} ingatan · ${sum.harian} catatan harian · ${sum.catatan} catatan/to-do · ${sum.pengingat} pengingat · ${sum.rencana} rencana\n\n`
+    + 'Data yang sekarang ada di perangkat ini akan DIGANTI dengan isi file. API key & pengaturan tidak berubah. Gaby akan dimuat ulang.')) return;
+  if (!memory.importData(obj)) { toast('Gagal memulihkan cadangan.', 'warn'); return; }
+  toast('✅ Cadangan dipulihkan. Memuat ulang…');
+  setTimeout(() => location.reload(), 1200);
+});
+
 $('set-forget').addEventListener('click', () => {
   if (!confirm('Hapus nama panggilan, semua ingatan, dan catatan harian Gaby di perangkat ini?')) return;
   memory.forgetAll();
