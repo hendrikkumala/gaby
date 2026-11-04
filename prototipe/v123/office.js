@@ -1174,6 +1174,81 @@ async function flowButuh(k) {
   releaseQuiet(['meri']);
 }
 
+// ---------- kanvas Lukas: gambar jadi bertahap (sketsa → warna → detail → bingkai) ----------
+// Semua elemen dibuat SEKALI lalu hanya ditampilkan/disembunyikan (jumlah elemen tetap, aman untuk iPhone).
+// Gambar asli TIDAK dimuat di sini (decode gambar di dalam SVG = risiko memori); ini lukisan hiasan.
+const easel = { job: null, stage: -1, tok: 0, gal: 0, shown: -2, galShown: 0 };
+const eP = {}, eFrames = [];
+const easelG = el('g', { class: 'easel', style: 'display:none' });
+const EASEL_MIN = { cover: 0, sketch: 1, sky: 2, hill: 2, sun: 3, detail: 4, glow: 5 };
+{
+  const [bx, by] = G(R.lukas.off[0] + 4.0, R.lukas.off[1] + 2.6, 0);
+  easelG.setAttribute('transform', `translate(${bx.toFixed(1)} ${(by - 84).toFixed(1)})`);
+  const mk = (k, svg) => { eP[k] = el('g', { style: 'display:none' }, svg); easelG.append(eP[k]); };
+  mk('cover', '<rect x="-32.4" y="-22.8" width="64.8" height="45.6" fill="#fffaf0"/>');
+  mk('sky', '<rect x="-32.4" y="-22.8" width="64.8" height="45.6" fill="#7dd3fc"/><rect x="-32.4" y="-22.8" width="64.8" height="14" fill="#38bdf8" opacity=".55"/>');
+  mk('sun', '<circle cx="14" cy="-8" r="8" fill="#fbbf24"/><circle cx="14" cy="-8" r="11" fill="#fde68a" opacity=".45"/>');
+  mk('hill', '<path d="M-32.4,22.8 V6 Q-18,-8 -2,4 T32.4,2 V22.8Z" fill="#22c55e"/><path d="M-32.4,22.8 V13 Q-10,4 12,13 T32.4,12 V22.8Z" fill="#15803d"/>');
+  mk('detail', '<ellipse cx="-16" cy="-14" rx="8" ry="3.4" fill="#fff"/><ellipse cx="-11" cy="-16" rx="5" ry="3" fill="#fff"/><rect x="-24" y="2" width="3" height="9" fill="#78350f"/><circle cx="-22.5" cy="0" r="6" fill="#16a34a"/>'
+    + '<circle cx="4" cy="15" r="1.8" fill="#ef4444"/><circle cx="10" cy="17" r="1.8" fill="#f9a8d4"/><circle cx="20" cy="15" r="1.8" fill="#ef4444"/><path d="M22,-17 q2,-3 4,0 q2,-3 4,0" stroke="#334155" stroke-width="1.2" fill="none"/>');
+  mk('sketch', '<path d="M-32.4,8 Q-18,-6 -2,6 T32.4,4" stroke="#57534e" stroke-width="1.4" fill="none" stroke-dasharray="3 2"/><circle cx="14" cy="-8" r="8" stroke="#57534e" stroke-width="1.4" fill="none" stroke-dasharray="3 2"/>'
+    + '<path d="M-22,2 v9 M-22.5,-1 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M-24,-14 q4,-4 10,0" stroke="#57534e" stroke-width="1.2" fill="none"/>');
+  mk('glow', '<rect x="-31.4" y="-21.8" width="62.8" height="43.6" fill="none" stroke="#facc15" stroke-width="3"/>');
+  // 3 bingkai kecil di dinding belakang untuk lukisan yang sudah jadi (terbaru menimpa yang tertua)
+  const o = R.lukas.off;
+  [3.5, 4.35, 5.2].forEach((x, i) => {
+    const pt = (a, b) => G(o[0] + x + a, o[1] + 0.06, 1.7 + b);
+    const f = el('g', { style: 'display:none' }, poly([pt(0, 0), pt(0.72, 0), pt(0.72, 0.95), pt(0, 0.95)], 'fill="#92400e"')
+      + poly([pt(0.08, 0.08), pt(0.64, 0.08), pt(0.64, 0.87), pt(0.08, 0.87)], 'fill="#7dd3fc"')
+      + poly([pt(0.08, 0.08), pt(0.64, 0.08), pt(0.64, 0.38), pt(0.08, 0.3)], `fill="${['#22c55e', '#f97316', '#a855f7'][i]}"`));
+    eFrames.push(f);
+    R.lukas.fx0.append(f);
+  });
+  R.lukas.overG.prepend(easelG);
+}
+function showEl(e, on, fade) {
+  const vis = e.style.display !== 'none';
+  if (on === vis) return;
+  e.style.display = on ? '' : 'none';
+  if (on && fade && !LITE) { e.style.opacity = '0'; e.style.transition = 'opacity .8s'; requestAnimationFrame(() => requestAnimationFrame(() => { e.style.opacity = '1'; })); }
+}
+function setStage(n, fade = true) {
+  easel.stage = n;
+  if (!running) return; // tertutup: hanya catat; digambar saat dibuka (syncAll)
+  easel.shown = n;
+  easelG.style.display = n < 0 ? 'none' : '';
+  for (const k of Object.keys(EASEL_MIN)) {
+    let on = n >= EASEL_MIN[k];
+    if (k === 'sketch' && n >= 3) on = false;
+    showEl(eP[k], on, fade);
+  }
+  eFrames.forEach((f, i) => showEl(f, i < easel.gal, false));
+}
+async function easelLoop() {
+  const tok = ++easel.tok;
+  while (tok === easel.tok && running && easel.job && easel.stage < 4) {
+    await wait(2300);
+    if (tok !== easel.tok || !running || !easel.job) return;
+    setStage(easel.stage + 1);
+  }
+}
+// Dicatat SELALU (juga saat Ruang Kerja tertutup) — hanya angka.
+function easelEvent(d) {
+  if (d.kind === 'start' && d.who === 'lukas') { Object.assign(easel, { job: d.id, tok: easel.tok + 1 }); setStage(0); return; }
+  if (d.id !== easel.job) return;
+  if (d.kind === 'step') {
+    if (/^Memperbaiki/i.test(d.text || '')) { setStage(Math.min(easel.stage, 3)); easelLoop(); if (running && A.lukas) A.lukas.say('🖌️ ' + (reasonShort(d.text)), 2200); }
+    else if (/gambar|lukis/i.test(d.text || '') && !/perintah|mengecek/i.test(d.text || '')) { setStage(Math.max(easel.stage, 1)); easelLoop(); }
+    else if (/perintah/i.test(d.text || '') && running && A.lukas) A.lukas.say('💭 mau gambar apa ya…', 1800);
+  }
+  if (d.kind === 'end') {
+    easel.job = null; easel.tok++;
+    if (d.ok) { easel.gal = Math.min(3, easel.gal + 1); setStage(5); if (running) { sparkle(CANVAS()); sparkle([CANVAS()[0] - 26, CANVAS()[1] + 10]); sparkle([CANVAS()[0] + 28, CANVAS()[1] - 12]); } }
+    else setStage(-1);
+  }
+}
+const reasonShort = (t) => String(t || '').replace(/^Memperbaiki(\s*\(ke-\d+\))?:\s*/i, '').replace(/…+$/, '').slice(0, 30);
+
 // ---------- pekerjaan tim dari papan kerja (Rara, Pandu, Lukas → Vera → Gaby) ----------
 const WORK_SPOT = { rara: () => RARA_KERJA, pandu: () => spot('pandu', 'board'), lukas: () => spot('lukas', 'paint') };
 const WORK_POSE = { lukas: 'painting', pandu: 'working' };
@@ -1367,6 +1442,8 @@ function onJob(d) {
 function syncAll() {
   onGabyState(officeState.gaby, true);
   drawRoute();
+  setStage(easel.stage, false);
+  if (easel.job && easel.stage >= 1 && easel.stage < 4) easelLoop();
   // pekerjaan yang selesai saat Ruang Kerja tertutup
   for (const [id, j] of JOBS) {
     if (officeState.jobs.has(id)) continue;
@@ -1401,7 +1478,7 @@ function routeEvent(d) {
 }
 
 officeListen((type, d) => {
-  if (type === 'job') routeEvent(d);
+  if (type === 'job') { routeEvent(d); easelEvent(d); }
   if (!running) return; // tertutup: tidak ada animasi; disamakan lagi saat dibuka (syncAll)
   if (type === 'gaby') onGabyState(d);
   else if (type === 'say') onSay(d);
@@ -1483,4 +1560,4 @@ export function closeOffice() {
 }
 
 // Untuk uji otomatis (tidak dipakai aplikasi).
-export const _test = { A, state, JOBS, R, TAKEN, route, routePins, routeLines, veraDocs, veraMarks, roundTag, get docShown() { return docShown; } };
+export const _test = { A, state, JOBS, R, TAKEN, route, routePins, routeLines, veraDocs, veraMarks, roundTag, easel, eP, eFrames, easelG, get docShown() { return docShown; } };

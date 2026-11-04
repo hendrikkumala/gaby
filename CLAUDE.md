@@ -387,6 +387,13 @@ SEMENTARA ada di `<style>` `prototipe/v123/index.html` → saat rilis pindahkan 
   depan dudukan; membelakangi kamera / bean bag: tanpa SIT_DROP). `Actor.place()` memberi kelas `.sit` (kaki `scaleY(.5)` dari
   pinggul, bayangan kaki disembunyikan) dan `.sit-back` (duduk membelakangi: kaki disembunyikan). Tanpa elemen baru.
   Uji: Edge 20/20 (Vera semua jenis + duduk), WebKit UA iPhone (lite) 6 menit/13 putaran tanpa tumbang, elemen datar ±3.500.
+- **Lukas — kanvas bertahap (pemilik 4 Nov 2026: "sekalian Lukas biar nanti sekalian" → v1.23 memuat Vera + duduk + Lukas):** `easel` (state: job,
+  stage −1…5, gal) + `easelG` (overlay di `R.lukas.overG`, `prepend` supaya karakter di depan) dengan 7 bagian dibuat SEKALI (`eP`: cover,
+  sketch, sky, hill, sun, detail, glow) + 3 bingkai kecil di dinding (`eFrames`, di `R.lukas.fx0`). `easelEvent(d)` dicatat SELALU (juga
+  saat tertutup, hanya angka); `setStage(n)` menampilkan bagian bila `n >= EASEL_MIN[k]` (fade `opacity` inline, dimatikan di LITE).
+  Alur: start → kanvas kosong (0); langkah "menggambar" → `easelLoop` naik 1 tahap/2,3 dtk sampai 4 (detail); `Memperbaiki: …` → turun
+  ke 3 + Lukas "🖌️ alasan"; end ok → 5 (bingkai emas + 3 kilau) + bingkai dinding +1 (maks 3); gagal → −1 (lukisan lama). Gambar ASLI
+  sengaja TIDAK dimuat (risiko memori iPhone); ini lukisan hiasan.
 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
