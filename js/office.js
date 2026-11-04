@@ -65,7 +65,7 @@ for (const k of ['pantry', 'game']) {
 // frontY: karakter dengan y lokal < frontY digambar DI BELAKANG perabot depan ruangan itu.
 const NAV = {
   rara: { frontY: null, obs: [[0, 4.6, 0.8, 2.8], [0.9, 1.4, 1.4, 1.4], [0.9, 2.85, 1.8, 1.85], [3.6, 1.8, 3, 3]],
-    spots: { santai: [2.0, 3.75, 0.35], visit: [6.2, 6.9, 0, { face: -1 }] } },
+    spots: { santai: [2.0, 3.75, 0.75], visit: [6.2, 6.9, 0, { face: -1 }] } },
   pandu: { frontY: 4.4, obs: [[3, 4.4, 3.6, 1.5], [1.2, 5.6, 1, 0.8], [6.8, 2.3, 0.6, 0.6]],
     spots: { board: [3.4, 1.3, 0, { view: 'back' }], pace: [6.9, 3.4, 0], pack: [2.8, 6.2, 0, { face: -1 }], visit: [7.0, 6.9, 0, { face: -1 }] } },
   lukas: { frontY: 5.6, obs: [[3.4, 2.0, 1.2, 1.2], [5.6, 5.6, 1.3, 1.3], [6.0, 0.2, 1.0, 1.8]],
@@ -74,16 +74,24 @@ const NAV = {
     spots: { jurnal: [2.4, 5.2, 0], visit: [6.9, 4.4, 0, { face: -1 }] } },
   gaby: { frontY: 4.2, obs: [[3.7, 2.3, 1.2, 1.2], [2.2, 4.2, 4.6, 1.1], [6.8, 3.0, 1.0, 2.3]] },
   vera: { frontY: 4.0, obs: [[0.6, 5.4, 0.5, 0.5], [3.6, 2.5, 1.3, 1.4], [2.4, 4.0, 4.4, 1.4], [1.4, 0, 4.8, 0.3]],
-    spots: { drop: [4.4, 6.5, 0], rack: [1.6, 5.0, 0, { face: -1 }], visit: [4.4, 6.5, 0] } },
+    spots: { drop: [7.4, 3.7, 0, { face: -1 }], rack: [1.6, 5.0, 0, { face: -1 }], visit: [4.4, 6.5, 0] } },
   pantry: { frontY: 4.5, obs: [[0, 5.4, 1.2, 1.4], [1.6, 0, 3.8, 1.1], [10.4, 0.3, 0.8, 0.8], [9.4, 0, 2.2, 0.2], [4.3, 3.7, 2.2, 1.8], [7.2, 5.7, 0.4, 0.4], [11, 6.8, 0.9, 0.9]],
-    spots: { s1: [4.35, 3.55, 0.3], s2: [6.75, 3.35, 0.3, { face: -1 }], s3: [3.95, 5.95, 0.3], s4: [7.0, 6.4, 0, { face: -1 }],
+    spots: { s1: [4.35, 3.55, 0.6], s2: [6.75, 3.35, 0.6, { face: -1 }], s3: [3.95, 5.95, 0.6], s4: [7.0, 6.4, 0, { face: -1 }],
       coffee: [2.4, 1.6, 0, { view: 'back' }], micro: [4.6, 1.7, 0, { view: 'back' }], water: [10.8, 1.9, 0, { view: 'back' }], fridge: [1.9, 6.1, 0, { face: -1 }] } },
   game: { frontY: null, obs: [[1.8, 0.05, 3.8, 1.05], [1.6, 3.6, 4.2, 1.4], [7.2, 2.0, 3.6, 2.0], [10.6, 0.3, 1.1, 1.0], [8.0, 5.9, 1.2, 1.0], [10.0, 5.1, 1.2, 1.0]],
     spots: { pongA: [6.5, 3.0, 0], pongB: [11.5, 3.0, 0, { face: -1 }], arcade: [11.15, 1.95, 0, { view: 'back' }],
-      sofa1: [2.9, 4.1, 0.35, { view: 'back' }], sofa2: [4.5, 4.1, 0.35, { view: 'back' }], bean1: [8.6, 6.4, 0.25], bean2: [10.6, 5.6, 0.25, { face: -1 }], dance: [6.6, 6.3, 0] } },
+      sofa1: [2.9, 4.1, 0.6, { view: 'back' }], sofa2: [4.5, 4.1, 0.6, { view: 'back' }], bean1: [8.6, 6.4, 0.45, { deep: true }], bean2: [10.6, 5.6, 0.45, { face: -1, deep: true }], dance: [6.6, 6.3, 0] } },
 };
-const spot = (room, k) => { const [x, y, z, opt] = NAV[room].spots[k]; const o = R[room].off; return { x: x + o[0], y: y + o[1], z, seat: z > 0, id: `${room}.${k}`, ...(opt || {}) }; };
-const seatOf = (name) => { const s = window.PROTO_SEATS.find((q) => q.name === name); return { x: s.x, y: s.y, z: s.z, seat: s.z > 0 }; };
+// DUDUK (v1.23): angka z di tempat duduk = TINGGI DUDUKAN kursi. Karakter diturunkan setinggi pinggulnya (HIP) supaya
+// pinggul tepat di dudukan, lalu kakinya dilipat lewat kelas .sit (css) — dulu karakter berdiri tegak di atas kursi.
+const HIP = 0.6; // tinggi pinggul gambar karakter dari telapak kaki (satuan kantor)
+const SEAT_TOP = { gaby: 0.75, vera: 0.9 }; // kursi di meja kerja (kursi telur Gaby, kursi merah Vera)
+// Pinggul di TEPI DEPAN dudukan (bukan tengahnya) supaya kaki menjuntai di depan kursi: turun SIT_DROP di layar.
+const SIT_DROP = 0.35;
+// Duduk membelakangi kamera (sofa menghadap TV) / bean bag (deep): pinggul di TENGAH dudukan (membelakangi: kaki tersembunyi).
+const sitZ = (top, back) => top - HIP - (back ? 0 : SIT_DROP);
+const spot = (room, k) => { const [x, y, z, opt] = NAV[room].spots[k]; const o = R[room].off; return { x: x + o[0], y: y + o[1], z: z > 0 ? sitZ(z, opt && (opt.view === 'back' || opt.deep)) : 0, seat: z > 0, id: `${room}.${k}`, ...(opt || {}) }; };
+const seatOf = (name) => { const s = window.PROTO_SEATS.find((q) => q.name === name); const top = SEAT_TOP[name]; return { x: s.x, y: s.y, z: top ? sitZ(top) : s.z, seat: !!top || s.z > 0 }; };
 
 const M = 0.36; // jarak aman dari perabot
 const OBS = [];
@@ -301,6 +309,10 @@ class Actor {
     return i === 0 ? afterShell : ITEMS[i - 1].afterG;
   }
   place() {
+    const sit = this.seated && !this.path;
+    if (sit !== this.sitting) { this.sitting = sit; this.g.classList.toggle('sit', sit); } // kaki dilipat saat duduk
+    const sb = sit && this.view === 'back';
+    if (sb !== this.sitBack) { this.sitBack = sb; this.g.classList.toggle('sit-back', sb); }
     const [a, b] = G(this.x, this.y, this.z);
     this.g.setAttribute('transform', `translate(${a.toFixed(1)} ${b.toFixed(1)})`);
     this.flip.setAttribute('transform', `scale(${this.face} 1)`);
@@ -532,38 +544,71 @@ function drawer(k, mode) {
 
 // Meja Vera: kertas, kaca pembesar, centang, stempel
 const VERA_PAPER = () => G(R.vera.off[0] + 4.6, R.vera.off[1] + 4.7, 1.45);
-function veraPaper(on) {
-  const old = R.vera.overG.querySelector('.paper');
-  if (old) old.remove();
-  if (!on) return;
-  const o = R.vera.off, z = 1.42;
-  R.vera.overG.append(el('g', { class: 'paper' }, poly([G(o[0] + 4.1, o[1] + 4.35, z), G(o[0] + 5.1, o[1] + 4.35, z), G(o[0] + 5.1, o[1] + 5.05, z), G(o[0] + 4.1, o[1] + 5.05, z)], 'fill="#fffbeb" stroke="#d6b88a"')));
+
+// ---------- v1.23: meja periksa Vera — kertasnya sesuai pekerjaan ASLI yang diperiksa ----------
+// rencana Pandu = daftar centang, berita Rara = koran, gambar Lukas = foto berbingkai.
+// Semua elemen dibuat SEKALI (hanya disembunyikan/ditampilkan) supaya memori tetap — penting untuk iPhone.
+const VZ = 1.43;
+const VD = (x, y) => G(R.vera.off[0] + x, R.vera.off[1] + y, VZ);
+const vquad = (x0, y0, x1, y1, attrs) => poly([VD(x0, y0), VD(x1, y0), VD(x1, y1), VD(x0, y1)], attrs);
+const vline = (x0, x1, y, c = '#94a3b8', w = 1.6) => { const [a, b] = VD(x0, y), [c2, d] = VD(x1, y); return `<line x1="${a.toFixed(1)}" y1="${b.toFixed(1)}" x2="${c2.toFixed(1)}" y2="${d.toFixed(1)}" stroke="${c}" stroke-width="${w}" stroke-linecap="round"/>`; };
+const DOC_MARKS = { // tempat centang tiap jenis kertas (x, y lokal di meja)
+  plan: [[5.12, 4.45], [5.12, 4.65], [5.12, 4.85], [5.12, 5.05]],
+  news: [[5.32, 4.6], [5.32, 4.8], [5.32, 5.0]],
+  image: [[3.85, 4.3], [5.35, 4.3], [5.35, 5.1]],
+};
+const DOC_THINK = {
+  plan: ['🧮 cek hitungannya…', '📅 tanggalnya bentrok?', '🏨 check-out ada?', '👎 ada pantangan?', '🗓️ tiap hari terisi?'],
+  news: ['🔗 cek sumbernya…', '📰 beritanya baru?', '🤔 angkanya cocok?'],
+  image: ['🖼️ sesuai permintaan?', '🔍 detailnya ada?', '🎨 warnanya pas?'],
+};
+const DOC_STAMP = { plan: 'RENCANA', news: 'FAKTA', image: 'GAMBAR' };
+const docKind = (j) => (j && j.owner === 'rara' ? 'news' : j && j.owner === 'lukas' ? 'image' : 'plan');
+const veraDocs = {}, veraMarks = [];
+const veraDeskG = el('g', { class: 'veradesk' });
+{
+  veraDocs.plan = el('g', { style: 'display:none' }, vquad(3.95, 4.25, 5.3, 5.2, 'fill="#fffbeb" stroke="#d6b88a"') + vquad(4.45, 4.2, 4.8, 4.3, 'fill="#78350f"')
+    + [4.45, 4.65, 4.85, 5.05].map((y, k) => vline(4.1, k % 2 ? 4.8 : 4.95, y)).join(''));
+  veraDocs.news = el('g', { style: 'display:none' }, vquad(3.95, 4.25, 5.45, 5.2, 'fill="#f5f5f4" stroke="#a8a29e"') + vline(4.05, 5.3, 4.38, '#334155', 3)
+    + vquad(4.05, 4.52, 4.55, 4.92, 'fill="#cbd5e1"') + [4.6, 4.8, 5.0].map((y) => vline(4.65, 5.2, y)).join('') + vline(4.05, 4.55, 5.08));
+  veraDocs.image = el('g', { style: 'display:none' }, vquad(3.9, 4.2, 5.35, 5.2, 'fill="#92400e" stroke="#78350f"') + vquad(4.0, 4.3, 5.25, 4.75, 'fill="#7dd3fc"')
+    + vquad(4.0, 4.75, 5.25, 5.1, 'fill="#86efac"') + (() => { const [x, y] = VD(4.95, 4.48); return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="#fbbf24"/>`; })());
+  for (const k of Object.keys(veraDocs)) veraDeskG.append(veraDocs[k]);
+  for (let i = 0; i < 4; i++) { const t = el('text', { 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 900, 'font-family': 'system-ui', stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke', style: 'display:none' }); veraMarks.push(t); veraDeskG.append(t); }
+  R.vera.overG.append(veraDeskG);
 }
-async function inspect(ok) {
-  const p = VERA_PAPER();
-  A.vera.say('🔍 Aku cek dulu…', 1300);
-  busy('vera', true);
-  A.vera.pose('working');
-  const lens = pop([p[0], p[1] - 14], '<g class="sweep"><circle r="11" fill="rgba(186,230,253,.45)" stroke="#b45309" stroke-width="3.5"/><path d="M8,8 L16,16" stroke="#78350f" stroke-width="4" stroke-linecap="round"/></g>', 1600 * 3, R.vera.overG);
-  await wait(1500);
-  lens.remove();
-  A.vera.pose('working', false);
-  const marks = [];
-  for (let i = 0; i < 3; i++) {
-    const bad = !ok && i === 2;
-    marks.push(pop([p[0] - 16 + i * 16, p[1] - 22], `<text text-anchor="middle" font-size="16" font-weight="900" fill="${bad ? '#dc2626' : '#16a34a'}">${bad ? '✗' : '✓'}</text>`, 4000, R.vera.overG));
-    await wait(350);
-  }
-  A.vera.pose('stamping');
-  await wait(300);
-  pop([p[0], p[1] - 40], `<g class="stamp"><text text-anchor="middle" font-size="34">${ok ? '✅' : '⚠️'}</text><text y="22" text-anchor="middle" font-size="15" font-weight="900" fill="${ok ? '#16a34a' : '#d97706'}" font-family="system-ui" stroke="#fff" stroke-width="3" paint-order="stroke">DOK!</text></g>`, 1500);
-  A.vera.hop();
-  await wait(700);
-  A.vera.pose('stamping', false);
-  await wait(300);
-  marks.forEach((m) => m.remove());
-  busy('vera', false);
-  return ok;
+const roundTag = el('g', { class: 'tag', style: 'display:none' });
+uiG.append(roundTag);
+let docShown = null;
+function veraDoc(kind) {
+  docShown = kind;
+  for (const k of Object.keys(veraDocs)) veraDocs[k].style.display = k === kind ? '' : 'none';
+  for (const m of veraMarks) m.style.display = 'none';
+  if (!kind) roundTag.style.display = 'none';
+}
+function veraPaper(on, j) { veraDoc(on ? docKind(j) : null); } // nama lama tetap dipakai pengatur adegan
+function mark(i, good) {
+  const pos = (DOC_MARKS[docShown] || [])[i], m = veraMarks[i];
+  if (!pos || !m) return;
+  const [x, y] = VD(...pos);
+  m.setAttribute('x', x.toFixed(1)); m.setAttribute('y', (y + 4).toFixed(1));
+  m.setAttribute('fill', good ? '#16a34a' : '#dc2626');
+  m.textContent = good ? '✓' : '✗';
+  m.style.display = '';
+}
+function showRound(n) {
+  if (n < 2) { roundTag.style.display = 'none'; return; }
+  const [x, y] = VD(4.6, 4.2);
+  roundTag.setAttribute('transform', `translate(${x.toFixed(1)} ${(y - 46).toFixed(1)})`);
+  roundTag.innerHTML = `<rect x="-38" y="-10" width="76" height="20" rx="10" fill="#7c2d12" stroke="#fdba74"/><text y="4" text-anchor="middle" font-size="11" font-weight="800" fill="#ffedd5" font-family="system-ui">Putaran ${n}</text>`;
+  roundTag.style.display = '';
+}
+// Alasan penolakan ASLI (dari kabar aplikasi), dipendekkan untuk gelembung Vera.
+function reasonOf(j) {
+  let t = String((j && j.reason) || '').replace(/^Memperbaiki(\s*\(ke-\d+\))?:\s*/i, '').replace(/…+$/, '').trim();
+  if (j) j.reason = '';
+  if (!t) t = j && j.owner === 'rara' ? 'sumbernya kurang kuat' : 'masih ada yang kurang';
+  return t.length > 34 ? `${t.slice(0, 33)}…` : t;
 }
 
 // Bekerja buru-buru: tangan bergerak cepat, bar progres, keringat, ruangan "sibuk"
@@ -1005,7 +1050,7 @@ async function micChanged(on, instant = false) {
     state.busy.add('gaby');
     cancelAct(g);
     if (!atHome(g)) {
-      if (instant) { Object.assign(g, { x: g.home.x, y: g.home.y, z: g.home.z || 0, path: null }); g.place(); }
+      if (instant) { Object.assign(g, { x: g.home.x, y: g.home.y, z: g.home.z || 0, path: null, seated: !!g.home.seat }); g.place(); }
       else { g.say('Datang! 🏃‍♀️', 900); await g.walk(g.home, { run: true }); }
     }
     if (seq !== micSeq) return;
@@ -1129,6 +1174,81 @@ async function flowButuh(k) {
   releaseQuiet(['meri']);
 }
 
+// ---------- kanvas Lukas: gambar jadi bertahap (sketsa → warna → detail → bingkai) ----------
+// Semua elemen dibuat SEKALI lalu hanya ditampilkan/disembunyikan (jumlah elemen tetap, aman untuk iPhone).
+// Gambar asli TIDAK dimuat di sini (decode gambar di dalam SVG = risiko memori); ini lukisan hiasan.
+const easel = { job: null, stage: -1, tok: 0, gal: 0, shown: -2, galShown: 0 };
+const eP = {}, eFrames = [];
+const easelG = el('g', { class: 'easel', style: 'display:none' });
+const EASEL_MIN = { cover: 0, sketch: 1, sky: 2, hill: 2, sun: 3, detail: 4, glow: 5 };
+{
+  const [bx, by] = G(R.lukas.off[0] + 4.0, R.lukas.off[1] + 2.6, 0);
+  easelG.setAttribute('transform', `translate(${bx.toFixed(1)} ${(by - 84).toFixed(1)})`);
+  const mk = (k, svg) => { eP[k] = el('g', { style: 'display:none' }, svg); easelG.append(eP[k]); };
+  mk('cover', '<rect x="-32.4" y="-22.8" width="64.8" height="45.6" fill="#fffaf0"/>');
+  mk('sky', '<rect x="-32.4" y="-22.8" width="64.8" height="45.6" fill="#7dd3fc"/><rect x="-32.4" y="-22.8" width="64.8" height="14" fill="#38bdf8" opacity=".55"/>');
+  mk('sun', '<circle cx="14" cy="-8" r="8" fill="#fbbf24"/><circle cx="14" cy="-8" r="11" fill="#fde68a" opacity=".45"/>');
+  mk('hill', '<path d="M-32.4,22.8 V6 Q-18,-8 -2,4 T32.4,2 V22.8Z" fill="#22c55e"/><path d="M-32.4,22.8 V13 Q-10,4 12,13 T32.4,12 V22.8Z" fill="#15803d"/>');
+  mk('detail', '<ellipse cx="-16" cy="-14" rx="8" ry="3.4" fill="#fff"/><ellipse cx="-11" cy="-16" rx="5" ry="3" fill="#fff"/><rect x="-24" y="2" width="3" height="9" fill="#78350f"/><circle cx="-22.5" cy="0" r="6" fill="#16a34a"/>'
+    + '<circle cx="4" cy="15" r="1.8" fill="#ef4444"/><circle cx="10" cy="17" r="1.8" fill="#f9a8d4"/><circle cx="20" cy="15" r="1.8" fill="#ef4444"/><path d="M22,-17 q2,-3 4,0 q2,-3 4,0" stroke="#334155" stroke-width="1.2" fill="none"/>');
+  mk('sketch', '<path d="M-32.4,8 Q-18,-6 -2,6 T32.4,4" stroke="#57534e" stroke-width="1.4" fill="none" stroke-dasharray="3 2"/><circle cx="14" cy="-8" r="8" stroke="#57534e" stroke-width="1.4" fill="none" stroke-dasharray="3 2"/>'
+    + '<path d="M-22,2 v9 M-22.5,-1 m-6,0 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0 M-24,-14 q4,-4 10,0" stroke="#57534e" stroke-width="1.2" fill="none"/>');
+  mk('glow', '<rect x="-31.4" y="-21.8" width="62.8" height="43.6" fill="none" stroke="#facc15" stroke-width="3"/>');
+  // 3 bingkai kecil di dinding belakang untuk lukisan yang sudah jadi (terbaru menimpa yang tertua)
+  const o = R.lukas.off;
+  [3.5, 4.35, 5.2].forEach((x, i) => {
+    const pt = (a, b) => G(o[0] + x + a, o[1] + 0.06, 1.7 + b);
+    const f = el('g', { style: 'display:none' }, poly([pt(0, 0), pt(0.72, 0), pt(0.72, 0.95), pt(0, 0.95)], 'fill="#92400e"')
+      + poly([pt(0.08, 0.08), pt(0.64, 0.08), pt(0.64, 0.87), pt(0.08, 0.87)], 'fill="#7dd3fc"')
+      + poly([pt(0.08, 0.08), pt(0.64, 0.08), pt(0.64, 0.38), pt(0.08, 0.3)], `fill="${['#22c55e', '#f97316', '#a855f7'][i]}"`));
+    eFrames.push(f);
+    R.lukas.fx0.append(f);
+  });
+  R.lukas.fx0.append(easelG); // di belakang karakter (lapisan fx0 ada di bawah slotG/overG)
+}
+function showEl(e, on, fade) {
+  const vis = e.style.display !== 'none';
+  if (on === vis) return;
+  e.style.display = on ? '' : 'none';
+  if (on && fade && !LITE) { e.style.opacity = '0'; e.style.transition = 'opacity .8s'; requestAnimationFrame(() => requestAnimationFrame(() => { e.style.opacity = '1'; })); }
+}
+function setStage(n, fade = true) {
+  easel.stage = n;
+  if (!running) return; // tertutup: hanya catat; digambar saat dibuka (syncAll)
+  easel.shown = n;
+  easelG.style.display = n < 0 ? 'none' : '';
+  for (const k of Object.keys(EASEL_MIN)) {
+    let on = n >= EASEL_MIN[k];
+    if (k === 'sketch' && n >= 3) on = false;
+    showEl(eP[k], on, fade);
+  }
+  eFrames.forEach((f, i) => showEl(f, i < easel.gal, false));
+}
+async function easelLoop() {
+  const tok = ++easel.tok;
+  while (tok === easel.tok && running && easel.job && easel.stage < 4) {
+    await wait(2300);
+    if (tok !== easel.tok || !running || !easel.job) return;
+    setStage(easel.stage + 1);
+  }
+}
+// Dicatat SELALU (juga saat Ruang Kerja tertutup) — hanya angka.
+function easelEvent(d) {
+  if (d.kind === 'start' && d.who === 'lukas') { Object.assign(easel, { job: d.id, tok: easel.tok + 1 }); setStage(0); return; }
+  if (d.id !== easel.job) return;
+  if (d.kind === 'step') {
+    if (/^Memperbaiki/i.test(d.text || '')) { setStage(Math.min(easel.stage, 3)); easelLoop(); if (running && A.lukas) A.lukas.say('🖌️ ' + (reasonShort(d.text)), 2200); }
+    else if (/gambar|lukis/i.test(d.text || '') && !/perintah|mengecek/i.test(d.text || '')) { setStage(Math.max(easel.stage, 1)); easelLoop(); }
+    else if (/perintah/i.test(d.text || '') && running && A.lukas) A.lukas.say('💭 mau gambar apa ya…', 1800);
+  }
+  if (d.kind === 'end') {
+    easel.job = null; easel.tok++;
+    if (d.ok) { easel.gal = Math.min(3, easel.gal + 1); setStage(5); if (running) { sparkle(CANVAS()); sparkle([CANVAS()[0] - 26, CANVAS()[1] + 10]); sparkle([CANVAS()[0] + 28, CANVAS()[1] - 12]); } }
+    else setStage(-1);
+  }
+}
+const reasonShort = (t) => String(t || '').replace(/^Memperbaiki(\s*\(ke-\d+\))?:\s*/i, '').replace(/…+$/, '').slice(0, 30);
+
 // ---------- pekerjaan tim dari papan kerja (Rara, Pandu, Lukas → Vera → Gaby) ----------
 const WORK_SPOT = { rara: () => RARA_KERJA, pandu: () => spot('pandu', 'board'), lukas: () => spot('lukas', 'paint') };
 const WORK_POSE = { lukas: 'painting', pandu: 'working' };
@@ -1161,30 +1281,43 @@ async function goWork(j, a, teleport = false) {
   })();
 }
 let lens = null;
-function startInspect() {
+let inspTok = 0, inspTicks = 0;
+function startInspect(j) {
   const p = VERA_PAPER();
-  veraPaper(true);
+  veraPaper(true, j);
   busy('vera', true); A.vera.pose('working');
-  A.vera.say('🔍 Aku cek dulu…', 1600);
+  const rounds = (j && j.veraRounds) || 1;
+  showRound(rounds);
+  A.vera.say(rounds > 1 ? '🔍 Aku cek lagi ya…' : '🔍 Aku cek dulu…', 1600);
   if (!lens) { lens = el('g', { transform: `translate(${p[0]} ${p[1] - 14})` }, '<g class="sweep"><circle r="11" fill="rgba(186,230,253,.45)" stroke="#b45309" stroke-width="3.5"/><path d="M8,8 L16,16" stroke="#78350f" stroke-width="4" stroke-linecap="round"/></g>'); R.vera.overG.append(lens); }
+  // Centang muncul satu per satu (baris terakhir menunggu hasil asli), lalu Vera bergumam sesuai jenis kertasnya.
+  const tok = ++inspTok, kind = docShown, n = (DOC_MARKS[kind] || []).length;
+  inspTicks = 0;
+  (async () => {
+    await wait(1400);
+    for (let k = 0; tok === inspTok; k++) {
+      if (inspTicks < n - 1) { mark(inspTicks, true); inspTicks++; await wait(1100); continue; }
+      const t = DOC_THINK[kind] || DOC_THINK.plan;
+      A.vera.say(t[k % t.length], 1800);
+      await wait(3600);
+    }
+  })();
 }
-async function stamp(ok) {
+async function stamp(ok, j) {
   const p = VERA_PAPER();
+  inspTok++; // hentikan centang & gumaman
   if (lens) { lens.remove(); lens = null; }
   A.vera.pose('working', false);
-  const marks = [];
-  for (let i = 0; i < 3; i++) {
-    const bad = !ok && i === 2;
-    marks.push(pop([p[0] - 16 + i * 16, p[1] - 22], `<text text-anchor="middle" font-size="16" font-weight="900" fill="${bad ? '#dc2626' : '#16a34a'}">${bad ? '✗' : '✓'}</text>`, 4000, R.vera.overG));
-    await wait(260);
-  }
+  const n = (DOC_MARKS[docShown] || []).length;
+  for (let i = inspTicks; i < n; i++) { mark(i, ok || i < n - 1); await wait(200); }
   A.vera.pose('stamping');
   await wait(250);
-  pop([p[0], p[1] - 40], `<g class="stamp"><text text-anchor="middle" font-size="34">${ok ? '✅' : '⚠️'}</text><text y="22" text-anchor="middle" font-size="15" font-weight="900" fill="${ok ? '#16a34a' : '#d97706'}" font-family="system-ui" stroke="#fff" stroke-width="3" paint-order="stroke">DOK!</text></g>`, 1500);
+  const word = ok ? `${DOC_STAMP[docShown] || ''} LOLOS`.trim() : 'PERBAIKI';
+  pop([p[0], p[1] - 40], `<g class="stamp"><text text-anchor="middle" font-size="34">${ok ? '✅' : '⚠️'}</text><text y="22" text-anchor="middle" font-size="13" font-weight="900" fill="${ok ? '#16a34a' : '#d97706'}" font-family="system-ui" stroke="#fff" stroke-width="3" paint-order="stroke">${word}</text></g>`, 1500);
   A.vera.hop();
+  if (ok && j && j.veraRounds > 1) A.vera.say('✅ Sekarang sudah beres!', 1500);
   await wait(600);
   A.vera.pose('stamping', false);
-  marks.forEach((m) => m.remove());
   busy('vera', false);
 }
 function jobActors(j) { return [...new Set([...j.parts, j.who, j.holder].filter((k) => k && A[k] && k !== 'gaby'))]; }
@@ -1227,13 +1360,14 @@ async function jobStep(j, d, teleport = false) {
       if (!teleport) await fly(fa.handPt(), VERA_PAPER(), 'folder', 400);
       if (j.ended) return;
       fa.say('⏳', 2000);
-      startInspect();
+      startInspect(j);
       return;
     }
     if (from === 'vera') {
       // Vera menolak: map kembali ke yang memperbaiki
-      await stamp(false);
-      A.vera.say('⚠️ Perlu diperbaiki!', 1400);
+      await stamp(false, j);
+      A.vera.say(`⚠️ ${reasonOf(j)}`, 2600); // alasan ASLI dari Vera
+      await wait(700);
       veraPaper(false);
       await fly(VERA_PAPER(), ta.headPt(), 'folder', 450);
       ta.say('Siap, aku perbaiki! 💦', 1000);
@@ -1259,7 +1393,7 @@ async function jobStep(j, d, teleport = false) {
     for (const k of jobActors(j)) stopWork(A[k]);
     const atVera = j.who === 'vera' || j.holder;
     if (d.ok) {
-      if (atVera && j.holder) { await stamp(true); veraPaper(false); await fly(VERA_PAPER(), GABY_SCREEN(), 'plane', 1100); }
+      if (atVera && j.holder) { await stamp(true, j); veraPaper(false); await fly(VERA_PAPER(), GABY_SCREEN(), 'plane', 1100); }
       else { const a = A[j.who] || A[j.owner]; if (a) await fly(a.handPt(), GABY_SCREEN(), 'plane', 1100); }
       gabyTyping();
     } else {
@@ -1288,6 +1422,9 @@ function onJob(d) {
   }
   if (!j) return;
   if (d.kind === 'progress') { j.progress = d.frac; return; }
+  // Alasan Vera menolak (dikirim aplikasi sebagai teks "Memperbaiki: …" / "Vera minta cek ulang…") dicatat untuk gelembung Vera.
+  if ((d.kind === 'pass' || d.kind === 'step') && /^(Memperbaiki|Vera minta)/i.test(d.text || '')) j.reason = /^Vera minta/i.test(d.text) ? '' : d.text;
+  if (d.kind === 'pass' && d.who === 'vera') j.veraRounds = (j.veraRounds || 0) + 1;
   if (d.kind === 'steps' || d.kind === 'step') return; // ditangani routeEvent (papan Pandu)
   if (d.kind === 'end') j.ended = true;
   // Vera mengoper ke teman: tunggu sebentar — kalau pekerjaan langsung selesai, artinya DISETUJUI, bukan ditolak.
@@ -1305,6 +1442,8 @@ function onJob(d) {
 function syncAll() {
   onGabyState(officeState.gaby, true);
   drawRoute();
+  setStage(easel.stage, false);
+  if (easel.job && easel.stage >= 1 && easel.stage < 4) easelLoop();
   // pekerjaan yang selesai saat Ruang Kerja tertutup
   for (const [id, j] of JOBS) {
     if (officeState.jobs.has(id)) continue;
@@ -1339,7 +1478,7 @@ function routeEvent(d) {
 }
 
 officeListen((type, d) => {
-  if (type === 'job') routeEvent(d);
+  if (type === 'job') { routeEvent(d); easelEvent(d); }
   if (!running) return; // tertutup: tidak ada animasi; disamakan lagi saat dibuka (syncAll)
   if (type === 'gaby') onGabyState(d);
   else if (type === 'say') onSay(d);
@@ -1421,4 +1560,4 @@ export function closeOffice() {
 }
 
 // Untuk uji otomatis (tidak dipakai aplikasi).
-export const _test = { A, state, JOBS, R, TAKEN, route, routePins, routeLines };
+export const _test = { A, state, JOBS, R, TAKEN, route, routePins, routeLines, veraDocs, veraMarks, roundTag, easel, eP, eFrames, easelG, get docShown() { return docShown; } };

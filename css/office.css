@@ -136,3 +136,8 @@ body.office-open #teamboard { display: none; } /* di Ruang Kerja, kerja tim terl
 @keyframes of-jit-lite { from { transform: translateX(-1px); } to { transform: translateX(1px); } }
 #office.lite .actor.sleeping .bob { animation: of-snooze 2.4s infinite ease-in-out; }
 #office.lite .actor.ngulet .bob { animation: of-nguletBody .9s 2 alternate ease-in-out; }
+
+/* ---- v1.23 DUDUK: pinggul di dudukan, kaki dilipat (kaki disembunyikan bila duduk membelakangi kamera) ---- */
+#office .actor.sit .leg { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(.5); }
+#office .actor.sit svg > ellipse[cy="246"] { opacity: 0; }
+#office .actor.sit-back .leg { display: none; }

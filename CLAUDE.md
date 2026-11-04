@@ -173,7 +173,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 3 Nov 2026
-**v1.22.0 (papan rute Pandu) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.21.5 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
+**v1.23.0 (Vera + duduk di kursi + Lukas) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.22.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
 Run Pages `1ddf6e2` sukses & `config.js` live = 1.21.5. Uji otomatis 3 Nov 2026 (Edge + tiruan): Ruang Kerja 30/30, alur Pandu/Vera lulus,
 HP (CPU 4×) ±53 FPS. ✅ **Pemilik menguji v1.21.5 di iPhone 17 Pro dan Android (Oppo Find N5, APK): berjalan baik, tidak restart lagi.**
 
@@ -353,7 +353,7 @@ SEKALI & dipakai ulang (jumlah tetap), mode hemat (`LITE`) lebih sederhana, uji 
 (impor `../../js/…`) + tambahan; `index.html` = kantor + panel 🧪 Uji (alur lengkap, alur + Vera menolak, 3/5/8 langkah, 🔁 uji tahan
 lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). Mode hemat prototipe memakai kunci `proto122.lite`
 (bukan `gaby.officeLite`, supaya aplikasi asli di alamat yang sama tidak ikut berubah).
-- **Pandu — TERBIT DI APLIKASI sebagai v1.22.0 (commit lokal 4 Nov 2026, menunggu push pemilik):** papan rute = peta bersih + maks 8 paku bernomor + 7 benang (`routeG`, dibuat sekali di `R.pandu.fx0`).
+- **Pandu — TERBIT DI APLIKASI sebagai v1.22.0 (live):** papan rute = peta bersih + maks 8 paku bernomor + 7 benang (`routeG`, dibuat sekali di `R.pandu.fx0`).
   Kabar BARU `job` `steps` {list} & `step` {i, text} (Vera tidak jadi paku: `/^Vera\b/`). Pandu lari ke paku langkah ke-i, menancapkan
   (pose `reaching`), benang ditarik (`pullString`), gelembung "📍 <langkah>"; minta Rara = pesawat kertas; selesai → paku hijau satu per
   satu + 🏁, rute tetap di papan sampai rencana berikutnya. `route` dicatat walau Ruang Kerja tertutup (`routeEvent`), digambar di `syncAll`.
@@ -371,9 +371,9 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 - **Bug kecil di `js/office.js` (v1.21.x):** `SHOW_FPS = /[?&]fps<BACKSPACE>/` (karakter \x08 dari skrip patch lama) → `?fps` tidak
   pernah jalan. Diperbaiki di v1.22.0. Awas saat menulis `\b` lewat skrip Python (pakai r'…').
 
-**v1.23 — prototipe `prototipe/v123/` (4 Nov 2026, pemilik: "gas vera")** = salinan `js/office.js` v1.22.0 (impor `../../js/…`, kunci
+**v1.23 — TERBIT sebagai v1.23.0 (4 Nov 2026, pemilik "gas" setelah uji iPhone + Safari OK; commit lokal, menunggu push). `js/office.js` = `prototipe/v123/office.js` lewat sed (impor `./…`, kunci `gaby.officeLite`); CSS duduk sudah di `css/office.css`. Uji app: office22 33/33, browser 16/16, webkit hanya gagal lama (tanpa mic tiruan). Prototipe: `prototipe/v123/`** = salinan `js/office.js` v1.22.0 (impor `../../js/…`, kunci
 `proto123.lite`) + tambahan di bawah; panel 🧪 Uji: rencana/berita/gambar × lolos/ditolak, 🔁 uji tahan lama semua jenis. CSS duduk
-SEMENTARA ada di `<style>` `prototipe/v123/index.html` → saat rilis pindahkan ke `css/office.css`.
+(salinan di `<style>` `prototipe/v123/index.html`, resmi di `css/office.css`).
 - **Vera — meja periksa:** kertas sesuai pemilik pekerjaan (`docKind`: pandu = daftar centang 4 baris, rara = koran, lukas = foto
   berbingkai), elemen dibuat SEKALI (`veraDocs`, 4 `veraMarks`, `roundTag`). `startInspect(j)`: centang muncul satu per satu (baris
   terakhir menunggu hasil asli), lalu Vera bergumam (`DOC_THINK`). `stamp(ok, j)`: ✓ semua / ✗ di baris terakhir + stempel
@@ -398,6 +398,7 @@ SEMENTARA ada di `<style>` `prototipe/v123/index.html` → saat rilis pindahkan 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.23.0 | Ruang Kerja: karakter benar-benar duduk di kursi (meja, pantry, sofa, bean bag); meja periksa Vera (kertas sesuai pekerjaan, alasan penolakan asli, "Putaran N"); Lukas melukis bertahap di kanvas (sketsa → warna → detail → bingkai emas + bingkai dinding), gambar asli sengaja tidak dimuat |
 | 1.22.0 | Ruang Kerja: papan rute Pandu (paku + benang mengikuti langkah asli, hijau setelah lolos Vera), pesawat kertas Pandu → Rara, Rara bekerja menghadap bola bumi, `?fps` diperbaiki |
 | 1.21.0 | 🏢 Ruang Kerja (beta): kantor 2.5D tim Gaby yang bergerak sesuai pekerjaan & ucapan asli, mic ON = standby / OFF = waktu bebas, kartu keluar dari hologram, benda bisa diketuk |
 | 1.20.0 | Pandu memperbaiki sampai 2× (OpenRouter) setelah ditolak Vera; masih kurang → Gaby menawarkan "lengkapi" (rencana turunan membawa catatan Vera); Vera mewajibkan jadwal tiap hari sampai hari terakhir + check-out + pulang; catatan Vera serius tampil di depan Kartu Rencana |

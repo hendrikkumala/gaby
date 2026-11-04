@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.23.0',
+    items: [
+      'Di Ruang Kerja, kami sekarang benar-benar duduk di kursi, nggak berdiri di atasnya lagi. Di meja, kursi pantry, sofa, sampai bean bag',
+      'Vera memeriksa kertas sesuai jenis kerjaannya: daftar centang untuk rencana Pandu, koran untuk berita Rara, foto berbingkai untuk gambar Lukas. Kalau ditolak, dia menyebut alasannya, dan kalau cek ulang muncul "Putaran 2"',
+      'Lukas melukis di kanvas sampai jadi pelan-pelan: sketsa, warna, detail, lalu dibingkai emas dan dipajang kecil di dinding',
+    ],
+  },
+  {
     version: '1.22.0',
     items: [
       'Di Ruang Kerja, Pandu sekarang menancapkan paku di papan petanya untuk tiap langkah rencanamu, lalu menarik benang merah sampai rutenya jadi. Kalau rencananya lolos Vera, semuanya jadi hijau',
