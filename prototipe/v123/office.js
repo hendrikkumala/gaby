@@ -1204,7 +1204,7 @@ const EASEL_MIN = { cover: 0, sketch: 1, sky: 2, hill: 2, sun: 3, detail: 4, glo
     eFrames.push(f);
     R.lukas.fx0.append(f);
   });
-  R.lukas.overG.prepend(easelG);
+  R.lukas.fx0.append(easelG); // di belakang karakter (lapisan fx0 ada di bawah slotG/overG)
 }
 function showEl(e, on, fade) {
   const vis = e.style.display !== 'none';
