@@ -186,6 +186,15 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Pandu wajib Groq: minta isi kunci + tawarkan garis besar sederhana buatan Gaby (tidak tersimpan, tidak bernomor).
 - Papan kerja bisa ditutup (✕ / `tutup_kartu` jenis `papan` / "tutup semua"); teman tetap bekerja, papan muncul lagi saat ada pekerjaan
   baru. Pekerjaan yang macet > 6 menit dihapus dari papan.
+- **v1.25.2 (keluhan pemilik 10 Nov 2026: "kata Gaby Pandu lagi kerja, tapi tidak ada meterannya"):** penyebab = HP ditinggal ke aplikasi
+  lain saat Pandu bekerja lama → halaman dijeda → saat kembali pengecek macet (`STUCK_MS`) menghapus pekerjaan dari papan, padahal
+  `planRunning` masih jalan, jadi `buat_rencana` membalas "sibuk" tanpa meteran. Perbaikan (`teamboard.js`): waktu di latar belakang tidak
+  dihitung (`visibilitychange` + pengecek yang terhenti > 60 dtk menyegarkan `active`); pekerjaan yang dianggap macet (`stuck`) **muncul lagi**
+  begitu ada kabar baru (`revive`); `job.show()` / `job.running()` / `job.info()`. `planRunning.job` disimpan; `panduBusy()` menampilkan lagi
+  meteran + memberi Gaby keadaan asli (menit, sedang apa). Alat suara baru **`cek_pandu`** ("Pandu udah sampai mana?", `panduState`);
+  persona: Gaby hanya boleh bilang Pandu bekerja kalau alat bilang begitu. Cuaca/jarak di dalam Pandu dibatasi 30 dtk (`within`;
+  izin lokasi yang tidak dijawab dulu bisa menggantung). Uji: jam palsu Playwright (revive 6/6, HP ditinggal 10 menit → papan tetap),
+  regresi Node + browser 11/11 + PDF 15/15.
 - Uji: mikrofon tiruan Chromium berbunyi "bip" sehingga `vad.active` sering true; pakai `--use-file-for-fake-audio-capture=<wav hening>`.
 - OpenRouter hanya untuk OTAK Pandu (v1.19), bukan untuk browsing: pencarian web OpenRouter berbayar, jadi Rara tetap di Groq/Gemini.
   Model gratis OpenRouter: ±20 permintaan/menit, 50/hari (1.000/hari kalau akun pernah isi saldo ≥ $10); permintaan gagal ikut dihitung;
@@ -439,6 +448,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.25.2 | Meteran Pandu tidak hilang saat bekerja lama / HP ditinggal (muncul lagi saat ada kabar), Gaby memberi keadaan asli Pandu + alat `cek_pandu`; cuaca/jarak di Pandu maks 30 dtk |
 | 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |
 | 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 150 & kuliner 30 — cukup 12–30 hari, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |
 | 1.24.0 | 💾 Cadangan data: Pengaturan → Tentang kamu → Simpan cadangan / Pulihkan dari file (`memory.exportData/checkBackup/importData`; file `gaby-cadangan-YYYY-MM-DD.json` berisi nama, ingatan, harian, to-do, pengingat, rencana; TANPA API key/pengaturan/riwayat/galeri; pulihkan = GANTI semua setelah konfirmasi, data lama disimpan di `gaby.sebelumPulih`, lalu muat ulang; APK lewat `nativeShareFile`, HP browser lewat `navigator.share`, laptop lewat unduhan). `sw.js` `cache: 'no-cache'` → update langsung masuk. Uji: test-backup 17/17, offline Edge+WebKit OK |
