@@ -36,7 +36,8 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 | `js/research.js` | **Rara**, agen riset internet `cari_info`: bertingkat Groq GPT-OSS 120B + browser_search → Gemini 3.x → 2.5 (+ Google Search), catat jatah habis & alasan, mode pencarian cepat |
 | `js/pandu.js` | **Pandu**, perencana: otak OpenRouter (Nemotron) → Groq (GPT-OSS 120B) dengan alat (langkah, Rara, cuaca, jarak, laci, jadwal, simpan_rencana), `normalizePlan`, `pickOne`, `panduStatus` |
 | `js/vera.js` | **Vera**, pemeriksa: `checkFacts` (Rara), `checkImage` (Lukas, model penglihatan), `checkPlan` (Pandu: cek pasti + Qwen3) |
-| `js/planexport.js` | Isi rencana per bagian (`planSections`) — satu sumber untuk Kartu Rencana, gambar PNG (`renderImage`, canvas) & teks (`planText`) |
+| `js/planexport.js` | Isi rencana per bagian (`planSections`) — satu sumber untuk Kartu Rencana, PDF, teks (`planText`) & bacaan Vera |
+| `js/planpdf.js` | Kartu Rencana / Perbandingan → **PDF** (v1.25.1, `planPdf`/`comparePdf`): dibuat sendiri tanpa pustaka, A4 putih berhalaman, Helvetica WinAnsi (`toWin`: emoji & aksara non-Latin dibuang), jadwal per hari + tanggal, centang hijau = pilihan dipakai, tautan sumber bisa diketuk |
 | `js/teamboard.js` | Papan kerja tim di bawah status (siapa bekerja, bar, langkah; ketuk untuk detail) |
 | `js/openrouter.js` | Otak Pandu lewat OpenRouter (jatah per permintaan): pilih model gratis + tools (Nemotron Ultra 550B → Super 120B → …), hitung pemakaian harian, istirahat saat jatah/izin bermasalah |
 | `js/groq.js` | Satu kunci Groq untuk Rara (GPT-OSS + `browser_search`), Lukas (Qwen3 32B → …), Vera (Qwen3 / Llama 4 penglihatan) & Pandu cadangan; penjaga token per menit (`waitNeeded`), pilih model pengganti dari daftar model Groq |
@@ -170,7 +171,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Rencana v1.19: `jenis` (perjalanan/proyek/acara/belajar/kesehatan/belanja/lainnya) + bagian `transportasi` (nama maskapai/kereta,
   "cek ulang saat pesan"), `kuliner` (nama resto), `tujuan`, `fitur` (wajib/nanti), `alat`, `risiko`. Vera menolak perjalanan tanpa
   transportasi/kuliner bernama dan proyek tanpa tujuan/fitur. Pandu merencanakan proyek (misal bikin aplikasi), BUKAN membuatnya.
-  Simpan ke HP: tombol 💾 / 📤 di Kartu Rencana & Perbandingan, alat `simpan_rencana_hp` (gambar/teks). Gambar selalu masuk Galeri Gaby.
+  Simpan ke HP: tombol 📄 Simpan PDF / 📤 Kirim teks di Kartu Rencana & Perbandingan, alat `simpan_rencana_hp` (bentuk `pdf`/`teks`).
+  **v1.25.1: gambar PNG panjang (buram di galeri/WA) DIGANTI PDF** (keputusan pemilik 10 Nov 2026: ganti total, kertas putih; rencana
+  tidak lagi masuk Galeri Gaby; `renderImage` dihapus). Teks > 3.000 huruf → catatan untuk Gaby: sarankan PDF kalau WhatsApp memotong.
   APK: plugin `@capacitor/share` + `@capacitor/filesystem` (tulis ke CACHE → menu Bagikan Android; `FileProvider` sudah ada);
   APK lama tanpa plugin → saran update. Browser: menu Bagikan/unduhan butuh ketukan → dari suara tampil tombol "Ketuk untuk simpan ke HP".
   Tombol Simpan/Bagikan di Galeri juga memakai menu Bagikan Android di APK.
@@ -200,7 +203,12 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini — per 3 Nov 2026
+## Status saat ini — per 10 Nov 2026
+**v1.25.0 (Pandu menyelesaikan rencana panjang, Rara/Vera sabar, titik simpan) + v1.25.1 (PDF) dikerjakan di sesi cloud 10 Nov 2026,
+di-push ke cabang `claude/inspiring-hawking-ioxiae`; BELUM di `main` (belum terbit) sampai pemilik setuju digabung.** Belum dicoba pemilik.
+Yang terbit: v1.24.0 (cadangan `backup-v1.24.0`).
+
+## Status sebelumnya — per 3 Nov 2026
 **v1.24.0 (cadangan data + update langsung) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.23.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
 Run Pages `1ddf6e2` sukses & `config.js` live = 1.21.5. Uji otomatis 3 Nov 2026 (Edge + tiruan): Ruang Kerja 30/30, alur Pandu/Vera lulus,
 HP (CPU 4×) ±53 FPS. ✅ **Pemilik menguji v1.21.5 di iPhone 17 Pro dan Android (Oppo Find N5, APK): berjalan baik, tidak restart lagi.**
@@ -426,6 +434,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |
 | 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 80, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |
 | 1.24.0 | 💾 Cadangan data: Pengaturan → Tentang kamu → Simpan cadangan / Pulihkan dari file (`memory.exportData/checkBackup/importData`; file `gaby-cadangan-YYYY-MM-DD.json` berisi nama, ingatan, harian, to-do, pengingat, rencana; TANPA API key/pengaturan/riwayat/galeri; pulihkan = GANTI semua setelah konfirmasi, data lama disimpan di `gaby.sebelumPulih`, lalu muat ulang; APK lewat `nativeShareFile`, HP browser lewat `navigator.share`, laptop lewat unduhan). `sw.js` `cache: 'no-cache'` → update langsung masuk. Uji: test-backup 17/17, offline Edge+WebKit OK |
 | 1.23.0 | Ruang Kerja: karakter benar-benar duduk di kursi (meja, pantry, sofa, bean bag); meja periksa Vera (kertas sesuai pekerjaan, alasan penolakan asli, "Putaran N"); Lukas melukis bertahap di kanvas (sketsa → warna → detail → bingkai emas + bingkai dinding), gambar asli sengaja tidak dimuat |

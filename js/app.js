@@ -31,7 +31,8 @@ import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
 import { checkImage, checkPlan } from './vera.js';
 import { runPandu, panduStatus, panduPending } from './pandu.js';
 import { orStatus, resetOpenRouter } from './openrouter.js';
-import { planSections, planHeader, planText, compareSections, compareText, renderImage, JENIS } from './planexport.js';
+import { planSections, planHeader, planText, compareSections, compareText, JENIS } from './planexport.js';
+import { planPdf, comparePdf } from './planpdf.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
 
 const $ = (id) => document.getElementById(id);
@@ -2299,7 +2300,7 @@ function showPlanCard(no) {
     <div class="plan-actions">
       <button class="btn" data-act="detail">📋 Lihat detail</button>
       ${canTodo ? `<button class="btn primary" data-act="todo">📝 Masukkan ke catatan & pengingat</button>` : ''}
-      <button class="btn" data-act="save">💾 Simpan ke HP</button>
+      <button class="btn" data-act="save">📄 Simpan PDF</button>
       <button class="btn" data-act="text">📤 Kirim teks</button>
     </div>`;
   showPlanCardShell('rencana', `🗺️ Kartu Rencana #${p.no}`, html);
@@ -2309,9 +2310,9 @@ function showPlanCard(no) {
 }
 
 // ---------- Simpan kartu ke HP ----------
-// Gambar rapi dari kartu → Galeri Gaby + HP (APK: menu Bagikan Android; iPhone/browser: menu Bagikan
-// atau unduhan). Teks → Bagikan / salin. Menu Bagikan di browser butuh ketukan, jadi dari perintah
-// suara Gaby menampilkan satu tombol untuk diketuk.
+// v1.25.1: kartu → PDF (A4, tulisan asli, tajam & bisa dicari; dulu satu gambar panjang yang buram di
+// galeri/WhatsApp). APK: menu Bagikan Android; iPhone/browser: menu Bagikan atau unduhan. Teks → Bagikan /
+// salin. Menu Bagikan di browser butuh ketukan, jadi dari perintah suara Gaby menampilkan satu tombol.
 
 function cardTarget() {
   const kind = $('plancard').dataset.kind;
@@ -2326,9 +2327,13 @@ function cardTarget() {
   return null;
 }
 
-async function cardImage(t) {
-  if (t.kind === 'rencana') return renderImage(planHeader(t.plans[0]), planSections(t.plans[0]).filter((s) => s.key !== 'vera'));
-  return renderImage({ title: t.label, subtitle: 'Gaby · Pandu', badge: '', intro: '' }, compareSections(t.plans));
+function cardPdf(t) {
+  try {
+    return t.kind === 'rencana' ? planPdf(t.plans[0]) : comparePdf(t.plans, t.label);
+  } catch (e) {
+    console.warn('[Gaby] PDF gagal:', e);
+    return null;
+  }
 }
 
 const blobToB64 = (blob) => new Promise((ok) => {
@@ -2341,23 +2346,24 @@ const blobToB64 = (blob) => new Promise((ok) => {
 // fromTap = dipanggil dari ketukan pengguna (boleh membuka menu Bagikan browser).
 async function saveCardToPhone(t, { fromTap = false } = {}) {
   if (!t) return { error: 'Tidak ada Kartu Rencana / Perbandingan yang terbuka.' };
-  const blob = await cardImage(t);
-  if (!blob) return { error: 'Gagal membuat gambar.' };
-  const filename = `gaby-${t.name}.png`;
-  try { await gallery.add(blob, t.label); } catch {}
-  // APK: menu Bagikan Android (Simpan ke Galeri / Drive / WhatsApp).
+  const pdf = cardPdf(t);
+  if (!pdf) return { error: 'Gagal membuat PDF.' };
+  const { blob, pages } = pdf;
+  const filename = `gaby-${t.name}.pdf`;
+  const info = { halaman: pages, berkas: filename };
+  // APK: menu Bagikan Android (Simpan ke Files / Drive / WhatsApp sebagai dokumen).
   if (isNativeApp) {
     const res = await nativeShareFile(await blobToB64(blob), filename, { title: t.label });
-    if (res === 'ok' || res === 'batal') return { ok: true, cara: 'menu Bagikan HP', galeri_gaby: true };
+    if (res === 'ok' || res === 'batal') return { ok: true, cara: 'menu Bagikan HP', ...info };
     if (res === 'tidak_ada') {
       maybeCheckApkUpdate({ force: true });
-      return { ok: true, galeri_gaby: true, catatan: 'Gambar sudah tersimpan di Galeri Gaby. Untuk menyimpan langsung ke HP, aplikasi Android perlu di-update dulu (kartu update akan muncul / Pengaturan → Fitur → Cek update aplikasi).' };
+      return { error: 'Untuk menyimpan PDF, aplikasi Android perlu di-update dulu (kartu update akan muncul / Pengaturan → Fitur → Cek update aplikasi).' };
     }
   }
-  const file = new File([blob], filename, { type: 'image/png' });
+  const file = new File([blob], filename, { type: 'application/pdf' });
   if (fromTap && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: t.label }); return { ok: true, cara: 'menu Bagikan', galeri_gaby: true }; } catch (e) {
-      if (e && e.name === 'AbortError') return { ok: true, cara: 'dibatalkan', galeri_gaby: true };
+    try { await navigator.share({ files: [file], title: t.label }); return { ok: true, cara: 'menu Bagikan', ...info }; } catch (e) {
+      if (e && e.name === 'AbortError') return { ok: true, cara: 'dibatalkan', ...info };
     }
   }
   if (fromTap) {
@@ -2368,22 +2374,22 @@ async function saveCardToPhone(t, { fromTap = false } = {}) {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
-    return { ok: true, cara: 'unduhan', galeri_gaby: true };
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    return { ok: true, cara: 'unduhan', ...info };
   }
   // Dari perintah suara di browser: menu Bagikan butuh ketukan → tampilkan tombol.
   document.querySelectorAll('.toast.big').forEach((x) => x.remove());
   const el = toast('', 'info big', 30000);
   const b = document.createElement('button');
   b.className = 'big-btn';
-  b.textContent = '💾 Ketuk untuk simpan ke HP';
+  b.textContent = '📄 Ketuk untuk simpan PDF';
   b.onclick = () => { el.remove(); saveCardToPhone(t, { fromTap: true }); };
   const x = document.createElement('button');
   x.className = 'icon-btn';
   x.textContent = '✕';
   x.onclick = () => el.remove();
   el.append(b, x);
-  return { ok: true, galeri_gaby: true, catatan: 'Gambar sudah masuk Galeri Gaby. Minta pengguna mengetuk tombol "Simpan ke HP" di layar sekali.' };
+  return { ok: true, perlu_ketuk: true, ...info, catatan: 'PDF siap. Minta pengguna mengetuk tombol "Simpan PDF" di layar sekali.' };
 }
 
 async function sendCardText(t, { fromTap = false } = {}) {
@@ -2414,7 +2420,12 @@ async function savePlanTool({ nomor, bentuk }) {
     t = cardTarget();
   }
   if (!t) return { error: 'Sebutkan nomor rencananya, atau buka kartunya dulu.' };
-  return bentuk === 'teks' ? sendCardText(t) : saveCardToPhone(t);
+  if (bentuk !== 'teks') return saveCardToPhone(t);
+  const r = await sendCardText(t);
+  // Teks panjang: WhatsApp kadang memotongnya → sarankan PDF (terkirim utuh sebagai dokumen).
+  const len = (t.kind === 'rencana' ? planText(t.plans[0]) : compareText(t.plans)).length;
+  if (r.ok && len > 3000) r.catatan = 'Teksnya panjang. Kalau dikirim ke WhatsApp dan terpotong, sarankan SATU kali kirim sebagai PDF saja (simpan_rencana_hp bentuk pdf), PDF masuk utuh sebagai dokumen.';
+  return r;
 }
 
 function showPlanList() {
@@ -2443,7 +2454,7 @@ function showCompareCard(plans) {
       ${row('✅ Cek Vera', (s) => esc(s.cek_vera))}
     </tbody></table>`;
   showPlanCardShell('perbandingan', `📊 Kartu Perbandingan ${plans.map((p) => `#${p.no}`).join(' vs ')}`, `${html}
-    <div class="plan-actions"><button class="btn" data-act="save">💾 Simpan ke HP</button><button class="btn" data-act="text">📤 Kirim teks</button></div>`);
+    <div class="plan-actions"><button class="btn" data-act="save">📄 Simpan PDF</button><button class="btn" data-act="text">📤 Kirim teks</button></div>`);
   $('plan-body').dataset.cmp = plans.map((p) => p.no).join(',');
 }
 
@@ -2467,7 +2478,7 @@ $('plan-body').addEventListener('click', (e) => {
     saveCardToPhone(cardTarget(), { fromTap: true }).then((r) => {
       act.disabled = false;
       if (r.error) toast(r.error, 'warn');
-      else toast(r.catatan || `💾 Tersimpan di Galeri Gaby${r.cara && r.cara !== 'dibatalkan' ? ` · ${r.cara}` : ''}`, 'info', 6000);
+      else if (r.cara !== 'dibatalkan') toast(`📄 PDF ${r.halaman} halaman siap${r.cara ? ` · ${r.cara}` : ''}`, 'info', 6000);
     });
   } else if (act.dataset.act === 'text') {
     sendCardText(cardTarget(), { fromTap: true }).then((r) => { if (r.error) toast(r.error, 'warn'); });

@@ -282,8 +282,8 @@ export const TOOL_DEFS = [
   },
   {
     name: 'simpan_rencana_hp',
-    description: 'Simpan Kartu Rencana (atau Kartu Perbandingan yang sedang terbuka) ke HP sebagai gambar rapi untuk referensi ("simpan rencana 3 ke HP"), atau kirim sebagai teks ("kirim rencananya ke WhatsApp" → bentuk teks). Gambar juga masuk Galeri Gaby.',
-    parameters: { type: 'object', properties: { nomor: { type: 'number', description: 'Nomor rencana; kosongkan untuk kartu yang sedang terbuka' }, bentuk: { type: 'string', enum: ['gambar', 'teks'] } } },
+    description: 'Simpan Kartu Rencana (atau Kartu Perbandingan yang sedang terbuka) ke HP sebagai PDF rapi berhalaman ("simpan rencana 3 ke HP", "jadikan PDF", "kirim PDF-nya ke WA" → bentuk pdf), atau kirim sebagai teks ("kirim rencananya sebagai teks / ke Telegram / ke Catatan" → bentuk teks). Rencana panjang ke WhatsApp lebih aman sebagai PDF.',
+    parameters: { type: 'object', properties: { nomor: { type: 'number', description: 'Nomor rencana; kosongkan untuk kartu yang sedang terbuka' }, bentuk: { type: 'string', enum: ['pdf', 'teks'] } } },
   },
   {
     name: 'rencana_ke_catatan',
@@ -502,7 +502,7 @@ export async function runTool(name, args, ui) {
         return ui.undoDelete();
 
       case 'simpan_rencana_hp':
-        return await ui.savePlan({ nomor: args.nomor ? Number(args.nomor) : null, bentuk: args.bentuk === 'teks' ? 'teks' : 'gambar' });
+        return await ui.savePlan({ nomor: args.nomor ? Number(args.nomor) : null, bentuk: args.bentuk === 'teks' ? 'teks' : 'pdf' });
 
       case 'rencana_ke_catatan': {
         const r = ui.planToTodos(Number(args.nomor));

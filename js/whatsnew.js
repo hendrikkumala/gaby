@@ -5,6 +5,12 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.25.1',
+    items: [
+      'Kartu rencana sekarang disimpan sebagai PDF, bukan gambar panjang yang buram. Rapi per halaman A4, jadwalnya dikelompokkan per hari, tulisannya tajam walau di-zoom, dan bisa dikirim utuh ke WhatsApp sebagai dokumen',
+    ],
+  },
+  {
     version: '1.25.0',
     items: [
       'Pandu sekarang menyelesaikan rencana panjang sampai hari terakhir, misalnya liburan 8 hari. Kalau tulisannya kepanjangan, dia lanjut menulis per hari, bukan mengulang dari awal',
