@@ -101,6 +101,20 @@ export function startJob(who, text, { steps = [] } = {}) {
   const progress = () => officeEmit('job', { id, kind: 'progress', frac: progressOf(job) });
   // Ada kabar: pekerjaan masih hidup (pekerjaan panjang yang menunggu jatah AI tidak dianggap macet).
   const alive = () => { job.active = Date.now(); };
+  // v1.25.2: pekerjaan yang sempat dianggap macet (misal HP ditinggal ke aplikasi lain sehingga semua jeda)
+  // tetapi ternyata masih bekerja → muncul lagi di papan begitu ada kabar baru. true = boleh lanjut.
+  const revive = () => {
+    if (job.state === 'run') return true;
+    if (!job.stuck) return false;
+    job.stuck = false;
+    job.state = 'run';
+    job.active = Date.now();
+    jobs.set(id, job);
+    hiddenByUser = false;
+    officeEmit('job', { id, kind: 'start', who: job.who, text: job.text });
+    if (job.steps.length) emitSteps();
+    return true;
+  };
   // "☕ Menunggu jatah…" → gelembung kecil di Ruang Kerja (tanpa animasi baru).
   const noteWait = (msg) => { if (/^☕/.test(String(msg || ''))) officeEmit('job', { id, kind: 'wait', who: job.who, text: String(msg) }); };
   const finish = (state, msg, ms, extra = {}) => {
@@ -111,24 +125,24 @@ export function startJob(who, text, { steps = [] } = {}) {
     for (const s of job.steps) if (s.state === 'run') s.state = state === 'done' ? 'done' : 'todo';
     render();
     officeEmit('job', { id, kind: 'end', ok: state === 'done', ...extra });
-    setTimeout(() => { jobs.delete(id); render(); }, ms);
+    setTimeout(() => { if (job.state !== 'run') { jobs.delete(id); render(); } }, ms);
   };
   return {
     id,
     // Ganti siapa yang sedang bekerja (misal dari Rara ke Vera) dan keterangannya.
     pass(nextWho, msg) {
-      if (job.state !== 'run') return;
+      if (!revive()) return;
       alive();
       const changed = job.who !== nextWho;
       job.who = nextWho; if (msg != null) job.text = String(msg); job.frac = null; render();
       if (changed) officeEmit('job', { id, kind: 'pass', who: nextWho, text: job.text });
       noteWait(msg);
     },
-    update(msg, frac = null) { if (job.state !== 'run') return; alive(); if (msg != null) job.text = String(msg); job.frac = frac; render(); progress(); noteWait(msg); },
-    setSteps(list) { if (job.state !== 'run') return; alive(); setSteps(list); render(); emitSteps(); },
+    update(msg, frac = null) { if (!revive()) return; alive(); if (msg != null) job.text = String(msg); job.frac = frac; render(); progress(); noteWait(msg); },
+    setSteps(list) { if (!revive()) return; alive(); setSteps(list); render(); emitSteps(); },
     // Tandai langkah ke-i sedang dikerjakan (langkah sebelumnya dianggap selesai).
     step(i, msg) {
-      if (job.state !== 'run') return;
+      if (!revive()) return;
       alive();
       job.steps.forEach((s, k) => { if (k < i) s.state = 'done'; else if (k === i) s.state = 'run'; });
       if (msg != null) job.text = String(msg);
@@ -141,6 +155,19 @@ export function startJob(who, text, { steps = [] } = {}) {
     fail(msg) { finish('fail', msg, 7000); },
     // Tertunda (v1.25): hasil kerja tersimpan, bisa dilanjutkan nanti.
     pause(msg) { finish('pause', msg, 9000, { paused: true }); },
+    // Masih berjalan? (dipakai saat Gaby ditanya lagi: meterannya harus kelihatan)
+    running() { return job.state === 'run'; },
+    // Tampilkan lagi di papan (juga kalau papan ditutup pengguna atau sempat dianggap macet).
+    show(msg) {
+      if (job.state !== 'run' && job.stuck) { job.text = msg || 'Masih bekerja…'; revive(); }
+      if (job.state !== 'run') return false;
+      hiddenByUser = false;
+      alive();
+      render();
+      return true;
+    },
+    // Ringkasan untuk Gaby: sudah berapa lama & sedang apa.
+    info() { return { menit: Math.max(1, Math.round((Date.now() - job.started) / 60000)), sedang: job.text, langkah: job.steps.filter((x) => x.state === 'done').length, dari: job.steps.length }; },
   };
 }
 
@@ -149,18 +176,33 @@ export function boardBusy() {
   return [...jobs.values()].some((j) => j.state === 'run');
 }
 
+// HP ditinggal ke aplikasi lain: semua jeda (iPhone/Android menghentikan halaman). Waktu di latar belakang
+// tidak dihitung sebagai "diam", supaya pekerjaan yang masih jalan tidak dihapus dari papan saat kembali.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    for (const j of jobs.values()) if (j.state === 'run') j.active = now;
+  });
+}
+
 // Pengaman: pekerjaan yang tidak pernah selesai (misal internet putus di tengah jalan)
 // tidak dibiarkan menggantung di papan selamanya.
+let lastTick = Date.now();
 setInterval(() => {
   const now = Date.now();
+  // Pengecek ini sendiri sempat terhenti (halaman dijeda di latar belakang): jangan anggap pekerjaan macet.
+  if (now - lastTick > 60000) for (const j of jobs.values()) if (j.state === 'run') j.active = now;
+  lastTick = now;
   let changed = false;
   for (const [id, j] of jobs) {
     if (j.state === 'run' && now - (j.active || j.started) > STUCK_MS) {
       j.state = 'fail';
+      j.stuck = true; // kalau ternyata masih bekerja, muncul lagi saat ada kabar baru (revive)
       j.text = 'Terlalu lama, dihentikan';
       changed = true;
       officeEmit('job', { id, kind: 'end', ok: false });
-      setTimeout(() => { jobs.delete(id); render(); }, 7000);
+      setTimeout(() => { if (j.state !== 'run') { jobs.delete(id); render(); } }, 7000);
     }
   }
   if (changed) render();

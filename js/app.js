@@ -436,6 +436,7 @@ const ui = {
   closeCards: (jenis) => closeCards(jenis),
   startPlan: (a) => startPlan(a),
   resumePlan: () => resumePlan(),
+  panduState: () => panduState(),
   openPlan: (a) => openPlan(a),
   listPlans: () => listPlansTool(),
   comparePlans: (a) => comparePlans(a),
@@ -2142,6 +2143,33 @@ function planSummary(p) {
   };
 }
 
+// Pandu sedang bekerja: tampilkan lagi meterannya (papan bisa ditutup pengguna / sempat dianggap macet
+// setelah HP ditinggal) dan beri Gaby keadaan aslinya, supaya tidak sekadar bilang "lagi kerja".
+function panduBusy() {
+  const job = planRunning.job;
+  const shown = job ? job.show('Masih bekerja…') : false;
+  const i = job ? job.info() : null;
+  return {
+    error: 'sibuk',
+    permintaan: planRunning.request,
+    ...(i ? { sudah_menit: i.menit, sedang: i.sedang, langkah_selesai: `${i.langkah}/${i.dari}` } : {}),
+    catatan: `Pandu masih mengerjakan "${planRunning.request}"${i ? ` (sudah ±${i.menit} menit, sekarang: ${i.sedang})` : ''}. Bilang singkat apa yang sedang dikerjakan Pandu${shown ? ` dan bahwa meterannya ada di papan kerja di atas${document.body.classList.contains('office-open') ? ' (di Ruang Kerja, lihat Pandu di papan petanya)' : ''}` : ''}; minta pengguna menunggu. Rencana panjang bisa 5–10 menit kalau harus menunggu jatah AI.`,
+  };
+}
+
+// Alat cek_pandu: keadaan Pandu yang SEBENARNYA (Gaby tidak boleh menebak).
+function panduState() {
+  if (planRunning) return { ...panduBusy(), error: undefined, bekerja: true };
+  const pend = panduPending();
+  const last = memory.listPlans().slice(-1)[0];
+  return {
+    bekerja: false,
+    ...(pend ? { tertunda: pend.request, catatan_tertunda: 'Ada pekerjaan tertunda (jatah AI sempat habis); bisa dilanjutkan dengan lanjutkan_rencana.' } : {}),
+    ...(last ? { rencana_terakhir: `#${last.no} ${last.title}` } : {}),
+    catatan: 'Pandu sedang TIDAK bekerja. Jangan bilang Pandu sedang mengerjakan sesuatu. Kalau pengguna ingin rencana, pakai buat_rencana (atau lanjutkan_rencana kalau ada yang tertunda).',
+  };
+}
+
 function startPlan({ permintaan, dari_nomor }) {
   const request = String(permintaan || '').trim().slice(0, 400);
   if (!request) return { error: 'Permintaannya kosong. Tanyakan mau direncanakan apa.' };
@@ -2151,15 +2179,13 @@ function startPlan({ permintaan, dari_nomor }) {
       catatan: 'Pandu belum bisa dipanggil: dia butuh kunci Groq atau OpenRouter (gratis). Bilang santai, misal "Wah, Pandu belum bisa diminta tolong nih, kuncinya belum dimasukin. Isi dulu kunci Groq atau OpenRouter di Pengaturan → Otak Gaby ya, gratis kok." Lalu tawarkan garis besar sederhana buatanmu sendiri sekarang (bilang bahwa itu tidak tersimpan sebagai rencana bernomor dan belum dicek Vera).',
     };
   }
-  if (planRunning) {
-    return { error: 'sibuk', catatan: `Pandu masih mengerjakan "${planRunning.request}". Bilang singkat dan minta pengguna menunggu sebentar.` };
-  }
+  if (planRunning) return panduBusy();
   const base = dari_nomor ? memory.getPlan(dari_nomor) : null;
   if (dari_nomor && !base) {
     return { error: `Rencana #${dari_nomor} tidak ada.`, rencana_tersimpan: memory.listPlans().map((p) => `#${p.no} ${p.title}`) };
   }
   const job = startJob('pandu', base ? `Mengubah rencana #${base.no}…` : 'Menyusun langkah…');
-  planRunning = { request };
+  planRunning = { request, job };
   runPlanJob(request, base, job).finally(() => { planRunning = null; });
   return {
     ok: true,
@@ -2172,10 +2198,10 @@ function startPlan({ permintaan, dari_nomor }) {
 function resumePlan() {
   const pend = panduPending();
   if (!pend) return { error: 'tidak_ada', catatan: 'Tidak ada pekerjaan Pandu yang tertunda (atau sudah lewat 2 hari). Tawarkan membuat rencana baru dengan buat_rencana.' };
-  if (planRunning) return { error: 'sibuk', catatan: `Pandu masih mengerjakan "${planRunning.request}". Minta pengguna menunggu sebentar.` };
+  if (planRunning) return panduBusy();
   const base = pend.baseNo ? memory.getPlan(pend.baseNo) : null;
   const job = startJob('pandu', 'Melanjutkan rencana yang tertunda…');
-  planRunning = { request: pend.request };
+  planRunning = { request: pend.request, job };
   runPlanJob(pend.request, base, job, pend).finally(() => { planRunning = null; });
   return {
     ok: true,

@@ -5,6 +5,12 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.25.2',
+    items: [
+      'Meteran Pandu nggak hilang lagi waktu dia kerja lama, misalnya kalau HP-nya kamu tinggal ke aplikasi lain. Tanya aja "Pandu udah sampai mana?", aku cek beneran dan meterannya muncul lagi',
+    ],
+  },
+  {
     version: '1.25.1',
     items: [
       'Kartu rencana sekarang disimpan sebagai PDF, bukan gambar panjang yang buram. Rapi per halaman A4, jadwalnya dikelompokkan per hari, tulisannya tajam walau di-zoom, dan bisa dikirim utuh ke WhatsApp sebagai dokumen',

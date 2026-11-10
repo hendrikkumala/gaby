@@ -251,6 +251,11 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'cek_pandu',
+    description: 'Cek apakah PANDU sedang bekerja dan sudah sampai mana ("Pandu udah sampai mana?", "rencananya udah jadi belum?"). Meteran Pandu ditampilkan lagi di papan kerja. Jangan menebak keadaan Pandu tanpa alat ini.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
     name: 'lanjutkan_rencana',
     description: 'Lanjutkan pekerjaan PANDU yang tertunda karena jatah AI habis ("lanjutkan rencananya", "terusin rencana Harbin tadi"). Pandu meneruskan dari titik terakhir tanpa mengulang riset; berlaku 2 hari.',
     parameters: { type: 'object', properties: {} },
@@ -482,6 +487,9 @@ export async function runTool(name, args, ui) {
 
       case 'buat_rencana':
         return ui.startPlan({ permintaan: args.permintaan, dari_nomor: args.dari_nomor ? Number(args.dari_nomor) : null });
+
+      case 'cek_pandu':
+        return ui.panduState();
 
       case 'lanjutkan_rencana':
         return ui.resumePlan();

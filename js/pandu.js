@@ -355,6 +355,8 @@ async function brains(keys) {
 }
 
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+// Alat kecil (cuaca, jarak/GPS) tidak boleh membuat Pandu menggantung (misal izin lokasi belum dijawab).
+const within = (p, label, ms = 30000) => Promise.race([p, sleep(ms).then(() => ({ error: `${label} terlalu lama menjawab, dilewati. Lanjutkan tanpa data ini.` }))]);
 
 // Satu giliran Pandu pada satu otak. Hasil: { data } atau { error, message }.
 // v1.25: SABAR — batas per menit ditunggu sampai pulih (maks 3x), baru dianggap habis.
@@ -505,20 +507,18 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
       }
       case 'cuaca': {
         step(`Cek cuaca ${str(a.kota, 40)}`);
-        try { return await weather(str(a.kota, 60)); } catch (e) { return { error: e.message }; }
+        try { return await within(weather(str(a.kota, 60)), 'cuaca'); } catch (e) { return { error: e.message }; }
       }
       case 'jarak': {
         step(`Hitung jarak ke ${str(a.ke, 40)}`);
-        try {
+        return within((async () => {
           let from;
           if (str(a.dari)) from = await geocode(str(a.dari, 80));
           else { const pos = await getPosition(); from = { lat: pos.lat, lon: pos.lon, nama: 'lokasi pengguna' }; }
           const to = await geocode(str(a.ke, 80), from);
           const r = await route(from, to, ['mobil', 'motor', 'jalan'].includes(a.kendaraan) ? a.kendaraan : 'mobil');
           return { dari: from.nama, ke: to.nama, km: r.km, waktu: r.waktu, catatan: 'tanpa data macet' };
-        } catch (e) {
-          return { error: e.message };
-        }
+        })().catch((e) => ({ error: e.message })), 'jarak');
       }
       case 'buka_ingatan': {
         step(`Buka laci ${str(a.topik, 30)}`);
