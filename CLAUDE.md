@@ -209,7 +209,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 ## Status saat ini — per 10 Nov 2026
 **v1.25.0 (Pandu menyelesaikan rencana panjang, Rara/Vera sabar, titik simpan) + v1.25.1 (PDF) dikerjakan di sesi cloud 10 Nov 2026,
 di-push ke cabang `claude/inspiring-hawking-ioxiae`; BELUM di `main` (belum terbit) sampai pemilik setuju digabung.** Belum dicoba pemilik.
-Yang terbit: v1.24.0 (cadangan `backup-v1.24.0`).
+Yang terbit: v1.24.0 (cadangan `backup-v1.24.0`). **APK tidak perlu dirakit ulang** untuk v1.25.x (semua perubahan di file web;
+PDF memakai plugin Share & Filesystem yang sudah ada sejak APK #7). WebKit tidak tersedia di sesi cloud → iPhone Safari belum diuji
+otomatis (hanya Chromium dengan emulasi iPhone 15 Pro / Pixel 7: muat aplikasi, Pengaturan, prompt Gaby, alat baru — 10/10).
 
 ## Status sebelumnya — per 3 Nov 2026
 **v1.24.0 (cadangan data + update langsung) sudah di-commit lokal 4 Nov 2026, menunggu pemilik push.** **Yang terbit (cabang `main` / GitHub Pages): v1.23.0 · APK #7** (android-app 1.0.4, plugin Share & Filesystem; APK tidak berubah sejak v1.19).
