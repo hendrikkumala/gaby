@@ -207,9 +207,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
 ## Status saat ini — per 10 Nov 2026
-**v1.25.0 (Pandu menyelesaikan rencana panjang, Rara/Vera sabar, titik simpan) + v1.25.1 (PDF) dikerjakan di sesi cloud 10 Nov 2026,
-di-push ke cabang `claude/inspiring-hawking-ioxiae`; BELUM di `main` (belum terbit) sampai pemilik setuju digabung.** Belum dicoba pemilik.
-Yang terbit: v1.24.0 (cadangan `backup-v1.24.0`). **APK tidak perlu dirakit ulang** untuk v1.25.x (semua perubahan di file web;
+**v1.25.1 TERBIT 10 Nov 2026** (pemilik "terbitkan"; cabang `claude/inspiring-hawking-ioxiae` digabung fast-forward ke `main`):
+v1.25.0 (Pandu menyelesaikan rencana panjang 8–30 hari, Rara/Vera sabar menunggu jatah, titik simpan + "lanjutkan rencananya") + v1.25.1
+(PDF). Belum dicoba pemilik di HP. Versi sebelumnya: v1.24.0 (cadangan `backup-v1.24.0`). **APK tidak perlu dirakit ulang** untuk v1.25.x (semua perubahan di file web;
 PDF memakai plugin Share & Filesystem yang sudah ada sejak APK #7). WebKit tidak tersedia di sesi cloud → iPhone Safari belum diuji
 otomatis (hanya Chromium dengan emulasi iPhone 15 Pro / Pixel 7: muat aplikasi, Pengaturan, prompt Gaby, alat baru — 10/10).
 
