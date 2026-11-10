@@ -150,7 +150,10 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Groq: `MODE.groq` = tulis bertahap (a) transportasi+tempat+kuliner, (b) biaya+risiko+checklist+pengingat, (c) jadwal 2 hari per
   panggilan; argumen draf lama di riwayat diganti penanda (`shrinkDrafts`) supaya muat TPM. Terpotong (`finish_reason: length`) →
   `repairJson` menyelamatkan bagian utuh + "LANJUTKAN" (bukan "ringkas"). Hari yang belum ada → `scheduleGaps` → "lanjutkan hari X"
-  dulu (maks `MAX_FILL` 4, tanpa Vera, tidak dihitung perbaikan); `maxFixes` = 2 untuk OpenRouter & Groq; `MAX_TURNS` 24; jadwal maks 80.
+  dulu (tanpa Vera, tidak dihitung perbaikan; diulang SELAMA hari kosong berkurang, maks `MAX_FILL` 15); `maxFixes` = 2 untuk OpenRouter & Groq;
+  `MAX_TURNS` 24; jadwal maks **150** baris & kuliner maks **30** (pertanyaan pemilik "12 hari bisa?": dulu 80/10 → 12 hari × 7 kegiatan = 84
+  memotong check-out & pulang, kuliner hari 11–12 hilang). Uji 12 hari (7 kegiatan/hari) & 20/30 hari: lengkap di OpenRouter (lengkap/
+  malas/terpotong) dan Groq saja (±13 menit tiruan untuk 12 hari, ±21 menit untuk 30 hari); PDF 12 hari = 5 halaman.
   Otak gagal → otak berikutnya MELANJUTKAN percakapan & draf yang sama (tidak ada lagi "salvage"/simpan seadanya); Groq 'day' tidak
   melompati model Groq lain (jatah per model). Semua otak gagal & sudah ada kerja → **titik simpan** `localStorage['gaby.panduResume']`
   (2 hari) + `PanduPaused` → papan "⏸️ Tertunda" (`job.pause`), Gaby mengabari, alat suara **`lanjutkan_rencana`** (`resumePlan` di
@@ -435,7 +438,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 | Versi | Isi |
 |---|---|
 | 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |
-| 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 80, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |
+| 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 150 & kuliner 30 — cukup 12–30 hari, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |
 | 1.24.0 | 💾 Cadangan data: Pengaturan → Tentang kamu → Simpan cadangan / Pulihkan dari file (`memory.exportData/checkBackup/importData`; file `gaby-cadangan-YYYY-MM-DD.json` berisi nama, ingatan, harian, to-do, pengingat, rencana; TANPA API key/pengaturan/riwayat/galeri; pulihkan = GANTI semua setelah konfirmasi, data lama disimpan di `gaby.sebelumPulih`, lalu muat ulang; APK lewat `nativeShareFile`, HP browser lewat `navigator.share`, laptop lewat unduhan). `sw.js` `cache: 'no-cache'` → update langsung masuk. Uji: test-backup 17/17, offline Edge+WebKit OK |
 | 1.23.0 | Ruang Kerja: karakter benar-benar duduk di kursi (meja, pantry, sofa, bean bag); meja periksa Vera (kertas sesuai pekerjaan, alasan penolakan asli, "Putaran N"); Lukas melukis bertahap di kanvas (sketsa → warna → detail → bingkai emas + bingkai dinding), gambar asli sengaja tidak dimuat |
 | 1.22.0 | Ruang Kerja: papan rute Pandu (paku + benang mengikuti langkah asli, hijau setelah lolos Vera), pesawat kertas Pandu → Rara, Rara bekerja menghadap bola bumi, `?fps` diperbaiki |

@@ -115,9 +115,9 @@ export function normalizePlan(raw) {
       total_biaya: total,
       rincian_biaya: rincian,
       tempat: pickOne(arr(p.tempat).map((t) => ({ jenis: str(t.jenis, 20) || 'tempat', kelas: TIERS.includes(t.kelas) ? t.kelas : '', dipilih: t.dipilih === true, nama: str(t.nama, 80), area: str(t.area, 80), harga: str(t.harga, 60), catatan: str(t.catatan, 160) })).filter((t) => t.nama).slice(0, 8), (t) => /hotel|penginapan|villa|resort|homestay/i.test(t.jenis)),
-      jadwal: arr(p.jadwal).map((j) => ({ waktu: str(j.waktu, 40), kegiatan: str(j.kegiatan, 240) })).filter((j) => j.kegiatan).slice(0, 80),
+      jadwal: arr(p.jadwal).map((j) => ({ waktu: str(j.waktu, 40), kegiatan: str(j.kegiatan, 240) })).filter((j) => j.kegiatan).slice(0, 150),
       transportasi: pickOne(arr(p.transportasi).map((t) => ({ kelas: TIERS.includes(t.kelas) ? t.kelas : '', dipilih: t.dipilih === true, moda: str(t.moda, 20), nama: str(t.nama, 80), rute: str(t.rute, 80), waktu: str(t.waktu, 60), harga: str(t.harga, 60), catatan: str(t.catatan, 120) })).filter((t) => t.nama).slice(0, 6)),
-      kuliner: arr(p.kuliner).map((k) => ({ nama: str(k.nama, 80), area: str(k.area, 60), menu: str(k.menu, 100), harga: str(k.harga, 60), waktu: str(k.waktu, 40) })).filter((k) => k.nama).slice(0, 10),
+      kuliner: arr(p.kuliner).map((k) => ({ nama: str(k.nama, 80), area: str(k.area, 60), menu: str(k.menu, 100), harga: str(k.harga, 60), waktu: str(k.waktu, 40) })).filter((k) => k.nama).slice(0, 30),
       tujuan: str(p.tujuan, 300),
       fitur: arr(p.fitur).map((f) => ({ nama: str(typeof f === 'string' ? f : f.nama, 120), prioritas: (f && f.prioritas === 'nanti') ? 'nanti' : 'wajib' })).filter((f) => f.nama).slice(0, 12),
       alat: arr(p.alat).map((a) => ({ nama: str(typeof a === 'string' ? a : a.nama, 80), kegunaan: str(a && a.kegunaan, 120), biaya: str(a && a.biaya, 60) })).filter((a) => a.nama).slice(0, 10),
@@ -399,7 +399,9 @@ async function think(b, keys, messages, toolChoice, hooks) {
 // yang berubah (draf), jadi Groq pun murah: 2 kali untuk keduanya. Hari yang belum terisi dilanjutkan dulu
 // sebelum ke Vera (tidak dihitung sebagai perbaikan).
 const maxFixes = () => 2;
-const MAX_FILL = 4; // berapa kali Pandu diminta melanjutkan jadwal yang belum sampai hari terakhir
+// Pandu diminta melanjutkan jadwal yang belum sampai hari terakhir SELAMA ada kemajuan (hari kosong berkurang),
+// maksimal MAX_FILL kali (cukup untuk perjalanan panjang, misal 30 hari / 2 hari per panggilan Groq).
+const MAX_FILL = 15;
 
 const BRAIN_ERR = {
   auth: 'kunci ditolak', day: 'jatah harian habis', privacy: 'izin privasi model gratis OpenRouter belum dinyalakan',
@@ -461,6 +463,7 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
   let calls = R.calls || 0;
   let checks = R.checks || 0; // berapa kali Vera sudah mengecek di dalam Pandu
   let fills = R.fills || 0; // berapa kali diminta melanjutkan hari yang belum terisi
+  let lastGap = R.lastGap ?? Infinity; // jumlah hari kosong saat terakhir diminta melanjutkan
   let lastStep = R.lastStep || '';
   let modeVia = '';
   let touched = !!R.draft; // Pandu sudah menulis sesuatu ke draf
@@ -614,9 +617,11 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
         const gaps = scheduleGaps(plan);
         if (!plan.jadwal.length && !plan.rincian_biaya.length && !plan.checklist.length) {
           result = { error: 'Rencana masih kosong. Isi jadwal / rincian_biaya / checklist (boleh bertahap lewat tulis_draf), lalu simpan_rencana lagi.' };
-        } else if (gaps.missing.length && fills < MAX_FILL && !last) {
+        } else if (gaps.missing.length && gaps.missing.length < lastGap && fills < MAX_FILL && !last) {
           // Jadwal belum sampai hari terakhir: lanjutkan dulu (pasti, tanpa AI), baru diserahkan ke Vera.
+          // Hanya selama ada kemajuan (hari kosong berkurang), supaya tidak berputar-putar.
           fills++;
+          lastGap = gaps.missing.length;
           const next = gaps.missing.slice(0, use.via === 'groq' ? 2 : 4);
           step(`Melengkapi jadwal hari ${ranges(next)}`);
           result = { belum_lengkap: true, draf: draftSummary(draft), catatan: `Perjalanan ${gaps.days} hari, tapi jadwal hari ${ranges(gaps.missing)} belum ada. LANJUTKAN: tulis_draf berisi jadwal hari ${ranges(next)}${gaps.missing.length > next.length ? ' (sisanya di panggilan berikutnya)' : ''}, termasuk check-out & perjalanan pulang di hari terakhir. Lalu simpan_rencana lagi dengan kolom lain dikosongkan (otomatis dari draf).` };
@@ -653,7 +658,7 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
   const progress = searches > 0 || touched || calls > 2;
   if (failures.length && progress) {
     compact(messages);
-    const saved = saveResume({ v: 1, request, baseNo: base ? base.no : null, at: Date.now(), why, messages, draft, sources, searches, steps, calls, checks, fills, lastStep });
+    const saved = saveResume({ v: 1, request, baseNo: base ? base.no : null, at: Date.now(), why, messages, draft, sources, searches, steps, calls, checks, fills, lastGap: Number.isFinite(lastGap) ? lastGap : null, lastStep });
     if (saved) {
       logPandu({ paused: { request: str(request, 120), at: Date.now() } });
       throw new PanduPaused(`Pandu berhenti sementara (${why}). Hasil kerjanya sudah disimpan di HP selama 2 hari.`, { why, lastStep, request });
