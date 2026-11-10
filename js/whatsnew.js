@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.25.0',
+    items: [
+      'Pandu sekarang menyelesaikan rencana panjang sampai hari terakhir, misalnya liburan 8 hari. Kalau tulisannya kepanjangan, dia lanjut menulis per hari, bukan mengulang dari awal',
+      'Rara dan Vera sekarang sabar: kalau jatah AI per menitnya habis, mereka nunggu sebentar sampai pulih, nggak langsung nyerah. Vera juga membaca rencana panjang sampai habis, bagian per bagian',
+      'Kalau jatah AI habis di tengah jalan, kerjaan Pandu disimpan dulu di HP selama 2 hari. Tinggal bilang "lanjutkan rencananya" kalau jatahnya sudah pulih',
+    ],
+  },
+  {
     version: '1.24.0',
     items: [
       'Sekarang kamu bisa menyimpan cadangan ingatan, catatan, pengingat, dan rencana kita ke satu file, lalu memulihkannya di HP lain. Ada di Pengaturan, bagian Tentang kamu. API key nggak ikut tersimpan, jadi aman',

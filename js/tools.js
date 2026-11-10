@@ -251,6 +251,11 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: 'lanjutkan_rencana',
+    description: 'Lanjutkan pekerjaan PANDU yang tertunda karena jatah AI habis ("lanjutkan rencananya", "terusin rencana Harbin tadi"). Pandu meneruskan dari titik terakhir tanpa mengulang riset; berlaku 2 hari.',
+    parameters: { type: 'object', properties: {} },
+  },
+  {
     name: 'buka_rencana',
     description: 'Buka rencana tersimpan (Kartu Rencana tampil) dan ambil isinya untuk menjawab: "buka rencana 3", "rencana Bali kemarin budgetnya berapa?", "hotel di rencana Bali namanya apa?". Isi nomor kalau disebut, selain itu kata_kunci.',
     parameters: { type: 'object', properties: { nomor: { type: 'number' }, kata_kunci: { type: 'string' } } },
@@ -477,6 +482,9 @@ export async function runTool(name, args, ui) {
 
       case 'buat_rencana':
         return ui.startPlan({ permintaan: args.permintaan, dari_nomor: args.dari_nomor ? Number(args.dari_nomor) : null });
+
+      case 'lanjutkan_rencana':
+        return ui.resumePlan();
 
       case 'buka_rencana':
         return ui.openPlan({ nomor: args.nomor ? Number(args.nomor) : null, kata_kunci: String(args.kata_kunci || '') });

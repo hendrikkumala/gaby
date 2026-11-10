@@ -139,6 +139,34 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   Pandu hemat token (v1.18.1; diperketat di v1.19: maks 3 pencarian, lihat di atas): alat ringkas, hasil alat lama dipadatkan, minta panggil beberapa alat sekaligus,
   Rara di dalam Pandu memakai GPT-OSS **20B** (jatah terpisah dari Pandu 120B), Pandu pindah model untuk satu giliran kalau 120B harus
   menunggu > 8 dtk. Satu misi ±10–15 ribu token → wajar 1–3 menit. Awas: `/20b/` juga cocok dengan "120b" — pakai `/gpt-oss-20b/`.
+- **Pandu/Rara/Vera v1.25 (keluhan pemilik 10 Nov 2026: rencana Harbin 8 hari, jadwal berhenti di hari 3 & perbaikan tidak pernah selesai).**
+  Penyebab: simpan_rencana harus menulis SELURUH rencana sekali jalan (batas panjang jawaban model), perbaikan = tulis ulang semua,
+  `normalizePlan` memotong jadwal di 30 baris, Vera hanya membaca 6.000 huruf JSON, rencana lama di "lengkapi" dipotong 4.000 huruf,
+  Rara kena batas per menit → tunggu ≤6 dtk lalu Groq ditandai habis **1 jam**. Perbaikan:
+  **Draf** (`tulis_draf`, `mergeDraft`): kolom kosong = pertahankan, jadwal digabung PER HARI (`mergeSchedule`, `dayOf` dari vera.js);
+  simpan_rencana menggabung draf; rencana turunan mulai dari draf = isi rencana lama (Pandu cukup menulis yang berubah).
+  OpenRouter: `max_tokens` 16.000, timeout 300 dtk, tulis lengkap sekaligus (`MODE.openrouter`); batas per menit → tunggu 20/40/60 dtk.
+  Groq: `MODE.groq` = tulis bertahap (a) transportasi+tempat+kuliner, (b) biaya+risiko+checklist+pengingat, (c) jadwal 2 hari per
+  panggilan; argumen draf lama di riwayat diganti penanda (`shrinkDrafts`) supaya muat TPM. Terpotong (`finish_reason: length`) →
+  `repairJson` menyelamatkan bagian utuh + "LANJUTKAN" (bukan "ringkas"). Hari yang belum ada → `scheduleGaps` → "lanjutkan hari X"
+  dulu (maks `MAX_FILL` 4, tanpa Vera, tidak dihitung perbaikan); `maxFixes` = 2 untuk OpenRouter & Groq; `MAX_TURNS` 24; jadwal maks 80.
+  Otak gagal → otak berikutnya MELANJUTKAN percakapan & draf yang sama (tidak ada lagi "salvage"/simpan seadanya); Groq 'day' tidak
+  melompati model Groq lain (jatah per model). Semua otak gagal & sudah ada kerja → **titik simpan** `localStorage['gaby.panduResume']`
+  (2 hari) + `PanduPaused` → papan "⏸️ Tertunda" (`job.pause`), Gaby mengabari, alat suara **`lanjutkan_rencana`** (`resumePlan` di
+  app.js) meneruskan tanpa riset ulang; `panduStatus` & `friendStatus` menyebut pekerjaan tertunda.
+  **Aturan sabar (keputusan pemilik):** `groqPatient` (groq.js) — batas per menit → tunggu sesuai `retry-after`/"try again in" (2–65 dtk)
+  lalu ulang, **maks 3x; tidak pulih = dianggap jatah harian habis** (`error 'day'`, `stuck`). 429 tidak jelas = 'minute' (dulu 'hour').
+  Rara: coba model GPT-OSS lain dulu, lalu tunggu; 'toolarge' → jatah jawaban 1.024 lalu model lain; habis harian dicatat sampai waktu
+  "try again in" dari Groq atau besok 08:00 UTC (tidak ada lagi tanda "habis 1 jam" karena batas per menit). Gemini sama (3x `retryDelay`).
+  Vera: `askVera` memakai `groqPatient`; `checkPlan(plan, fixes, { onWait, onPart })` membaca **teks ringkas utuh** (`planDigest`, jadwal per
+  hari) dan kalau > 5.500 huruf dibagi bacaan (`digestParts`: isi utama + jadwal beberapa hari), catatan digabung; sebagian tak terjawab →
+  catatan "Vera hanya sempat membaca N dari M bagian". Papan kerja: "☕ Menunggu jatah … (±N dtk)" → Ruang Kerja gelembung "☕ nunggu jatah"
+  (kabar `job` kind `wait`, tanpa elemen baru; `js/office.js` kini sedikit beda dari `prototipe/v123/office.js`). Papan kerja menganggap
+  macet hanya kalau DIAM > 6 menit (`job.active`), bukan 6 menit sejak mulai.
+  Uji 10 Nov 2026 (Node 62/62 + Chromium 11/11, waktu tiruan; Groq tiruan dengan TPM nyata + 413; OpenRouter tiruan "lengkap/malas/terpotong"): Harbin 8 hari
+  lengkap hari 1–8 + check-out + pulang di semua skenario (OpenRouter, OR malas, OR terpotong, Vera menolak → tambal biaya visa, Groq saja
+  ±9 menit tiruan, OR habis → Groq lanjut, jeda → lanjutkan tanpa riset ulang), Rara 3x tidak pulih → habis harian, Rara 3 pencarian
+  beruntun → menunggu lalu berhasil, Vera 3 bacaan; Chromium: buat_rencana → kartu, jeda → papan "Tertunda" → lanjutkan_rencana.
 - Rencana v1.19: `jenis` (perjalanan/proyek/acara/belajar/kesehatan/belanja/lainnya) + bagian `transportasi` (nama maskapai/kereta,
   "cek ulang saat pesan"), `kuliner` (nama resto), `tujuan`, `fitur` (wajib/nanti), `alat`, `risiko`. Vera menolak perjalanan tanpa
   transportasi/kuliner bernama dan proyek tanpa tujuan/fitur. Pandu merencanakan proyek (misal bikin aplikasi), BUKAN membuatnya.
@@ -165,7 +193,7 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Service worker network-first; respons error (404/500) tidak pernah disimpan, jatuh ke salinan terakhir.
 
 ## Rilis & infrastruktur
-- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`, `backup-v1.19.0`, `backup-v1.19.1` (= versi sebelum v1.20.0, 3 Nov 2026).
+- Repo publik di GitHub; GitHub Pages dari cabang `main`. Cadangan: cabang `backup-v1.24.0` (= versi sebelum v1.25.0, 10 Nov 2026), `backup-v1.12.2`, `backup-v1.13.0`, `backup-v1.14.0`, `backup-v1.15.0`, `backup-v1.16.1`, `backup-v1.17.1` (versi stabil yang sudah diuji, 1 Nov 2026), `backup-v1.18.0`, `backup-v1.18.1`, `backup-v1.18.2`, `backup-v1.19.0`, `backup-v1.19.1` (= versi sebelum v1.20.0, 3 Nov 2026).
 - APK: https://github.com/hendrikkumala/gaby/releases/download/apk-terbaru/Gaby.apk
   Ditandatangani dengan **kunci tetap** (GitHub Secrets `GABY_KEYSTORE` dan `GABY_KEYSTORE_PASSWORD`; alias `gaby`).
   Berkas cadangan kunci ada di pemilik, bukan di repo. Kalau hilang dan secret terhapus, pengguna harus uninstall (data APK hilang).
@@ -398,6 +426,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 80, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |
 | 1.24.0 | 💾 Cadangan data: Pengaturan → Tentang kamu → Simpan cadangan / Pulihkan dari file (`memory.exportData/checkBackup/importData`; file `gaby-cadangan-YYYY-MM-DD.json` berisi nama, ingatan, harian, to-do, pengingat, rencana; TANPA API key/pengaturan/riwayat/galeri; pulihkan = GANTI semua setelah konfirmasi, data lama disimpan di `gaby.sebelumPulih`, lalu muat ulang; APK lewat `nativeShareFile`, HP browser lewat `navigator.share`, laptop lewat unduhan). `sw.js` `cache: 'no-cache'` → update langsung masuk. Uji: test-backup 17/17, offline Edge+WebKit OK |
 | 1.23.0 | Ruang Kerja: karakter benar-benar duduk di kursi (meja, pantry, sofa, bean bag); meja periksa Vera (kertas sesuai pekerjaan, alasan penolakan asli, "Putaran N"); Lukas melukis bertahap di kanvas (sketsa → warna → detail → bingkai emas + bingkai dinding), gambar asli sengaja tidak dimuat |
 | 1.22.0 | Ruang Kerja: papan rute Pandu (paku + benang mengikuti langkah asli, hijau setelah lolos Vera), pesawat kertas Pandu → Rara, Rara bekerja menghadap bola bumi, `?fps` diperbaiki |

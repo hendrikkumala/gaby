@@ -66,8 +66,8 @@ export function classifyGroq(status, message) {
   if (status === 413 || /request too large|reduce your message size|context_length_exceeded/i.test(m)) return 'toolarge';
   if (status === 429 || /rate limit/i.test(m)) {
     if (/per day|\(RPD\)|\(TPD\)|daily/i.test(m)) return 'day';
-    if (/per minute|\(RPM\)|\(TPM\)/i.test(m)) return 'minute';
-    return 'hour';
+    // Per menit, atau tidak jelas: tunggu sampai pulih (groqPatient); 3x tidak pulih = dianggap habis harian.
+    return 'minute';
   }
   if (status === 404 || /decommissioned|does not exist|not found|model_not_found/i.test(m)) return 'model';
   if (status === 400 && /tool|browser_search/i.test(m)) return 'nosearch';
@@ -135,6 +135,34 @@ function noteLimits(model, res, tokensUsed) {
       resetAt: reset ? Date.now() + reset : 0,
     });
   }
+}
+
+// "Please try again in 1m2.5s" / "7.66s" / "120ms" di pesan Groq → milidetik (0 = tidak disebut).
+export function tryAgainMs(message) {
+  const m = String(message || '').match(/try again in\s+((?:[\d.]+(?:ms|h|m|s))+)/i);
+  return m ? parseReset(m[1]) : 0;
+}
+
+const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
+// Berapa lama menunggu jatah per menit pulih: sesuai Groq (retry-after / "try again in"), 2–65 detik.
+export function minuteWaitMs(r) {
+  const ms = (r && r.retryAfter ? r.retryAfter * 1000 : 0) || tryAgainMs(r && r.message);
+  return Math.min(Math.max(ms ? ms + 500 : 60000, 2000), 65000);
+}
+
+// Seperti groqChat, tapi SABAR: kena batas per menit → tunggu sampai jatah pulih lalu coba lagi,
+// maksimal `tries` kali. Masih belum pulih → dianggap jatah harian habis (error 'day', stuck: true).
+// prev = hasil gagal yang sudah ada (tidak perlu memanggil lagi sebelum menunggu).
+export async function groqPatient(key, body, { timeoutMs = 30000, onWait, tries = 3, prev = null } = {}) {
+  let r = prev || await groqChat(key, body, timeoutMs, { onWait });
+  for (let n = 0; r.error === 'minute' && n < tries; n++) {
+    const ms = minuteWaitMs(r);
+    if (onWait) onWait(Math.ceil(ms / 1000));
+    await sleep(ms);
+    r = await groqChat(key, body, timeoutMs, { onWait });
+  }
+  if (r.error === 'minute') return { ...r, error: 'day', stuck: true, message: `Jatah per menit tidak pulih setelah ${tries}x menunggu (dianggap jatah harian habis). ${r.message || ''}`.trim() };
+  return r;
 }
 
 // Panggil Groq (format OpenAI). Hasil: { data } atau { error, message, retryAfter }.

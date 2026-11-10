@@ -1400,7 +1400,7 @@ async function jobStep(j, d, teleport = false) {
       if (lens) { lens.remove(); lens = null; }
       veraPaper(false); busy('vera', false); A.vera.pose('working', false);
       const a = A[j.who] || A[j.owner];
-      if (a) a.say('😥 belum berhasil', 1600);
+      if (a) a.say(d.paused ? '⏸️ lanjut nanti ya' : '😥 belum berhasil', 1600);
     }
     for (const k of jobActors(j)) {
       if (inAnyJob(k, j)) continue;
@@ -1415,6 +1415,13 @@ async function jobStep(j, d, teleport = false) {
   }
 }
 function onJob(d) {
+  if (d.kind === 'wait') {
+    // v1.25: teman menunggu jatah AI pulih → cukup gelembung kecil (tanpa animasi/elemen baru).
+    const a = A[d.who];
+    const sec = (String(d.text || '').match(/±(\d+)/) || [])[1];
+    if (a) a.say(`☕ nunggu jatah${sec ? ` ±${sec} dtk` : ''}…`, 2600);
+    return;
+  }
   let j = JOBS.get(d.id);
   if (d.kind === 'start') {
     j = { id: d.id, owner: d.who, who: d.who, helpers: new Set(), parts: new Set([d.who]), pending: 0, holder: null, progress: null, ended: false, chain: Promise.resolve() };

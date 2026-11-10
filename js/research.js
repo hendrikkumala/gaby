@@ -9,7 +9,7 @@
 // Tingkat yang habis dicatat di perangkat sampai jatahnya pulih.
 
 import { memory } from './memory.js';
-import { groqModels, groqChat, groqSources, cleanText, groqLabel, waitNeeded } from './groq.js';
+import { groqModels, groqChat, groqPatient, groqSources, cleanText, groqLabel, waitNeeded, tryAgainMs } from './groq.js';
 import { checkFacts } from './vera.js';
 
 const REST = 'https://generativelanguage.googleapis.com/v1beta';
@@ -48,9 +48,10 @@ function nextReset(period, now = new Date()) {
 }
 
 // why: alasan asli dari Google (disimpan supaya bisa dilihat di Pengaturan).
-function markExhausted(id, period, why = '') {
+// until = waktu pulih yang disebut penyedia (kalau ada), selain itu sesuai period.
+function markExhausted(id, period, why = '', until = 0) {
   const st = loadState();
-  st[id] = nextReset(period);
+  st[id] = until > Date.now() ? until : nextReset(period);
   st.why = { ...(st.why || {}), [id]: { text: String(why || '').slice(0, 240), at: Date.now() } };
   saveState(st);
 }
@@ -134,7 +135,7 @@ function classifyError(status, err) {
     if (/PerMinute|per minute|PerSecond/i.test(text)) return 'minute';
     if (/PerMonth|per month|monthly/i.test(text)) return 'month';
     if (/PerDay|per day|daily/i.test(text)) return 'day';
-    return 'hour'; // tidak jelas: anggap habis sebentar saja
+    return 'minute'; // tidak jelas: tunggu sampai pulih; 3x tidak pulih = habis harian
   }
   if (/api key|API_KEY_INVALID|unauthenticated/i.test(text) && (status === 400 || status === 401 || status === 403)) return 'auth';
   if (status === 404 || /not found|is not supported|not available/i.test(text)) return 'model';
@@ -144,11 +145,15 @@ function classifyError(status, err) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Lama menunggu jatah per menit Gemini pulih (sesuai retryDelay dari Google), 2–65 detik.
 function retryDelay(err) {
   const d = (err?.details || []).find((x) => x && x.retryDelay);
-  const s = d ? parseFloat(String(d.retryDelay)) : 2;
-  return Math.min(Math.max(s || 2, 1), 6) * 1000;
+  const s = d ? parseFloat(String(d.retryDelay)) : 30;
+  return Math.min(Math.max(s || 30, 2), 65) * 1000;
 }
+
+// Berapa kali menunggu jatah per menit pulih sebelum dianggap jatah harian habis (keputusan pemilik).
+const PATIENCE = 3;
 
 function buildPrompt(question, detail = false) {
   const now = new Date();
@@ -228,40 +233,48 @@ function groqEvidence(msg) {
 // Rara lewat Groq: GPT-OSS + browser_search.
 // small = utamakan GPT-OSS 20B (dipakai saat Pandu bekerja, supaya jatah token per menit
 // tidak berebut dengan Pandu yang memakai GPT-OSS 120B).
-async function askGroq(key, question, small = false, detail = false) {
+// Batas per menit (v1.25): coba model GPT-OSS lain dulu; semua kena → TUNGGU sampai jatah pulih
+// (maks 3x), baru dianggap jatah harian habis. onWait(detik) untuk papan kerja.
+async function askGroq(key, question, small = false, detail = false, onWait = null) {
   let list = await groqModels(key, 'rara');
-  if (small) {
-    // Pilih model yang jatah per menitnya paling lega saat ini (20B diutamakan kalau sama-sama lega),
-    // supaya pencarian beruntun tidak antre di satu model.
-    const need = 4000;
-    list = [...list].sort((a, b) => (waitNeeded(a, need) - waitNeeded(b, need)) || ((/gpt-oss-20b/.test(b) ? 1 : 0) - (/gpt-oss-20b/.test(a) ? 1 : 0)));
-  }
-  let last = { error: 'model', message: 'Model GPT-OSS tidak tersedia di Groq' };
-  for (const model of list) {
-    const body = {
-      model,
-      messages: [{ role: 'user', content: buildPrompt(question, detail).replace('Cari di Google', 'Cari di internet dengan browser_search') }],
-      tools: [{ type: 'browser_search' }],
-      tool_choice: 'required',
-      reasoning_effort: 'low',
-      temperature: 0.2,
-      max_completion_tokens: 2048,
-    };
-    let r = await groqChat(key, body, TIMEOUT + 10000);
-    if (r.error === 'minute') {
-      await sleep(Math.min(Math.max(r.retryAfter * 1000, 1000), 6000));
-      r = await groqChat(key, body, TIMEOUT + 10000);
-    }
-    if (r.error) {
-      last = { ...r, model, raw: { message: r.message } };
-      if (r.error === 'model') continue; // coba model GPT-OSS berikutnya
-      return last;
-    }
+  const need = 4000;
+  // Model yang jatah per menitnya paling lega dulu (20B diutamakan saat dipanggil Pandu).
+  list = [...list].sort((a, b) => (waitNeeded(a, need) - waitNeeded(b, need)) || (small ? ((/gpt-oss-20b/.test(b) ? 1 : 0) - (/gpt-oss-20b/.test(a) ? 1 : 0)) : 0));
+  const bodyFor = (model, maxTok = 2048) => ({
+    model,
+    messages: [{ role: 'user', content: buildPrompt(question, detail).replace('Cari di Google', 'Cari di internet dengan browser_search') }],
+    tools: [{ type: 'browser_search' }],
+    tool_choice: 'required',
+    reasoning_effort: 'low',
+    temperature: 0.2,
+    max_completion_tokens: maxTok,
+  });
+  const done = (r, model) => {
     const msg = r.data.choices?.[0]?.message || {};
     const st = loadState();
     st.groqModel = model;
     saveState(st);
     return { text: cleanText(msg.content), sources: groqSources(msg), queries: [], model, evidence: groqEvidence(msg) };
+  };
+  let last = { error: 'model', message: 'Model GPT-OSS tidak tersedia di Groq' };
+  const waiting = []; // model yang kena batas per menit: { model, r }
+  for (const model of list) {
+    let r = await groqChat(key, bodyFor(model), TIMEOUT + 10000, { onWait });
+    // Terlalu besar untuk jatah per menit (hasil browsing ikut dihitung): kecilkan jatah jawaban, coba sekali lagi.
+    if (r.error === 'toolarge') r = await groqChat(key, bodyFor(model, 1024), TIMEOUT + 10000, { onWait });
+    if (!r.error) return done(r, model);
+    last = { ...r, model, raw: { message: r.message } };
+    if (r.error === 'minute') { waiting.push({ model, r }); continue; }
+    if (['model', 'toolarge', 'day'].includes(r.error)) continue; // coba model GPT-OSS berikutnya (jatah per model)
+    return last;
+  }
+  if (waiting.length) {
+    // Semua model kena batas per menit: tunggu yang paling cepat pulih, lalu coba lagi (maks 3x).
+    waiting.sort((a, b) => (tryAgainMs(a.r.message) || 60000) - (tryAgainMs(b.r.message) || 60000));
+    const { model, r: prev } = waiting[0];
+    const r = await groqPatient(key, bodyFor(model), { timeoutMs: TIMEOUT + 10000, onWait, tries: PATIENCE, prev });
+    if (!r.error) return done(r, model);
+    return { ...r, model, raw: { message: r.message } };
   }
   return last;
 }
@@ -271,7 +284,7 @@ async function askGroq(key, question, small = false, detail = false) {
 //   { ok: true, found: false }              → tidak ketemu di internet
 //   { ok: false, reason: 'habis', nofree }  → semua jatah teliti habis / tidak diberi (pindah ke pencarian cepat)
 //   { ok: false, reason: 'auth' | 'gagal' } → kunci ditolak / gangguan
-export async function research(question, { small = false, detail = false } = {}) {
+export async function research(question, { small = false, detail = false, onWait = null } = {}) {
   const { keys } = memory.get();
   let failed = false;
   let nofree = false;
@@ -281,17 +294,20 @@ export async function research(question, { small = false, detail = false } = {})
     let r;
     let model;
     if (tier.id === 'groq') {
-      r = await askGroq(keys.groq, question, small, detail);
+      r = await askGroq(keys.groq, question, small, detail, onWait);
       model = r.model || 'Groq';
     } else {
       const list = await pickModels(keys.gemini);
       model = list[tier.id];
       if (!model) { markExhausted(tier.id, 'week', 'Model ini belum tersedia untuk kunci Gemini kamu'); continue; }
       r = await ask(model, keys.gemini, question, detail);
-      if (r.error === 'minute') {
-        await sleep(retryDelay(r.raw));
+      for (let n = 0; r.error === 'minute' && n < PATIENCE; n++) {
+        const ms = retryDelay(r.raw);
+        if (onWait) onWait(Math.ceil(ms / 1000));
+        await sleep(ms);
         r = await ask(model, keys.gemini, question, detail);
       }
+      if (r.error === 'minute') r = { ...r, error: 'day', raw: { message: `Jatah per menit tidak pulih setelah ${PATIENCE}x menunggu (dianggap habis harian). ${r.raw?.message || ''}` } };
     }
     if (!r.error) {
       const st = loadState();
@@ -304,8 +320,9 @@ export async function research(question, { small = false, detail = false } = {})
     // Kunci Groq salah: jangan hentikan Rara, lanjut ke Gemini; catat alasannya.
     if (r.error === 'auth' && tier.id === 'groq') { markExhausted(tier.id, 'hour', `Kunci Groq ditolak. Cek lagi kuncinya di Pengaturan. (${r.raw?.message || ''})`); continue; }
     if (r.error === 'auth') return { ok: false, reason: 'auth' };
-    if (['day', 'month', 'hour'].includes(r.error)) markExhausted(tier.id, r.error, why);
-    else if (r.error === 'minute') markExhausted(tier.id, 'hour', why);
+    // Habis harian/bulanan: dicatat sampai waktu pulih yang disebut Groq (kalau ada), selain itu sampai besok.
+    if (['day', 'month', 'hour'].includes(r.error)) markExhausted(tier.id, r.error, why, tier.id === 'groq' && r.error === 'day' && !r.stuck ? Date.now() + tryAgainMs(r.raw?.message) : 0);
+    else if (r.error === 'minute') markExhausted(tier.id, 'day', why); // (tidak terjadi lagi: sudah ditunggu 3x)
     else if (r.error === 'model') markExhausted(tier.id, 'week', why);
     else if (r.error === 'nosearch') markExhausted(tier.id, 'day', why);
     else if (r.error === 'nofree') { nofree = true; markExhausted(tier.id, 'day', why); }
@@ -326,15 +343,16 @@ export async function research(question, { small = false, detail = false } = {})
 // Rara diminta mencari ulang SEKALI dengan catatan Vera, lalu dicek lagi.
 // onStage(siapa, keterangan) dipakai untuk papan kerja tim.
 // Hasil: sama seperti research(), ditambah { badge, status, note } kalau ketemu.
-export async function researchChecked(question, { onStage = () => {}, small = false } = {}) {
+export async function researchChecked(question, { onStage = () => {}, small = false, onWait = null } = {}) {
   onStage('rara', `Mencari: ${question}`);
-  let r = await research(question, { small });
+  const wait = onWait || ((sec) => onStage('rara', `☕ Menunggu jatah Groq pulih (±${sec} dtk)…`));
+  let r = await research(question, { small, onWait: wait });
   if (!r.ok || !r.found) return r;
   onStage('vera', 'Mengecek fakta dari sumber…');
   let v = await checkFacts({ question, answer: r.text, sources: r.sources, evidence: r.evidence });
   if (v.status === 'lemah') {
     onStage('rara', 'Vera minta cek ulang, mencari lagi…');
-    const again = await research(`${question} (cari data resmi & terbaru; catatan pemeriksa: ${v.note || 'jawaban sebelumnya tidak didukung sumber'})`, { small });
+    const again = await research(`${question} (cari data resmi & terbaru; catatan pemeriksa: ${v.note || 'jawaban sebelumnya tidak didukung sumber'})`, { small, onWait: wait });
     if (again.ok && again.found) {
       onStage('vera', 'Mengecek ulang…');
       const v2 = await checkFacts({ question, answer: again.text, sources: again.sources, evidence: again.evidence });

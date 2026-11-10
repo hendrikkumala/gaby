@@ -151,6 +151,7 @@ ALAT YANG KAMU PUNYA (pakai tanpa bilang "aku memanggil fungsi")
 - buka_ingatan: buka laci ingatan untuk satu topik (misal "makanan", "film", "rencana liburan", atau nama orang). Pakai hasilnya untuk menjawab dengan nyambung; jangan membacakan isinya satu per satu.
 - lokasi_saya: tahu posisi pengguna. cari_tempat: tempat di sekitar pengguna (lalu cari rekomendasinya sesuai catatan di hasil). rute: jarak & waktu tempuh ke tujuan, peta tampil di layar; kalau pengguna menyebut kota/tempat asal ("dari Bandung ke Jakarta"), WAJIB isi kolom dari, kalau tidak, titik awalnya lokasi pengguna. Sebutkan jarak dan waktunya lewat suara, dan ingatkan waktunya belum termasuk macet bila perjalanan jauh.
 - buat_rencana: tugas besar yang butuh beberapa langkah ("rencanakan liburan ke Bali 3 hari budget 5 juta", "siapkan ultah anakku", "bandingin 3 HP di bawah 5 juta") → minta Pandu. Isi permintaan selengkapnya; kalau info penting kurang (tujuan/tanggal/budget), boleh tanya SATU pertanyaan dulu, atau langsung jalan dengan asumsi wajar. Setelah memanggil, bilang singkat Pandu sedang bekerja; JANGAN mengarang isinya. Saat sistem mengabari rencana selesai, sampaikan ringkas sesuai petunjuknya. Mengubah rencana lama → buat_rencana dengan dari_nomor. Kalau Vera masih punya catatan, tawarkan SATU kali "mau aku minta Pandu lengkapi?"; setuju ("boleh", "lengkapi rencana 3") → buat_rencana dengan dari_nomor dan permintaan "Lengkapi rencana #N sesuai catatan Vera" (Pandu membaca catatan Vera sendiri; rencana lama tetap ada untuk dibandingkan).
+- lanjutkan_rencana: kalau Pandu tertunda karena jatah AI habis, hasil kerjanya tersimpan di HP 2 hari; "lanjutkan rencananya" → panggil alat ini (bukan buat_rencana baru).
 - Rencana perjalanan berisi pilihan berjenjang (💸 hemat / ⚖️ seimbang / 🛋️ nyaman) untuk transportasi & hotel; satu yang dipakai di total biaya. "Ganti ke yang paling murah / yang nyaman" → buat_rencana dengan dari_nomor (jadi rencana turunan, bisa dibandingkan). Kalau budget atau kelas perjalanan tidak disebut, boleh tanya SATU kali "mau yang hemat, seimbang, atau nyaman?", atau langsung jalan (Pandu memakai seimbang).
 - buka_rencana / daftar_rencana / bandingkan_rencana: jawab pertanyaan tentang rencana tersimpan HANYA dari data alatnya. Sebut rencana dengan nomornya ("rencana 3"). Kalau ada beberapa yang cocok, tanya yang mana.
 - simpan_rencana_hp: "simpan rencana 3 ke HP" → gambar rapi (juga masuk Galeri Gaby); "kirim rencananya / jadikan teks" → bentuk teks. Ikuti catatannya (misal minta pengguna mengetuk tombol sekali).
@@ -177,8 +178,18 @@ Waktu sekarang: ${formatNow()} (jam ${clock()}, waktunya ${dayPart().id}). Abaik
 }
 
 // Siapa saja teman yang siap, dan yang belum bisa karena kuncinya belum diisi.
+// Pekerjaan Pandu yang tertunda (titik simpan pandu.js, berlaku 2 hari). Dibaca langsung supaya persona.js
+// tidak perlu memuat pandu.js.
+function panduPending() {
+  try {
+    const st = JSON.parse(localStorage.getItem('gaby.panduResume') || 'null');
+    return st && st.request && Date.now() - (st.at || 0) < 2 * 86400000 ? st : null;
+  } catch { return null; }
+}
+
 function friendStatus(research) {
   const { keys } = memory.get();
+  const pend = panduPending();
   const g = !!keys.groq;
   const gm = !!keys.gemini;
   const where = 'Pengaturan → Otak Gaby';
@@ -186,7 +197,7 @@ function friendStatus(research) {
     `- Rara: ${research ? (g ? 'siap' : 'siap (lewat Gemini, jatahnya terbatas)') : g ? 'sedang kehabisan jatah, jadi kamu yang mencari sendiri' : `BELUM BISA dimintai tolong: kunci Groq belum diisi di ${where}`}`,
     `- Lukas: ${g ? 'siap' : gm ? 'siap (lewat Gemini, kadang kehabisan jatah)' : 'BELUM BISA menulis perintah gambar (kunci Groq belum diisi); kamu yang menulis perintahnya, gambarnya tetap jadi'}`,
     `- Vera: ${g ? 'siap' : 'BELUM BISA mengecek (kunci Groq belum diisi); hasil teman lain tetap disampaikan dengan tanda "belum dicek"'}`,
-    `- Pandu: ${keys.openrouter ? 'siap (berpikir lewat OpenRouter, cadangan Groq)' : g ? 'siap' : `BELUM BISA dipanggil: butuh kunci Groq atau OpenRouter (gratis) di ${where}`}`,
+    `- Pandu: ${keys.openrouter ? 'siap (berpikir lewat OpenRouter, cadangan Groq)' : g ? 'siap' : `BELUM BISA dipanggil: butuh kunci Groq atau OpenRouter (gratis) di ${where}`}${pend ? `. Ada pekerjaan TERTUNDA: "${String(pend.request).slice(0, 80)}" (bisa dilanjutkan dengan lanjutkan_rencana)` : ''}`,
     `- Meri: ${gm ? 'siap' : 'belum bisa merapikan ingatan (butuh kunci Gemini)'}`,
   ].join('\n');
 }

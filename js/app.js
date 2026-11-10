@@ -29,7 +29,7 @@ import { Camera } from './camera.js';
 import { gallery } from './gallery.js';
 import { generateImage, generateFree, writeImagePrompt } from './imagegen.js';
 import { checkImage, checkPlan } from './vera.js';
-import { runPandu, panduStatus } from './pandu.js';
+import { runPandu, panduStatus, panduPending } from './pandu.js';
 import { orStatus, resetOpenRouter } from './openrouter.js';
 import { planSections, planHeader, planText, compareSections, compareText, renderImage, JENIS } from './planexport.js';
 import { googleCalendarUrl, icsUrl, isApple } from './calendar.js';
@@ -434,6 +434,7 @@ const ui = {
   startJob: (who, text, opts) => startJob(who, text, opts),
   closeCards: (jenis) => closeCards(jenis),
   startPlan: (a) => startPlan(a),
+  resumePlan: () => resumePlan(),
   openPlan: (a) => openPlan(a),
   listPlans: () => listPlansTool(),
   comparePlans: (a) => comparePlans(a),
@@ -2162,28 +2163,51 @@ function startPlan({ permintaan, dari_nomor }) {
   return {
     ok: true,
     mulai: true,
-    catatan: 'Pandu mulai bekerja (biasanya 1–2 menit; prosesnya tampil di papan kerja di atas). Bilang SINGKAT bahwa Pandu sedang menyusun rencananya dan pengguna boleh ngobrol hal lain sambil menunggu. JANGAN mengarang isi rencana; sistem akan mengabarimu saat selesai.',
+    catatan: 'Pandu mulai bekerja (biasanya 1–3 menit, rencana panjang bisa sampai 5–8 menit kalau harus menunggu jatah AI; prosesnya tampil di papan kerja di atas). Bilang SINGKAT bahwa Pandu sedang menyusun rencananya dan pengguna boleh ngobrol hal lain sambil menunggu. JANGAN mengarang isi rencana; sistem akan mengabarimu saat selesai.',
   };
 }
 
-async function runPlanJob(request, base, job) {
+// v1.25: lanjutkan pekerjaan Pandu yang tertunda (titik simpan di HP, berlaku 2 hari).
+function resumePlan() {
+  const pend = panduPending();
+  if (!pend) return { error: 'tidak_ada', catatan: 'Tidak ada pekerjaan Pandu yang tertunda (atau sudah lewat 2 hari). Tawarkan membuat rencana baru dengan buat_rencana.' };
+  if (planRunning) return { error: 'sibuk', catatan: `Pandu masih mengerjakan "${planRunning.request}". Minta pengguna menunggu sebentar.` };
+  const base = pend.baseNo ? memory.getPlan(pend.baseNo) : null;
+  const job = startJob('pandu', 'Melanjutkan rencana yang tertunda…');
+  planRunning = { request: pend.request };
+  runPlanJob(pend.request, base, job, pend).finally(() => { planRunning = null; });
+  return {
+    ok: true,
+    lanjut: true,
+    permintaan: pend.request,
+    catatan: 'Pandu melanjutkan dari titik terakhir (riset yang sudah ada tidak diulang). Bilang SINGKAT bahwa Pandu melanjutkan rencananya; sistem akan mengabarimu saat selesai.',
+  };
+}
+
+async function runPlanJob(request, base, job, resume = null) {
   let veraIdx = 0;
   let lastBrain = '';
+  // Vera membaca rencana panjang bertahap & menunggu jatah Groq pulih kalau perlu.
+  const veraHooks = {
+    onWait: (sec) => job.pass('vera', `☕ Menunggu jatah Groq pulih (±${sec} dtk)…`),
+    onPart: (i, n, label) => job.pass('vera', `Membaca bagian ${i + 1}/${n}: ${label}…`),
+  };
   try {
     const res = await runPandu({
       request,
       base,
+      resume,
       hooks: {
         onSteps: (list) => { veraIdx = list.length; job.setSteps([...list, 'Vera mengecek rencana']); },
         onStep: (i, text) => { job.pass('pandu'); job.step(i, text); },
         onRara: (who, text) => job.pass(who, text),
-        onWait: (sec) => { job.pass('pandu'); job.update(`Menunggu jatah AI sebentar${sec ? ` ±${sec} dtk` : ''}…`); },
+        onWait: (sec) => { job.pass('pandu'); job.update(`☕ Menunggu jatah AI pulih${sec ? ` (±${sec} dtk)` : ''}…`); },
         onBrain: (label) => { if (label !== lastBrain) { if (lastBrain) job.update(`Pindah ke ${label}…`); lastBrain = label; } },
         onFix: (fb, ke) => job.pass('pandu', `Memperbaiki${ke > 1 ? ` (ke-${ke})` : ''}: ${fb.slice(0, 70)}…`),
         verify: async (plan, fixes) => {
           job.pass('vera');
           job.step(veraIdx, 'Mengecek hitungan, tanggal, dan pantanganmu…');
-          return checkPlan(plan, fixes);
+          return checkPlan(plan, fixes, veraHooks);
         },
       },
     });
@@ -2191,7 +2215,7 @@ async function runPlanJob(request, base, job) {
     if (!vera) {
       job.pass('vera');
       job.step(veraIdx, 'Mengecek ulang rencana…');
-      vera = await checkPlan(res.plan, res.fixes);
+      vera = await checkPlan(res.plan, res.fixes, veraHooks);
     }
     const serious = (vera.issues || []).filter((i) => i.serius).map((i) => i.text); // yang belum beres
     const plan = memory.addPlan({
@@ -2214,6 +2238,15 @@ async function runPlanJob(request, base, job) {
     announce(`[SISTEM] Pandu sudah selesai: Rencana #${plan.no} "${plan.title}" sudah siap dan tampil di Kartu Rencana. Cek Vera: ${vera.badge}${vera.ok ? '' : ` (${serious.join('; ')})`}. Ringkasan: ${JSON.stringify({ jenis: s.jenis, tanggal: s.tanggal, total: s.total_biaya, utama: s._utama, transportasi: s.transportasi.slice(0, 2), kuliner: s.kuliner.slice(0, 2), tujuan: s.tujuan, fitur: s.fitur.slice(0, 3), rincian: s.rincian.slice(0, 5), jadwal: s.jadwal.slice(0, 3) })}. Sampaikan dengan antusias tapi SINGKAT (2–3 kalimat): sebut nomor rencana, total biaya, dan 1–2 hal utama (misal maskapai & hotel, atau fitur utama untuk proyek); boleh sebut bahwa kartunya bisa disimpan ke HP${vera.ok ? '' : ', lalu jujur sebut catatan Vera dengan bahasa sederhana'}.${extra}`,
     { title: `Rencana #${plan.no} siap`, body: `${plan.title}${s.total_biaya ? ` · total ${s.total_biaya}` : ''}` });
   } catch (e) {
+    if (e && e.paused) {
+      // Jatah semua otak habis di tengah jalan: hasil kerja tersimpan, bisa dilanjutkan nanti.
+      console.warn('[Gaby] Pandu tertunda:', e.info);
+      job.pause(`⏸️ Tertunda — bilang "lanjutkan rencananya" nanti`);
+      fillSettings();
+      announce(`[SISTEM] Pandu berhenti sementara saat menyusun "${request}" karena ${String(e.info?.why || 'jatah AI habis').slice(0, 160)}. Hasil kerjanya (riset & draf${e.info?.lastStep ? `, terakhir: ${String(e.info.lastStep).slice(0, 60)}` : ''}) SUDAH TERSIMPAN di HP selama 2 hari, jadi tidak mengulang dari awal. Sampaikan singkat & santai dengan bahasa sederhana (sebut penyebabnya, misal jatah AI gratis habis), lalu bilang nanti tinggal bilang "lanjutkan rencananya" (alat lanjutkan_rencana) kalau jatahnya sudah pulih, misal besok.`,
+        { title: 'Pandu tertunda', body: 'Hasil kerjanya tersimpan. Bilang "lanjutkan rencananya" nanti.' });
+      return;
+    }
     console.warn('[Gaby] Pandu gagal:', e);
     job.fail(String(e.message || 'Gagal').slice(0, 80));
     announce(`[SISTEM] Pandu gagal menyusun rencana "${request}": ${String(e.message || '').replace(/\.+$/, '')}. Sampaikan singkat dan jujur dengan bahasa sederhana (sebut penyebabnya, misal jatah AI habis atau izin OpenRouter belum dinyalakan), lalu tawarkan untuk mencoba lagi.`,

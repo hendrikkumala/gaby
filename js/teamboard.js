@@ -17,7 +17,7 @@ let seq = 0;
 let expanded = false;
 let hiddenByUser = false; // pengguna menutup papan (✕ / "tutup papan kerja"); muncul lagi saat ada pekerjaan baru
 let box = null;
-const STUCK_MS = 6 * 60 * 1000; // pekerjaan yang macet lebih dari 6 menit dihapus dari papan
+const STUCK_MS = 6 * 60 * 1000; // pekerjaan yang DIAM (tanpa kabar) lebih dari 6 menit dihapus dari papan
 
 function el() {
   if (!box) {
@@ -76,7 +76,7 @@ function render() {
     const steps = expanded && j.steps.length
       ? `<ol class="tb-steps">${j.steps.map((s) => `<li class="${s.state}">${s.state === 'done' ? '✅' : s.state === 'run' ? '⏳' : '⬜'} ${esc(s.text)}</li>`).join('')}</ol>`
       : '';
-    return `<div class="tb-row ${j.state}"><b>${esc(WHO[j.who] || j.who)}</b>${bar}<span class="tb-text">${esc(j.text)}${count}</span></div>${steps}`;
+    return `<div class="tb-row ${j.state}${j.paused ? ' paused' : ''}"><b>${esc(WHO[j.who] || j.who)}</b>${bar}<span class="tb-text">${esc(j.text)}${count}</span></div>${steps}`;
   });
   const more = !expanded && list.length > 2 ? `<div class="tb-more">+${list.length - 2} lagi · ketuk untuk lihat</div>` : '';
   b.innerHTML = `<button class="tb-x" aria-label="Tutup papan kerja" title="Tutup papan (teman tetap bekerja)">✕</button>${rows.join('')}${more}`;
@@ -88,7 +88,7 @@ function render() {
 // Mulai satu pekerjaan. Mengembalikan pengendali untuk memperbarui papan.
 export function startJob(who, text, { steps = [] } = {}) {
   const id = ++seq;
-  const job = { id, who, text: String(text || ''), frac: null, state: 'run', steps: [], started: Date.now() };
+  const job = { id, who, text: String(text || ''), frac: null, state: 'run', steps: [], started: Date.now(), active: Date.now() };
   jobs.set(id, job);
   hiddenByUser = false; // pekerjaan baru: tampilkan lagi papannya
   const setSteps = (list) => { job.steps = (list || []).map((t) => ({ text: String(t), state: 'todo' })); };
@@ -99,13 +99,18 @@ export function startJob(who, text, { steps = [] } = {}) {
   const emitSteps = () => officeEmit('job', { id, kind: 'steps', list: job.steps.map((s) => s.text) });
   if (job.steps.length) emitSteps();
   const progress = () => officeEmit('job', { id, kind: 'progress', frac: progressOf(job) });
-  const finish = (state, msg, ms) => {
+  // Ada kabar: pekerjaan masih hidup (pekerjaan panjang yang menunggu jatah AI tidak dianggap macet).
+  const alive = () => { job.active = Date.now(); };
+  // "☕ Menunggu jatah…" → gelembung kecil di Ruang Kerja (tanpa animasi baru).
+  const noteWait = (msg) => { if (/^☕/.test(String(msg || ''))) officeEmit('job', { id, kind: 'wait', who: job.who, text: String(msg) }); };
+  const finish = (state, msg, ms, extra = {}) => {
     if (!jobs.has(id) || job.state !== 'run') return;
-    job.state = state;
+    job.state = state === 'pause' ? 'fail' : state;
+    if (state === 'pause') job.paused = true;
     if (msg) job.text = String(msg);
     for (const s of job.steps) if (s.state === 'run') s.state = state === 'done' ? 'done' : 'todo';
     render();
-    officeEmit('job', { id, kind: 'end', ok: state === 'done' });
+    officeEmit('job', { id, kind: 'end', ok: state === 'done', ...extra });
     setTimeout(() => { jobs.delete(id); render(); }, ms);
   };
   return {
@@ -113,15 +118,18 @@ export function startJob(who, text, { steps = [] } = {}) {
     // Ganti siapa yang sedang bekerja (misal dari Rara ke Vera) dan keterangannya.
     pass(nextWho, msg) {
       if (job.state !== 'run') return;
+      alive();
       const changed = job.who !== nextWho;
       job.who = nextWho; if (msg != null) job.text = String(msg); job.frac = null; render();
       if (changed) officeEmit('job', { id, kind: 'pass', who: nextWho, text: job.text });
+      noteWait(msg);
     },
-    update(msg, frac = null) { if (job.state !== 'run') return; if (msg != null) job.text = String(msg); job.frac = frac; render(); progress(); },
-    setSteps(list) { if (job.state !== 'run') return; setSteps(list); render(); emitSteps(); },
+    update(msg, frac = null) { if (job.state !== 'run') return; alive(); if (msg != null) job.text = String(msg); job.frac = frac; render(); progress(); noteWait(msg); },
+    setSteps(list) { if (job.state !== 'run') return; alive(); setSteps(list); render(); emitSteps(); },
     // Tandai langkah ke-i sedang dikerjakan (langkah sebelumnya dianggap selesai).
     step(i, msg) {
       if (job.state !== 'run') return;
+      alive();
       job.steps.forEach((s, k) => { if (k < i) s.state = 'done'; else if (k === i) s.state = 'run'; });
       if (msg != null) job.text = String(msg);
       render();
@@ -131,6 +139,8 @@ export function startJob(who, text, { steps = [] } = {}) {
     addStep(text) { if (job.state !== 'run') return job.steps.length - 1; job.steps.push({ text: String(text), state: 'todo' }); render(); return job.steps.length - 1; },
     done(msg) { finish('done', msg, 2500); },
     fail(msg) { finish('fail', msg, 7000); },
+    // Tertunda (v1.25): hasil kerja tersimpan, bisa dilanjutkan nanti.
+    pause(msg) { finish('pause', msg, 9000, { paused: true }); },
   };
 }
 
@@ -145,7 +155,7 @@ setInterval(() => {
   const now = Date.now();
   let changed = false;
   for (const [id, j] of jobs) {
-    if (j.state === 'run' && now - j.started > STUCK_MS) {
+    if (j.state === 'run' && now - (j.active || j.started) > STUCK_MS) {
       j.state = 'fail';
       j.text = 'Terlalu lama, dihentikan';
       changed = true;

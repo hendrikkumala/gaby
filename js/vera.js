@@ -6,12 +6,15 @@
 // Kalau Vera tidak bisa bekerja, hasil tetap disampaikan dengan tanda "belum dicek".
 
 import { memory } from './memory.js';
-import { groqModels, groqChat, reasoningFor, parseJson } from './groq.js';
+import { groqModels, groqChat, groqPatient, reasoningFor, parseJson } from './groq.js';
+import { planSections } from './planexport.js';
 
 const REST = 'https://generativelanguage.googleapis.com/v1beta';
 
 // Tanya Vera (teks). Hasil: objek JSON, atau null kalau Vera tidak bisa bekerja.
-async function askVera(prompt, { careful = true, timeout = 20000 } = {}) {
+// Batas per menit (v1.25): Vera MENUNGGU sampai jatah pulih (maks 3x, groqPatient); tidak pulih / terlalu
+// besar / habis harian → coba model Vera berikutnya (jatah Groq dihitung per model).
+async function askVera(prompt, { careful = true, timeout = 20000, maxTokens = 3000, onWait = null } = {}) {
   const { keys } = memory.get();
   if (!keys.groq) return null;
   for (const model of await groqModels(keys.groq, 'vera')) {
@@ -19,14 +22,10 @@ async function askVera(prompt, { careful = true, timeout = 20000 } = {}) {
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
-      max_completion_tokens: 3000,
+      max_completion_tokens: maxTokens,
       ...reasoningFor(model, careful),
     };
-    let r = await groqChat(keys.groq, body, timeout);
-    if (r.error === 'minute') {
-      await new Promise((ok) => setTimeout(ok, Math.min(Math.max(r.retryAfter * 1000, 1000), 5000)));
-      r = await groqChat(keys.groq, body, timeout);
-    }
+    let r = await groqPatient(keys.groq, body, { timeoutMs: timeout, onWait });
     if (r.error === 'error' && /reasoning/i.test(r.message || '')) {
       // Model tidak menerima pengaturan berpikir: coba tanpa itu.
       const { reasoning_effort, reasoning_format, ...plain } = body; // eslint-disable-line no-unused-vars
@@ -206,6 +205,17 @@ function scheduledDays(plan) {
   return days;
 }
 
+// Hari yang belum punya jadwal (dipakai Pandu untuk melanjutkan jadwal sebelum diserahkan ke Vera).
+// Hasil: { days, missing[] } — days 0 = lama perjalanan tidak bisa dipastikan.
+export function scheduleGaps(plan) {
+  const days = plan && plan.jenis === 'perjalanan' ? tripDays(plan) : 0;
+  if (days < 2) return { days, missing: [] };
+  const all = (plan.jadwal || []).map((j) => `${j.waktu} ${j.kegiatan}`).join(' \n ').toLowerCase();
+  const seen = scheduledDays(plan);
+  if (/hari\s+terakhir/.test(all)) seen.add(days);
+  return { days, missing: seen.size ? [...Array(days).keys()].map((i) => i + 1).filter((d) => !seen.has(d)) : [] };
+}
+
 // Perjalanan: jadwal tiap hari sampai hari terakhir, check-out hotel, dan perjalanan pulang.
 function tripScheduleIssues(plan) {
   const issues = [];
@@ -261,38 +271,117 @@ function localPlanIssues(plan) {
   return issues;
 }
 
+// Rencana sebagai teks ringkas & UTUH untuk Vera (v1.25: dulu JSON dipotong 6.000 huruf, sehingga Vera
+// hanya membaca separuh rencana panjang). Jadwal dikelompokkan per hari. Hasil: { head, core, days[] }.
+export const dayOf = (j) => {
+  const m = `${j.waktu || ''} ${j.kegiatan || ''}`.toLowerCase().match(/\bhari\s*(?:ke[-\s]?)?(\d{1,2})\b/);
+  return m ? +m[1] : null;
+};
+function planDigest(plan) {
+  const sections = planSections({ data: { ...plan, sumber: [] } }).filter((x) => !['vera', 'sumber', 'jadwal'].includes(x.key));
+  const days = tripDays(plan);
+  const head = [
+    `Judul: ${plan.judul || '-'} (${plan.jenis || 'lainnya'})`,
+    `Tanggal: ${plan.tanggal || '-'}${plan.tanggal_mulai ? ` (mulai ${plan.tanggal_mulai}${plan.tanggal_selesai ? `, hari terakhir ${plan.tanggal_selesai}` : ''})` : ''}${days ? ` = ${days} hari` : ''}`,
+    `Total biaya: Rp${Number(plan.total_biaya || 0).toLocaleString('id-ID')}`,
+    plan.ringkasan ? `Ringkasan: ${plan.ringkasan}` : '',
+  ].filter(Boolean).join('\n');
+  const core = sections.map((x) => `${x.title.replace(/^\S+\s/, '').toUpperCase()}${x.total ? ` (${x.total})` : ''}\n${x.lines.map((l) => `- ${l}`).join('\n')}`).join('\n\n');
+  // Jadwal per hari (yang tanpa "Hari N", misal tahapan proyek, jadi satu kelompok).
+  const groups = new Map();
+  for (const j of plan.jadwal || []) {
+    const d = dayOf(j);
+    const k = d == null ? 'lain' : d;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(`- ${j.waktu} — ${j.kegiatan}`);
+  }
+  const dayTexts = [...groups.entries()].map(([k, lines]) => ({ day: k, text: `${k === 'lain' ? 'JADWAL' : `HARI ${k}`}\n${lines.join('\n')}` }));
+  return { head, core, days: dayTexts };
+}
+
+// Bagi rencana menjadi beberapa bacaan yang muat di jatah per menit Groq (±5.500 huruf per bacaan).
+const PART_CHARS = 5500;
+function digestParts(d) {
+  const sched = d.days.map((x) => x.text).join('\n\n');
+  if (d.core.length + sched.length <= PART_CHARS) return [{ label: '', text: `${d.core}\n\nJADWAL LENGKAP\n${sched}` }];
+  const parts = [];
+  // Bagian inti (biaya, transportasi, hotel, kuliner, …); kalau sangat panjang, dibagi juga.
+  let buf = '';
+  for (const block of d.core.split('\n\n')) {
+    if (buf && buf.length + block.length > PART_CHARS) { parts.push({ label: 'isi utama', text: buf }); buf = ''; }
+    buf = buf ? `${buf}\n\n${block}` : block;
+  }
+  if (buf) parts.push({ label: 'isi utama', text: buf });
+  // Jadwal: beberapa hari per bacaan.
+  let group = [];
+  let len = 0;
+  const flush = () => {
+    if (!group.length) return;
+    const ds = group.map((x) => x.day).filter((x) => x !== 'lain');
+    parts.push({ label: ds.length ? `jadwal hari ${ds[0]}${ds.length > 1 ? `–${ds[ds.length - 1]}` : ''}` : 'jadwal', text: group.map((x) => x.text).join('\n\n') });
+    group = []; len = 0;
+  };
+  for (const x of d.days) {
+    if (group.length && len + x.text.length > PART_CHARS) flush();
+    group.push(x); len += x.text.length;
+  }
+  flush();
+  return parts;
+}
+
 // Hasil: { ok, feedback, badge, issues[] }. ok=false + feedback → Pandu memperbaiki (maks 2 kali lewat OpenRouter).
 // fixes = koreksi otomatis yang sudah dilakukan (misal total dihitung ulang).
-export async function checkPlan(plan, fixes = []) {
+// Rencana panjang dibaca BERTAHAP (beberapa bacaan), catatannya digabung. onWait(detik) = menunggu jatah Groq.
+export async function checkPlan(plan, fixes = [], { onWait = null, onPart = null } = {}) {
   const local = localPlanIssues(plan);
-  const prompt = `Kamu VERA, pemeriksa rencana untuk asisten Gaby. Periksa rencana dari Pandu ini dengan teliti.
+  const d = planDigest(plan);
+  const parts = digestParts(d);
+  const many = parts.length > 1;
+  const dislikes = memory.get().profile.filter((m) => m.rasa === 'tidak').map((m) => m.text).join('; ') || '-';
+  const results = [];
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (onPart && many) onPart(i, parts.length, part.label);
+    const prompt = `Kamu VERA, pemeriksa rencana untuk asisten Gaby. Periksa rencana dari Pandu ini dengan teliti.
 
 Hari ini: ${new Date().toLocaleDateString('sv-SE')}.
-Hal yang tidak disukai pengguna: ${memory.get().profile.filter((m) => m.rasa === 'tidak').map((m) => m.text).join('; ') || '-'}
+Hal yang tidak disukai pengguna: ${dislikes}
 
-RENCANA (JSON):
-${JSON.stringify({ ...plan, sumber: (plan.sumber || []).map((x) => x.title) }).slice(0, 6000)}
+RENCANA${many ? ` — BACAAN ${i + 1} DARI ${parts.length} (${part.label}). Rencana ini panjang, jadi dibaca bertahap: periksa HANYA isi bacaan ini; bagian lain ada di bacaan lain, jangan laporkan sebagai hilang` : ''}:
+${d.head}
 
-Cek: (1) hitungan biaya masuk akal dan tidak ada biaya penting yang terlupa (misal transport/makan untuk perjalanan), (2) tanggal & urutan jadwal masuk akal dan bisa dijalani, (3) tidak ada saran yang bertentangan dengan hal yang tidak disukai, (4) tidak ada janji pasti yang sebenarnya hanya perkiraan, (5) khusus perjalanan: ada jadwal untuk SETIAP hari sampai hari terakhir, termasuk check-out hotel dan perjalanan pulang.
+${part.text}
+
+Cek: (1) hitungan biaya masuk akal dan tidak ada biaya penting yang terlupa (misal transport/makan untuk perjalanan), (2) tanggal & urutan jadwal masuk akal dan bisa dijalani, (3) tidak ada saran yang bertentangan dengan hal yang tidak disukai, (4) tidak ada janji pasti yang sebenarnya hanya perkiraan${many ? '' : ', (5) khusus perjalanan: ada jadwal untuk SETIAP hari sampai hari terakhir, termasuk check-out hotel dan perjalanan pulang'}.
 Jangan rewel soal selera; laporkan hanya masalah NYATA.
 
 Balas HANYA JSON:
 {"status": "ok" | "perlu_perbaikan", "masalah": ["masalah singkat bahasa Indonesia"], "perbaikan": "instruksi singkat untuk Pandu (kosong kalau ok)"}`;
-  const raw = await askVera(prompt, { timeout: 30000 });
-  const v = raw && ['ok', 'perlu_perbaikan'].includes(raw.status) ? raw : null; // balasan tidak jelas = belum dicek
+    const raw = await askVera(prompt, { timeout: 45000, maxTokens: 3000, onWait });
+    results.push(raw && ['ok', 'perlu_perbaikan'].includes(raw.status) ? raw : null); // balasan tidak jelas = belum dicek
+  }
+  const answered = results.filter(Boolean);
+  const v = answered.length ? {
+    status: answered.some((r) => r.status === 'perlu_perbaikan') ? 'perlu_perbaikan' : 'ok',
+    masalah: answered.filter((r) => r.status === 'perlu_perbaikan').flatMap((r) => (Array.isArray(r.masalah) ? r.masalah : [])),
+    perbaikan: answered.map((r) => (r.status === 'perlu_perbaikan' ? String(r.perbaikan || '').trim() : '')).filter(Boolean).join(' '),
+    _model: answered[0]._model,
+  } : null;
   const llmIssues = v && v.status === 'perlu_perbaikan'
-    ? (Array.isArray(v.masalah) ? v.masalah : []).map((t) => ({ serius: true, text: String(t).slice(0, 200) })).slice(0, 5)
+    ? [...new Set(v.masalah.map((t) => String(t).slice(0, 200)))].map((text) => ({ serius: true, text })).slice(0, 6)
     : [];
   const issues = [...local, ...llmIssues];
   const serious = issues.filter((i) => i.serius);
   const feedback = serious.length
-    ? [...serious.map((i) => i.text), v && v.perbaikan ? String(v.perbaikan).slice(0, 300) : ''].filter(Boolean).join(' ')
+    ? [...serious.map((i) => i.text), v && v.perbaikan ? String(v.perbaikan).slice(0, 400) : ''].filter(Boolean).join(' ')
     : '';
   let badge;
   if (!v && !serious.length) badge = '❓ belum dicek Vera';
   else if (serious.length) badge = `⚠️ Vera: ${serious[0].text.slice(0, 70)}`;
   else badge = '✅ dicek Vera';
-  return { ok: !serious.length, feedback, badge, issues, notes: [...fixes, ...issues.filter((i) => !i.serius).map((i) => i.text)], model: v && v._model };
+  // Sebagian bacaan tidak terjawab: jujur di catatan.
+  const partial = v && answered.length < results.length ? [`Vera hanya sempat membaca ${answered.length} dari ${results.length} bagian rencana.`] : [];
+  return { ok: !serious.length, feedback, badge, issues, notes: [...fixes, ...partial, ...issues.filter((i) => !i.serius).map((i) => i.text)], model: v && v._model };
 }
 
-export const _internal = { askVera, REST, tripDays, tripScheduleIssues };
+export const _internal = { askVera, REST, tripDays, tripScheduleIssues, planDigest, digestParts };

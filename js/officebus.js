@@ -4,7 +4,7 @@
 //   'gaby'     → status Gaby: 'sleep' | 'connecting' | 'listening' | 'thinking' | 'speaking'
 //   'say'      → { who: 'gaby' | 'user', text } (potongan ucapan) atau { who, end: true }
 //   'tool'     → { name, args } saat Gaby memakai alat; 'toolDone' → { name, args, result }
-//   'job'      → { id, kind: 'start' | 'pass' | 'progress' | 'end', who, text, frac, ok } dari papan kerja
+//   'job'      → { id, kind: 'start' | 'pass' | 'progress' | 'steps' | 'step' | 'wait' | 'end', who, text, frac, ok, paused } dari papan kerja
 
 const listeners = new Set();
 
