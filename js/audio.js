@@ -1,3 +1,5 @@
+import { EchoGate } from './vad.js';
+
 // Mikrofon (rekam suara kamu) dan pemutar suara Gaby.
 
 const WORKLET = `
@@ -73,7 +75,8 @@ export class AudioEngine {
     this.nextTime = 0;
     this.onBargeIn = null;    // dipanggil saat kamu memotong Gaby
     this.lastChunkAt = 0;     // kapan suara mikrofon terakhir mengalir (penjaga mikrofon)
-    this.echoBase = 0.01;
+    // Penjaga gema (vad.js): belajar per HP hanya di Android; iPhone/laptop = cara lama persis.
+    this.gate = new EchoGate(globalThis.localStorage, /Android/i.test(navigator.userAgent));
     this.loudMs = 0;
   }
 
@@ -85,12 +88,10 @@ export class AudioEngine {
 
   // Deteksi kamu memotong: suara mic jauh lebih keras dari sisa gema suara Gaby.
   checkBargeIn(level) {
-    if (!this.isSpeaking() || this.antiEcho || this.muted || !this.sending) {
-      this.loudMs = 0;
-      this.echoBase = 0.01;
-      return;
-    }
-    const threshold = Math.max(0.05, this.echoBase * 4);
+    const listening = this.isSpeaking() && !this.antiEcho && !this.muted && this.sending;
+    const threshold = this.gate.threshold(); // dihitung SEBELUM potongan ini dipelajari (sama dengan cara lama)
+    this.gate.observe(level, listening);
+    if (!listening) { this.loudMs = 0; return; }
     if (level > threshold) {
       this.loudMs += 50;
       if (this.loudMs >= 300) {
@@ -99,9 +100,11 @@ export class AudioEngine {
       }
     } else {
       this.loudMs = 0;
-      this.echoBase = this.echoBase * 0.9 + level * 0.1;
     }
   }
+
+  // Batas memotong saat ini (dipakai deteksi bicara di app.js & panel diagnosa).
+  bargeThreshold() { return this.gate.threshold(); }
 
   // Harus dipanggil dari ketukan pengguna (aturan browser, terutama iPhone).
   async unlock() {
@@ -206,6 +209,7 @@ export class AudioEngine {
 
   // Hentikan Gaby bicara (misal saat kamu memotong).
   interrupt() {
+    if (this.isSpeaking()) this.gate.markBarge(); // dipotong: gema ucapan ini tidak disimpan
     for (const s of this.sources) {
       try { s.stop(); } catch {}
     }

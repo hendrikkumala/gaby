@@ -195,6 +195,28 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   persona: Gaby hanya boleh bilang Pandu bekerja kalau alat bilang begitu. Cuaca/jarak di dalam Pandu dibatasi 30 dtk (`within`;
   izin lokasi yang tidak dijawab dulu bisa menggantung). Uji: jam palsu Playwright (revive 6/6, HP ditinggal 10 menit → papan tetap),
   regresi Node + browser 11/11 + PDF 15/15.
+- **v1.26 (13 Nov 2026, temuan pemilik):**
+  **Memotong Gaby di Android** — `EchoGate` (vad.js, dipakai `audio.checkBargeIn` & `vad.update(level, speaking, audio.bargeThreshold())`).
+  Penyebab dugaan: cara lama mempelajari "gema" dari SEMUA suara di bawah 0,05 → suaramu yang agak pelan (mic Android/APK lebih pelan dari
+  iPhone) ikut dianggap gema → batas naik 4× → tidak pernah bisa memotong. Sekarang (HANYA Android, `learn` = UA Android; iPhone/laptop =
+  cara lama persis, sudah diuji sama di 6 skenario): gema turun cepat, naik pelan, lonjakan di atas 2,5× hampir diabaikan dan di atas
+  batas tidak dipelajari; gema rata-rata disimpan per HP di `localStorage['gaby.echo']` setelah Gaby bicara ≥1,5 dtk tanpa dipotong
+  (`interrupt()` → `markBarge`); kerasnya suaramu saat Gaby diam dipelajari (`voiceChunk`). Batas = max(clamp(suara×0,35; 0,015–0,05);
+  gema×3); sebelum ada ingatan gema (obrolan pertama) = cara lama. Panel diagnosa baris "Potong: batas · gema · suaramu". Simulasi
+  (t-echo, 10 benih acak 13/13): suara 0,03 kini bisa memotong, gema lemah 0,04 tidak memotong sendiri, lonjakan 150 ms aman.
+  Belum diuji di HP asli → kalau masih gagal: minta pemilik nyalakan Pengaturan → panel diagnosa & kirim tangkapan layar baris "Potong"
+  saat Gaby bicara; cek juga "Mode anti-gema" (kalau nyala, Gaby memang tidak mendengar selama bicara).
+  **Tombol 🗺️** `#btn-plans` (kiri bawah di sebelah kamera, `.corner-plans` left 72px) → `showPlanList()`, ketuk lagi = tutup.
+  **Jadwal pulang/check-out pasti** — `addTripEnds` di `normalizePlan` (pandu.js) memakai `tripEnds` (vera.js, regex yang sama dengan Vera):
+  hanya kalau SEMUA hari sudah terisi (`scheduleGaps` kosong; kalau tidak, Pandu tetap disuruh melengkapi hari), menambah
+  "Hari N, jam — Perjalanan pulang ke <asal dari rute> naik <transportasi dipilih> — jam perkiraan, sesuaikan" (kegiatan terakhir +90
+  menit, dibulatkan 30) dan/atau check-out (setelah kegiatan terakhir sebelum pulang, atau 11:00 kalau pulang sore); dicatat di `fixes`
+  (catatan Vera "ditambahkan otomatis"). Penyebab: model Pandu kadang tidak menulis baris pulang walau ditolak Vera 2× dan saat
+  "lengkapi" (#2 = salinan #1). Lencana Vera kini dipotong di batas kata + "(+N catatan)" (dulu "…transportas").
+  Uji: t-ends 8/8 (rencana Cirebon dari PDF pemilik → "Hari 2, 14:00 pulang ke Jakarta naik Mobil pribadi (standar)"), test-browser
+  16/16 & test-office22 33/33 (tes lama diperbarui untuk v1.25: pesan pembuka Pandu = 2 pesan pengguna, 1 "lengkapi hari" + 2
+  perbaikan = 4 panggilan, PNG → PDF; skenario "lengkapi" kini memakai catatan tempat makan karena pulang sudah ditambal otomatis),
+  test-backup 17/17, UI Android/iPhone 10/10.
 - Uji: mikrofon tiruan Chromium berbunyi "bip" sehingga `vad.active` sering true; pakai `--use-file-for-fake-audio-capture=<wav hening>`.
 - OpenRouter hanya untuk OTAK Pandu (v1.19), bukan untuk browsing: pencarian web OpenRouter berbayar, jadi Rara tetap di Groq/Gemini.
   Model gratis OpenRouter: ±20 permintaan/menit, 50/hari (1.000/hari kalau akun pernah isi saldo ≥ $10); permintaan gagal ikut dihitung;
@@ -215,7 +237,13 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini — per 10 Nov 2026
+## Status saat ini — per 13 Nov 2026
+**v1.26.0 di-commit lokal 13 Nov 2026, menunggu pemilik push** (cadangan `backup-v1.25.2`, lokal). Tiga temuan pemilik:
+(1) APK Android: Gaby tidak bisa dipotong (iPhone bisa: Gaby mengecil lalu diam) → penjaga gema `EchoGate`;
+(2) tombol 🗺️ daftar rencana di layar utama; (3) "lengkapi" rencana Cirebon #1 → #2 sama persis, Vera tetap "belum ada jadwal pulang"
+→ tambalan pasti `addTripEnds`. Lihat Keputusan penting "v1.26". Belum dicoba pemilik di HP.
+
+## Status sebelumnya — per 10 Nov 2026
 **v1.25.2 TERBIT 10 Nov 2026** (meteran Pandu + `cek_pandu`, lihat Keputusan penting). **v1.25.1 TERBIT 10 Nov 2026** (pemilik "terbitkan"; cabang `claude/inspiring-hawking-ioxiae` digabung fast-forward ke `main`):
 v1.25.0 (Pandu menyelesaikan rencana panjang 8–30 hari, Rara/Vera sabar menunggu jatah, titik simpan + "lanjutkan rencananya") + v1.25.1
 (PDF). Belum dicoba pemilik di HP. Versi sebelumnya: v1.24.0 (cadangan `backup-v1.24.0`). **APK tidak perlu dirakit ulang** untuk v1.25.x (semua perubahan di file web;
@@ -448,6 +476,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.26.0 | Android: Gaby bisa dipotong (penjaga gema belajar per HP, iPhone tetap cara lama); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
 | 1.25.2 | Meteran Pandu tidak hilang saat bekerja lama / HP ditinggal (muncul lagi saat ada kabar), Gaby memberi keadaan asli Pandu + alat `cek_pandu`; cuaca/jarak di Pandu maks 30 dtk |
 | 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |
 | 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 150 & kuliner 30 — cukup 12–30 hari, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |

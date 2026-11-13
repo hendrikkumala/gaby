@@ -90,7 +90,9 @@ function handleMic(pcm, level) {
     brain.sendAudio(pcm);
     return;
   }
-  const ev = vad.update(level, audio.isSpeaking(), audio.echoBase);
+  const speaking = audio.isSpeaking();
+  const ev = vad.update(level, speaking, audio.bargeThreshold());
+  if (vad.active && !speaking) audio.gate.voiceChunk(level); // pelajari kerasnya suaramu (hanya Android)
   if (ev === 'start') {
     if (audio.isSpeaking()) audio.duck(true);
     brain.activityStart();
@@ -865,6 +867,7 @@ function renderDiag() {
     `Model : ${model}${lvl != null && phase === 'active' ? ` (tingkat ${lvl})` : ''}`,
     `Deteksi: ${brain.manual ? 'Gaby (perangkat)' : 'Gemini (server)'}`,
     `Mic   : [${'#'.repeat(bars)}${'-'.repeat(10 - bars)}] ${vad.active ? 'kamu bicara' : ''}`,
+    `Potong: batas ${audio.bargeThreshold().toFixed(3)} · gema ${audio.gate.echo.toFixed(3)} · suaramu ${audio.gate.voice ? audio.gate.voice.toFixed(3) : '?'}${audio.gate.learn ? '' : ' (cara lama)'}`,
     `Status: ${phase === 'active' ? diag.state || 'mendengarkan' : phase}`,
     `Diam → teks muncul : ${sec(diag.end, diag.text)}`,
     `Diam → Gaby bicara : ${sec(diag.end, diag.audio)}`,
@@ -3068,6 +3071,12 @@ async function showViewer(item) {
 }
 
 $('btn-gallery').addEventListener('click', () => showViewer());
+// 🗺️ Daftar rencana Pandu dari layar utama (ketuk lagi = tutup).
+$('btn-plans').addEventListener('click', () => {
+  const card = $('plancard');
+  if (!card.hidden && card.dataset.kind === 'daftar_rencana') { hidePlanCard(); return; }
+  showPlanList();
+});
 $('viewer-close').addEventListener('click', () => { $('viewer').hidden = true; });
 $('viewer').addEventListener('click', (e) => { if (e.target === $('viewer')) $('viewer').hidden = true; });
 $('viewer-del').addEventListener('click', async () => {

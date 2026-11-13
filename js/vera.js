@@ -216,6 +216,23 @@ export function scheduleGaps(plan) {
   return { days, missing: seen.size ? [...Array(days).keys()].map((i) => i + 1).filter((d) => !seen.has(d)) : [] };
 }
 
+// Apakah jadwal perjalanan sudah punya check-out & perjalanan pulang (dipakai Vera DAN tambalan pasti Pandu).
+const STAY = '(?!hotel|penginapan|villa|resort|homestay|kamar)';
+const RETURN_RE = new RegExp(`pulang|(?:penerbangan|perjalanan|kereta|bus|terbang) (?:kembali|balik)|(?:kembali|balik) ke ${STAY}`);
+const CHECKOUT_RE = /check[\s-]?out|checkout/;
+export function tripEnds(plan) {
+  const all = (plan.jadwal || []).map((j) => `${j.waktu} ${j.kegiatan}`).join(' \n ').toLowerCase();
+  const days = tripDays(plan);
+  const seen = scheduledDays(plan);
+  const hotel = (plan.tempat || []).some((t) => /hotel|penginapan|villa|resort|homestay/i.test(t.jenis));
+  return {
+    days,
+    lastDay: days || (seen.size ? Math.max(...seen) : 0),
+    needReturn: !RETURN_RE.test(all),
+    needCheckout: hotel && (days === 0 || days >= 2) && !CHECKOUT_RE.test(all),
+  };
+}
+
 // Perjalanan: jadwal tiap hari sampai hari terakhir, check-out hotel, dan perjalanan pulang.
 function tripScheduleIssues(plan) {
   const issues = [];
@@ -232,14 +249,9 @@ function tripScheduleIssues(plan) {
       issues.push({ serius: true, text: `Jadwal belum dibagi per hari: perjalanan ${days} hari, tulis waktu seperti "Hari 1, 08:00" sampai "Hari ${days}".` });
     }
   }
-  const hotel = (plan.tempat || []).some((t) => /hotel|penginapan|villa|resort|homestay/i.test(t.jenis));
-  if (hotel && (days === 0 || days >= 2) && !/check[\s-]?out|checkout/.test(all)) {
-    issues.push({ serius: true, text: 'Belum ada jadwal check-out hotel di hari terakhir.' });
-  }
-  const stay = '(?!hotel|penginapan|villa|resort|homestay|kamar)';
-  if (!new RegExp(`pulang|(?:penerbangan|perjalanan|kereta|bus|terbang) (?:kembali|balik)|(?:kembali|balik) ke ${stay}`).test(all)) {
-    issues.push({ serius: true, text: 'Belum ada jadwal perjalanan pulang di hari terakhir (jam & transportasinya).' });
-  }
+  const ends = tripEnds(plan);
+  if (ends.needCheckout) issues.push({ serius: true, text: 'Belum ada jadwal check-out hotel di hari terakhir.' });
+  if (ends.needReturn) issues.push({ serius: true, text: 'Belum ada jadwal perjalanan pulang di hari terakhir (jam & transportasinya).' });
   return issues;
 }
 
@@ -377,7 +389,12 @@ Balas HANYA JSON:
     : '';
   let badge;
   if (!v && !serious.length) badge = '❓ belum dicek Vera';
-  else if (serious.length) badge = `⚠️ Vera: ${serious[0].text.slice(0, 70)}`;
+  else if (serious.length) {
+    // Dipotong di batas kata (dulu di tengah kata: "…(jam & transportas"), + jumlah catatan lain.
+    const t = serious[0].text;
+    const cut = t.length > 80 ? `${t.slice(0, 80).replace(/\s+\S*$/, '')}…` : t;
+    badge = `⚠️ Vera: ${cut}${serious.length > 1 ? ` (+${serious.length - 1} catatan)` : ''}`;
+  }
   else badge = '✅ dicek Vera';
   // Sebagian bacaan tidak terjawab: jujur di catatan.
   const partial = v && answered.length < results.length ? [`Vera hanya sempat membaca ${answered.length} dari ${results.length} bagian rencana.`] : [];

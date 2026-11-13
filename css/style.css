@@ -94,6 +94,8 @@ html, body {
 .corner-bl, .corner-br { top: auto; bottom: calc(22px + var(--safe-bottom)); }
 .corner-bl { left: 16px; }
 .corner-br { right: 16px; }
+/* Tombol 🗺️ Rencana Pandu: kiri bawah di sebelah kamera (simetris dengan 🏢 di sebelah galeri) */
+.corner-plans { top: auto; bottom: calc(22px + var(--safe-bottom)); left: 72px; font-size: 20px; }
 .corner.on { color: #ff6b7d; border-color: rgba(255, 107, 125, .6); box-shadow: 0 0 14px rgba(255, 107, 125, .35); }
 
 /* ---------- Pratinjau kamera ---------- */

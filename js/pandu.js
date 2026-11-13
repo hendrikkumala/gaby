@@ -12,7 +12,7 @@ import { groqLabel } from './groq.js';
 import { research } from './research.js';
 import { weather } from './tools.js';
 import { getPosition, geocode, route } from './location.js';
-import { scheduleGaps, dayOf } from './vera.js';
+import { scheduleGaps, dayOf, tripEnds } from './vera.js';
 
 const MAX_TURNS = 24; // v1.25: lebih banyak giliran karena otak Groq menulis bertahap (draf per bagian / per 2 hari)
 const MAX_SEARCH = 3; // 3 pencarian gabungan per topik (transportasi, penginapan, kuliner/wisata)
@@ -104,8 +104,7 @@ export function normalizePlan(raw) {
     .filter((r) => r.pesan && /^\d{4}-\d{2}-\d{2}$/.test(r.tanggal));
   const past = reminders.filter((r) => r.tanggal < today);
   if (past.length) fixes.push(`Pengingat yang tanggalnya sudah lewat dihapus: ${past.map((r) => r.pesan).join(', ')}.`);
-  return {
-    plan: {
+  const plan = {
       jenis: PLAN_TYPES.includes(p.jenis) ? p.jenis : 'lainnya',
       judul: str(p.judul, 80) || 'Rencana',
       ringkasan: str(p.ringkasan, 400),
@@ -126,9 +125,51 @@ export function normalizePlan(raw) {
       pengingat: reminders.filter((r) => r.tanggal >= today).slice(0, 8),
       catatan: arr(p.catatan).map((c) => str(c, 200)).filter(Boolean).slice(0, 8),
       sumber: [],
-    },
-    fixes,
   };
+  if (plan.jenis === 'perjalanan') addTripEnds(plan, fixes);
+  return { plan, fixes };
+}
+
+// Tambalan PASTI (tanpa AI): perjalanan tanpa check-out / tanpa perjalanan pulang di hari terakhir.
+// Model kadang lupa walau sudah diminta Vera 2x (keluhan pemilik 13 Nov 2026: rencana Cirebon #1 & #2
+// berhenti di 12:30 Hari 2). Barisnya memakai transportasi yang dipilih + jam perkiraan, dan dicatat di fixes.
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+function addTripEnds(plan, fixes) {
+  const ends = tripEnds(plan);
+  const d = ends.lastDay;
+  if (!d || (!ends.needReturn && !ends.needCheckout) || plan.jadwal.length >= 150) return;
+  const onLast = plan.jadwal.filter((j) => dayOf(j) === d);
+  // Hanya kalau SEMUA hari sudah terisi: hari yang masih kosong harus dilengkapi Pandu dulu (scheduleGaps),
+  // jangan sampai baris "pulang" membuat hari terakhir yang kosong tampak sudah ada.
+  if (!onLast.length || scheduleGaps(plan).missing.length) return;
+  const times = onLast.map(timeOf).filter((t) => t >= 0);
+  const lastT = times.length ? Math.max(...times) : -1;
+  const added = [];
+  let backT = -1;
+  if (ends.needReturn) {
+    backT = lastT >= 0 ? Math.min(Math.ceil((lastT + 90) / 30) * 30, 23 * 60) : 15 * 60;
+    const t = plan.transportasi.find((x) => x.dipilih) || plan.transportasi[0];
+    const from = t ? str(t.rute.split(/\s*[–—-]\s*/)[0].replace(/\bPP\b/i, ''), 40) : '';
+    const how = t ? ` naik ${t.nama}${t.waktu ? ` (${t.waktu})` : ''}` : '';
+    plan.jadwal.push({ waktu: `Hari ${d}, ${hhmm(backT)}`, kegiatan: str(`Perjalanan pulang${from ? ` ke ${from}` : ''}${how} — jam perkiraan, sesuaikan`, 240) });
+    added.push(`perjalanan pulang (Hari ${d}, ${hhmm(backT)})`);
+  } else {
+    const back = onLast.filter((j) => /pulang|kembali|balik/i.test(j.kegiatan)).map(timeOf).filter((x) => x >= 0);
+    if (back.length) backT = Math.min(...back);
+  }
+  if (ends.needCheckout) {
+    const h = plan.tempat.find((x) => x.dipilih && /hotel|penginapan|villa|resort|homestay/i.test(x.jenis))
+      || plan.tempat.find((x) => /hotel|penginapan|villa|resort|homestay/i.test(x.jenis));
+    // Setelah kegiatan terakhir sebelum pulang, paling lambat 30 menit sebelum pulang; pulang sore → jam check-out biasa 11:00.
+    const before = times.filter((t) => backT < 0 || t < backT);
+    const outT = backT >= 0 && backT <= 13 * 60
+      ? Math.max(Math.min(Math.max(backT - 60, before.length ? Math.max(...before) + 30 : 0), backT - 30), 0)
+      : 11 * 60;
+    plan.jadwal.push({ waktu: `Hari ${d}, ${hhmm(outT)}`, kegiatan: str(`Check-out${h ? ` ${h.nama}` : ' hotel'} — jam perkiraan, sesuaikan`, 240) });
+    added.push(`check-out hotel (Hari ${d}, ${hhmm(outT)})`);
+  }
+  plan.jadwal = mergeSchedule([], plan.jadwal);
+  fixes.push(`Jadwal ${added.join(' & ')} ditambahkan otomatis karena belum ada — jamnya perkiraan.`);
 }
 
 // ---------- Draf rencana (v1.25) ----------
