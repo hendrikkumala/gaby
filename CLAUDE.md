@@ -196,16 +196,10 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   izin lokasi yang tidak dijawab dulu bisa menggantung). Uji: jam palsu Playwright (revive 6/6, HP ditinggal 10 menit → papan tetap),
   regresi Node + browser 11/11 + PDF 15/15.
 - **v1.26 (13 Nov 2026, temuan pemilik):**
-  **Memotong Gaby di Android** — `EchoGate` (vad.js, dipakai `audio.checkBargeIn` & `vad.update(level, speaking, audio.bargeThreshold())`).
-  Penyebab dugaan: cara lama mempelajari "gema" dari SEMUA suara di bawah 0,05 → suaramu yang agak pelan (mic Android/APK lebih pelan dari
-  iPhone) ikut dianggap gema → batas naik 4× → tidak pernah bisa memotong. Sekarang (HANYA Android, `learn` = UA Android; iPhone/laptop =
-  cara lama persis, sudah diuji sama di 6 skenario): gema turun cepat, naik pelan, lonjakan di atas 2,5× hampir diabaikan dan di atas
-  batas tidak dipelajari; gema rata-rata disimpan per HP di `localStorage['gaby.echo']` setelah Gaby bicara ≥1,5 dtk tanpa dipotong
-  (`interrupt()` → `markBarge`); kerasnya suaramu saat Gaby diam dipelajari (`voiceChunk`). Batas = max(clamp(suara×0,35; 0,015–0,05);
-  gema×3); sebelum ada ingatan gema (obrolan pertama) = cara lama. Panel diagnosa baris "Potong: batas · gema · suaramu". Simulasi
-  (t-echo, 10 benih acak 13/13): suara 0,03 kini bisa memotong, gema lemah 0,04 tidak memotong sendiri, lonjakan 150 ms aman.
-  Belum diuji di HP asli → kalau masih gagal: minta pemilik nyalakan Pengaturan → panel diagnosa & kirim tangkapan layar baris "Potong"
-  saat Gaby bicara; cek juga "Mode anti-gema" (kalau nyala, Gaby memang tidak mendengar selama bicara).
+  **Memotong Gaby di Android** — keluhan "APK tidak bisa dipotong" ternyata karena **Pengaturan → "Mode anti-gema" menyala**
+  di HP pemilik (dimatikan → bisa dipotong, 13 Nov 2026). Penjaga gema `EchoGate` sempat dibuat lalu **DIBATALKAN** atas pilihan
+  pemilik ("yang sudah jalan jangan diutak-atik"): `audio.js`/`vad.js` = v1.25.2 persis. Kalau nanti ada keluhan memotong lagi: cek
+  setelan anti-gema dulu. Ide cadangan (belum dipakai): gema dipelajari pelan & disimpan per HP, suara pengguna tidak ikut dipelajari.
   **Tombol 🗺️** `#btn-plans` (kiri bawah di sebelah kamera, `.corner-plans` left 72px) → `showPlanList()`, ketuk lagi = tutup.
   **Jadwal pulang/check-out pasti** — `addTripEnds` di `normalizePlan` (pandu.js) memakai `tripEnds` (vera.js, regex yang sama dengan Vera):
   hanya kalau SEMUA hari sudah terisi (`scheduleGaps` kosong; kalau tidak, Pandu tetap disuruh melengkapi hari), menambah
@@ -248,11 +242,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 
 ## Status saat ini — per 13 Nov 2026
 **v1.26.0 di-commit lokal 13 Nov 2026, menunggu pemilik push** (cadangan `backup-v1.25.2`, lokal). Tiga temuan pemilik:
-(1) APK Android: Gaby tidak bisa dipotong (iPhone bisa: Gaby mengecil lalu diam) → penjaga gema `EchoGate`;
+(1) APK Android: Gaby tidak bisa dipotong → ternyata "Mode anti-gema" menyala (bukan bug, kode tidak diubah);
 (2) tombol 🗺️ daftar rencana di layar utama; (3) "lengkapi" rencana Cirebon #1 → #2 sama persis, Vera tetap "belum ada jadwal pulang"
 → tambalan pasti `addTripEnds` + penjaga "isi tidak berubah". Lihat Keputusan penting "v1.26". Belum dicoba pemilik di HP.
-Temuan (1) ternyata karena **"Mode anti-gema" menyala** di HP pemilik (dimatikan → bisa dipotong); `EchoGate` disarankan dibatalkan
-(menunggu jawaban pemilik).
 
 ## Status sebelumnya — per 10 Nov 2026
 **v1.25.2 TERBIT 10 Nov 2026** (meteran Pandu + `cek_pandu`, lihat Keputusan penting). **v1.25.1 TERBIT 10 Nov 2026** (pemilik "terbitkan"; cabang `claude/inspiring-hawking-ioxiae` digabung fast-forward ke `main`):
@@ -487,7 +479,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
-| 1.26.0 | Pandu tidak lagi "memperbaiki" dengan isi yang sama (ditegur, tidak dihitung, termasuk lengkapi yang cuma ganti judul); Android: Gaby bisa dipotong (penjaga gema belajar per HP, iPhone tetap cara lama); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
+| 1.26.0 | Pandu tidak lagi "memperbaiki" dengan isi yang sama (ditegur, tidak dihitung, termasuk lengkapi yang cuma ganti judul); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
 | 1.25.2 | Meteran Pandu tidak hilang saat bekerja lama / HP ditinggal (muncul lagi saat ada kabar), Gaby memberi keadaan asli Pandu + alat `cek_pandu`; cuaca/jarak di Pandu maks 30 dtk |
 | 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |
 | 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 150 & kuliner 30 — cukup 12–30 hari, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |

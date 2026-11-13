@@ -90,9 +90,7 @@ function handleMic(pcm, level) {
     brain.sendAudio(pcm);
     return;
   }
-  const speaking = audio.isSpeaking();
-  const ev = vad.update(level, speaking, audio.bargeThreshold());
-  if (vad.active && !speaking) audio.gate.voiceChunk(level); // pelajari kerasnya suaramu (hanya Android)
+  const ev = vad.update(level, audio.isSpeaking(), audio.echoBase);
   if (ev === 'start') {
     if (audio.isSpeaking()) audio.duck(true);
     brain.activityStart();
@@ -867,7 +865,6 @@ function renderDiag() {
     `Model : ${model}${lvl != null && phase === 'active' ? ` (tingkat ${lvl})` : ''}`,
     `Deteksi: ${brain.manual ? 'Gaby (perangkat)' : 'Gemini (server)'}`,
     `Mic   : [${'#'.repeat(bars)}${'-'.repeat(10 - bars)}] ${vad.active ? 'kamu bicara' : ''}`,
-    `Potong: batas ${audio.bargeThreshold().toFixed(3)} · gema ${audio.gate.echo.toFixed(3)} · suaramu ${audio.gate.voice ? audio.gate.voice.toFixed(3) : '?'}${audio.gate.learn ? '' : ' (cara lama)'}`,
     `Status: ${phase === 'active' ? diag.state || 'mendengarkan' : phase}`,
     `Diam → teks muncul : ${sec(diag.end, diag.text)}`,
     `Diam → Gaby bicara : ${sec(diag.end, diag.audio)}`,

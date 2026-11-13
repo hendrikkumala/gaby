@@ -7,10 +7,9 @@ export const WHATS_NEW = [
   {
     version: '1.26.0',
     items: [
-      'Di HP Android, kamu sekarang bisa memotong aku waktu aku lagi ngomong. Aku belajar membedakan gema suaraku sendiri dari suaramu, jadi makin sering ngobrol makin pas',
-      'Ada tombol peta 🗺️ di layar utama, di sebelah kamera, buat langsung buka daftar rencana dari Pandu',
       'Pandu sekarang benar-benar memperbaiki catatan Vera. Dulu kadang dia cuma ganti judul, jadi Vera komentarnya itu-itu terus. Sekarang kalau isinya belum berubah, Pandu langsung ditegur buat beresin dulu',
       'Kalau Pandu lupa menulis jadwal pulang atau check-out hotel, sekarang ditambahkan otomatis, jadi rencana perjalanan nggak berhenti di tengah hari terakhir lagi',
+      'Ada tombol peta 🗺️ di layar utama, di sebelah kamera, buat langsung buka daftar rencana dari Pandu',
     ],
   },
   {
