@@ -66,7 +66,7 @@ for (const k of ['pantry', 'game']) {
 // frontY: karakter dengan y lokal < frontY digambar DI BELAKANG perabot depan ruangan itu.
 const NAV = {
   rara: { frontY: null, obs: [[0, 4.6, 0.8, 2.8], [0.9, 1.4, 1.4, 1.4], [0.9, 2.85, 1.8, 1.85], [3.6, 1.8, 3, 3]],
-    spots: { santai: [2.0, 3.75, 0.75], visit: [6.2, 6.9, 0, { face: -1 }] } },
+    spots: { santai: [2.0, 3.75, 0.75], shelf: [1.35, 6.1, 0, { face: -1 }], visit: [6.2, 6.9, 0, { face: -1 }] } },
   pandu: { frontY: 4.4, obs: [[3, 4.4, 3.6, 1.5], [1.2, 5.6, 1, 0.8], [6.8, 2.3, 0.6, 0.6]],
     spots: { board: [3.4, 1.3, 0, { view: 'back' }], pace: [6.9, 3.4, 0], pack: [2.8, 6.2, 0, { face: -1 }], visit: [7.0, 6.9, 0, { face: -1 }] } },
   lukas: { frontY: 5.6, obs: [[3.4, 2.0, 1.2, 1.2], [5.6, 5.6, 1.3, 1.3], [6.0, 0.2, 1.0, 1.8]],
@@ -77,8 +77,8 @@ const NAV = {
   vera: { frontY: 4.0, obs: [[0.6, 5.4, 0.5, 0.5], [3.6, 2.5, 1.3, 1.4], [2.4, 4.0, 4.4, 1.4], [1.4, 0, 4.8, 0.3]],
     spots: { drop: [7.4, 3.7, 0, { face: -1 }], rack: [1.6, 5.0, 0, { face: -1 }], visit: [4.4, 6.5, 0] } },
   pantry: { frontY: 4.5, obs: [[0, 5.4, 1.2, 1.4], [1.6, 0, 3.8, 1.1], [10.4, 0.3, 0.8, 0.8], [9.4, 0, 2.2, 0.2], [4.3, 3.7, 2.2, 1.8], [7.2, 5.7, 0.4, 0.4], [11, 6.8, 0.9, 0.9]],
-    spots: { s1: [4.35, 3.55, 0.6], s2: [6.75, 3.35, 0.6, { face: -1 }], s3: [3.95, 5.95, 0.6], s4: [7.0, 6.4, 0, { face: -1 }],
-      coffee: [2.4, 1.6, 0, { view: 'back' }], micro: [4.6, 1.7, 0, { view: 'back' }], water: [10.8, 1.9, 0, { view: 'back' }], fridge: [1.9, 6.1, 0, { face: -1 }] } },
+    spots: { s1: [4.0, 3.2, 0.6], s2: [6.75, 3.35, 0.6, { face: -1 }], s3: [3.95, 5.95, 0.6], s4: [7.0, 6.4, 0, { face: -1 }],
+      coffee: [1.05, 1.55, 0, { view: 'back' }], micro: [7.4, 1.2, 0, { view: 'back', face: -1 }], water: [10.8, 1.9, 0, { view: 'back' }], fridge: [2.05, 4.95, 0, { face: -1 }] } },
   game: { frontY: null, obs: [[1.8, 0.05, 3.8, 1.05], [1.6, 3.6, 4.2, 1.4], [7.2, 2.0, 3.6, 2.0], [10.6, 0.3, 1.1, 1.0], [8.0, 5.9, 1.2, 1.0], [10.0, 5.1, 1.2, 1.0]],
     spots: { pongA: [6.5, 3.0, 0], pongB: [11.5, 3.0, 0, { face: -1 }], arcade: [11.15, 1.95, 0, { view: 'back' }],
       sofa1: [2.9, 4.1, 0.6, { view: 'back' }], sofa2: [4.5, 4.1, 0.6, { view: 'back' }], bean1: [8.6, 6.4, 0.45, { deep: true }], bean2: [10.6, 5.6, 0.45, { face: -1, deep: true }], dance: [6.6, 6.3, 0] } },
@@ -185,6 +185,8 @@ const PROPS = {
 };
 // barang di tangan kiri (koordinat gambar karakter, titik 0,0 = tangan)
 const LPROPS = {
+  book: '<path d="M-15,-26 q7,-4 15,0 q8,-4 15,0 v17 q-7,-4 -15,0 q-8,-4 -15,0 z" fill="#fff7ed" stroke="#b45309" stroke-width="1.6"/><path d="M0,-26 v17" stroke="#b45309" stroke-width="1.4"/><path d="M-12,-21 h9 M-12,-17 h9 M3,-21 h9 M3,-17 h9" stroke="#94a3b8" stroke-width="1.2"/>',
+  ...Object.fromEntries(['#ef4444', '#3b82f6', '#22c55e'].map((c, i) => [`brush${i}`, `<path d="M-3,-2 L9,-26" stroke="#92400e" stroke-width="3" stroke-linecap="round"/><path d="M9,-26 l2,-5" stroke="${c}" stroke-width="4.5" stroke-linecap="round"/>`])),
   mug: '<rect x="-8" y="-20" width="16" height="18" rx="3" fill="#f8fafc" stroke="#94a3b8"/><path d="M8,-15 q7,2 0,9" stroke="#94a3b8" stroke-width="3" fill="none"/><rect x="-8" y="-20" width="16" height="4" fill="#78350f" opacity=".7"/><path d="M-3,-25 q-3,-5 0,-9 M3,-25 q-3,-5 0,-9" stroke="#e2e8f0" stroke-width="2" fill="none" opacity=".7"/>',
   glass: '<path d="M-7,-20 h14 l-2,18 h-10 z" fill="rgba(186,230,253,.75)" stroke="#7dd3fc"/><rect x="-6" y="-12" width="12" height="9" fill="#38bdf8" opacity=".6"/>',
   news: '<rect x="-30" y="-34" width="36" height="42" fill="#f5f5f4" stroke="#a8a29e"/><rect x="-27" y="-30" width="16" height="12" fill="#cbd5e1"/><path d="M-9,-28 h12 M-9,-22 h12 M-27,-14 h30 M-27,-8 h30 M-27,-2 h24 M-27,4 h30" stroke="#a8a29e" stroke-width="2"/>',
@@ -655,8 +657,22 @@ if (LIVE) {
   P.plate = propAt('pantry', 5.0, 4.4, 1.25, PROP_SVG.plate, 'liveG');
   P.fritters = [-7, 0].map((dx) => propAt('pantry', 5.0, 4.4, 1.25, PROP_SVG.fritter(dx), 'liveG'));
   P.microLight = facePoly('pantry', [[4.1, 0.97, 1.5], [4.9, 0.97, 1.5], [4.9, 0.97, 2.0], [4.1, 0.97, 2.0]], '#fde68a');
-  P.fridgeOpen = facePoly('pantry', [[1.21, 5.45, 0.15], [1.21, 6.75, 0.15], [1.21, 6.75, 3.15], [1.21, 5.45, 3.15]], '#fefce8');
-  P.fridgeDoor = facePoly('pantry', [[1.2, 5.4, 0], [2.3, 5.4, 0], [2.3, 5.4, 3.3], [1.2, 5.4, 3.3]], '#cbd5e1');
+  { const [mx, my] = G(R.pantry.off[0] + 4.5, R.pantry.off[1] + 0.97, 1.6); P.microBowl = el('text', { 'text-anchor': 'middle', 'font-size': 11, x: mx.toFixed(1), y: my.toFixed(1) }, '🍜'); P.microLight.append(P.microBowl); }
+  {
+    const o = R.pantry.off, Q = (x, y, z) => G(o[0] + x, o[1] + y, z);
+    const shelf = (z) => poly([Q(1.22, 5.45, z), Q(1.22, 6.75, z), Q(1.22, 6.75, z + 0.06), Q(1.22, 5.45, z + 0.06)], 'fill="#cbd5e1"');
+    const bottle = (y, z, c) => poly([Q(1.23, y, z), Q(1.23, y + 0.22, z), Q(1.23, y + 0.22, z + 0.6), Q(1.23, y + 0.15, z + 0.75), Q(1.23, y + 0.07, z + 0.75), Q(1.23, y, z + 0.6)], `fill="${c}"`);
+    P.fridgeOpen = el('g', { class: 'liveprop', style: 'display:none' },
+      poly([Q(1.21, 5.45, 0.15), Q(1.21, 6.75, 0.15), Q(1.21, 6.75, 3.15), Q(1.21, 5.45, 3.15)], 'fill="#fefce8"')
+      + shelf(1.05) + shelf(2.1) + bottle(5.65, 1.11, '#f97316') + bottle(5.95, 1.11, '#22c55e') + bottle(6.3, 1.11, '#facc15')
+      + bottle(5.8, 2.16, '#38bdf8') + bottle(6.15, 2.16, '#ef4444'));
+    R.pantry.fx0.append(P.fridgeOpen);
+    // pintu dibuka ±150° (engsel depan-kiri, mengayun ke arah kamera-kiri) → tampak sebagai panel di kiri kulkas, isinya tidak tertutup
+    P.fridgeDoor = el('g', { class: 'liveprop', style: 'display:none' },
+      poly([Q(1.2, 6.8, 0.05), Q(1.8, 7.84, 0.05), Q(1.8, 7.84, 3.3), Q(1.2, 6.8, 3.3)], 'fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"')
+      + poly([Q(1.68, 7.6, 1.6), Q(1.74, 7.7, 1.6), Q(1.74, 7.7, 2.4), Q(1.68, 7.6, 2.4)], 'fill="#64748b"'));
+    R.pantry.liveG.append(P.fridgeDoor);
+  }
   // ruang game: joystick di lantai, tokoh kecil di layar TV, 2 bet & bola di meja ping-pong, layar arcade
   P.pad = propAt('game', 3.0, 2.6, 0, PROP_SVG.pad);
   P.tvHero = propAt('game', 2.6, 0.6, 0.95, '<rect x="-4" y="-9" width="8" height="9" rx="1.5" fill="#fde047" stroke="#0f172a" stroke-width="1"/><circle cx="1.5" cy="-6" r="1" fill="#0f172a"/>');
@@ -664,6 +680,15 @@ if (LIVE) {
   P.padR = propAt('game', 8.0, 2.5, 0.85, PROP_SVG.paddle('#dc2626'));
   P.padB = propAt('game', 10.2, 3.6, 0.85, PROP_SVG.paddle('#111827'));
   P.ball = propAt('game', 9.6, 2.6, 1.6, PROP_SVG.ball);
+  // Rara: buku terbuka di kursi baca & 1 buku di rak; Lukas: kuas di 3 toples (gambar dari office-art: window.LIVE_ABS)
+  const absProp = (room, key, layer = 'fx0') => {
+    const g = el('g', { class: 'liveprop' }, (window.LIVE_ABS || {})[key] || '');
+    g.home = [0, 0]; g.homeLayer = R[room][layer]; g.homeLayer.append(g);
+    return g;
+  };
+  P.raraOpenBook = absProp('rara', 'raraOpenBook');
+  P.raraShelfBook = absProp('rara', 'raraShelfBook');
+  P.brushes = [0, 1, 2].map((i) => absProp('lukas', `lukasBrush${i}`, 'liveG'));
   P.arcadeFlash = facePoly('game', [[10.7, 1.32, 1.5], [11.6, 1.32, 1.5], [11.6, 1.32, 2.3], [10.7, 1.32, 2.3]], '#f0abfc');
 }
 const ptOf = (g, dy = 0) => [g.home[0], g.home[1] + dy];
@@ -793,7 +818,20 @@ const ACTS = [
   { who: ['meri'], w: 2, s: 1, run: async ([a], ok) => { if (!await go(a, spot('meri', 'jurnal'), ok)) return; a.holdL('diary'); a.say('📖 baca catatan kemarin', 2000); await hold(3000, ok); a.holdL(null); await go(a, a.home, ok); } },
   { who: ['meri'], w: 2, s: 1, run: async ([a], ok) => { if (!await go(a, spot('meri', 'jurnal'), ok)) return; a.holdL('mug'); a.say('🍵', 1000); await sipLoop(a, 'sipL', ok, 2); a.holdL(null); await go(a, a.home, ok); } },
   // ----- Rara -----
-  { who: ['rara'], w: 3, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.say('📖 hmm, seru…', 2600); await hold(3000, ok); } },
+  { name: 'baca', who: ['rara'], w: 3, s: 1, run: async ([a], ok) => {
+    if (LIVE && P.raraShelfBook.style.display !== 'none' && Math.random() < 0.55) {
+      // ke rak dulu, pilih buku
+      if (!await go(a, spot('rara', 'shelf'), ok)) return;
+      a.pose('reaching'); a.say('📚 baca yang mana ya…', 1300); if (!await hold(1200, ok)) return; a.pose('reaching', false);
+      borrow(a, P.raraShelfBook); a.holdL('book');
+      if (!await go(a, a.home, ok)) return;
+    } else {
+      if (!await homeFirst(a, ok)) return;
+      borrow(a, P.raraOpenBook); a.holdL('book'); // buku yang terbuka di kursi diangkat
+    }
+    a.say('📖 hmm, seru…', 2600); if (!await hold(3200, ok)) return;
+    rise(a.headPt(), pick(['😮', '🤓', '💡']), 14, 1000); await hold(1600, ok);
+  } },
   { who: ['rara'], w: 3, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.say('🍵 teh melati', 1300); await sipLoop(a, 'sipR', ok, 2); } },
   { who: ['rara'], w: 0, s: 1.5, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.pose('sleeping'); await zzzOf(a, 3600); a.pose('sleeping', false); a.say('Eh, ketiduran 😳', 1200); await hold(1000, ok); } },
   { who: ['rara'], w: 2, s: 0.5, run: async ([a], ok) => {
@@ -817,15 +855,36 @@ const ACTS = [
   { who: ['vera'], w: 2, s: 0.5, run: async ([a], ok) => { a.pose('stamping'); await hold(500, ok); rise(VERA_PAPER(), '✅', 20); a.say('DOK! 😤', 900); await hold(800, ok); } },
   { who: ['vera'], w: 1.5, s: 1, run: async ([a], ok) => { if (!await go(a, spot('vera', 'rack'), ok)) return; a.say('🕵️‍♀️ topinya miring', 1200); a.pose('reaching'); await hold(1200, ok); a.pose('reaching', false); await go(a, a.home, ok); } },
   // ----- Lukas -----
-  { who: ['lukas'], w: 4, s: 1, run: async ([a], ok) => {
+  { name: 'lukis', who: ['lukas'], w: 4, s: 1, run: async ([a], ok) => {
+    // ambil kuas dari toples dulu (warna kuas = warna cat yang dipakai), kembalikan sesudahnya
+    let dot = ['🔴', '🟡', '🔵', '🟣'];
+    if (LIVE) {
+      const i = [0, 1, 2].filter((k) => P.brushes[k].style.display !== 'none').sort(() => Math.random() - 0.5)[0];
+      if (i != null) {
+        if (!await go(a, spot('lukas', 'jars'), ok)) return;
+        a.pose('reaching'); if (!await hold(600, ok)) return; a.pose('reaching', false);
+        borrow(a, P.brushes[i]); a.holdL(`brush${i}`); a.say(['🔴 merah dulu', '🔵 biru dulu', '🟢 hijau dulu'][i], 1200);
+        dot = [['🔴', '🟠'], ['🔵', '🟣'], ['🟢', '🟡']][i];
+      }
+    }
     if (!await go(a, spot('lukas', 'paint'), ok)) return;
     a.pose('painting'); a.say('🎨', 1000);
-    for (let i = 0; i < 5 && ok(); i++) { const [x, y] = CANVAS(); rise([x + rnd(-20, 20), y + rnd(-14, 10)], pick(['🔴', '🟡', '🔵', '🟣']), 8, 900); await wait(600); }
-    a.pose('painting', false); await go(a, a.home, ok);
+    for (let i = 0; i < 5 && ok(); i++) { const [x, y] = CANVAS(); rise([x + rnd(-20, 20), y + rnd(-14, 10)], pick(dot), 8, 900); await wait(600); }
+    a.pose('painting', false);
+    if (LIVE && a.loans && a.loans.length) { if (!await go(a, spot('lukas', 'jars'), ok)) return; rise(G(R.lukas.off[0] + 6.25, R.lukas.off[1] + 6.15, 1.6), '🫧', 11, 900); await hold(700, ok); giveBack(a); a.holdL(null); }
+    await go(a, a.home, ok);
   } },
   { who: ['lukas'], w: 2, s: 1, run: async ([a], ok) => { if (!await go(a, spot('lukas', 'admire'), ok)) return; a.say('🤔…', 1200); await hold(1300, ok); a.say('😍 mahakarya!', 1200); a.hop(); await hold(1200, ok); await go(a, a.home, ok); } },
   { who: ['lukas'], w: 2, s: 1, run: async ([a], ok) => { a.holdL('sketch'); a.pose('working'); a.say('✏️ sketsa', 1500); await hold(2200, ok); } },
-  { who: ['lukas'], w: 1.5, s: 0.5, run: async ([a], ok) => { if (!await go(a, spot('lukas', 'jars'), ok)) return; a.pose('working'); a.say('🧼 cuci kuas', 1400); await hold(1600, ok); a.pose('working', false); await go(a, a.home, ok); } },
+  { name: 'kuas', who: ['lukas'], w: 1.5, s: 0.5, run: async ([a], ok) => {
+    if (!await go(a, spot('lukas', 'jars'), ok)) return;
+    const i = LIVE ? [0, 1, 2].find((k) => P.brushes[k].style.display !== 'none') : null;
+    if (i != null) { borrow(a, P.brushes[i]); a.holdL(`brush${i}`); }
+    a.pose('working'); a.say('🧼 cuci kuas', 1400);
+    for (let k = 0; k < 3; k++) { rise(G(R.lukas.off[0] + 6.25, R.lukas.off[1] + 6.15, 1.6), '🫧', 11, 900); if (!await hold(550, ok)) return; }
+    a.pose('working', false); giveBack(a); a.holdL(null);
+    await go(a, a.home, ok);
+  } },
   // ----- siapa saja: pantry -----
   { name: 'kopi', who: 'any', w: 1, s: 3, run: async ([a], ok) => {
     const c = takeSpot([spot('pantry', 'coffee')], a); if (!c) return;
@@ -844,7 +903,7 @@ const ACTS = [
     a.say('⏳ panasin mie', 1500);
     if (LIVE) { // layar microwave menyala berkedip selama memanaskan
       showP(P.microLight, true);
-      for (let i = 0; i < 4; i++) { P.microLight.style.opacity = i % 2 ? '.95' : '.6'; if (!await hold(420, ok)) { showP(P.microLight, false); return; } }
+      for (let i = 0; i < 6; i++) { P.microLight.style.opacity = i % 2 ? '1' : '.75'; P.microBowl.setAttribute('transform', `translate(${(i % 2 ? 4 : -4)} 0)`); if (!await hold(330, ok)) { showP(P.microLight, false); return; } }
       showP(P.microLight, false);
     } else await hold(1700, ok);
     rise(G(c.x, c.y - 0.6, 2.6), '🔔', 18); a.say('Ting! 😋', 900); a.holdL('bowl'); TAKEN.delete(c.id);
@@ -859,6 +918,7 @@ const ACTS = [
   { name: 'jus', who: 'any', w: 0.5, s: 1.5, run: async ([a], ok) => {
     const c = takeSpot([spot('pantry', 'fridge')], a); if (!c) return; if (!await go(a, c, ok)) return;
     showP(P.fridgeOpen, true); showP(P.fridgeDoor, true); // pintu kulkas terbuka, dalamnya terang
+    if (LIVE) rise(G(R.pantry.off[0] + 1.6, R.pantry.off[1] + 6.1, 2.6), '❄️', 13, 1100);
     a.pose('reaching'); a.say('🧃 ada jus!', 1200); const fine = await hold(1200, ok);
     a.pose('reaching', false); showP(P.fridgeOpen, false); showP(P.fridgeDoor, false); if (!fine) return;
     a.holdL('juice'); await sipLoop(a, 'sipL', ok, 1);
@@ -1705,7 +1765,7 @@ export function closeOffice() {
 // Uji (prototipe): jalankan aktivitas bernama dengan teman yang sedang bebas.
 function playNamed(name) {
   const def = ACTS.find((d) => d.name === name); if (!def) return 'tidak ada';
-  const free = Object.values(A).filter((x) => x.key !== 'gaby' && isFree(x) && !x.act && !x.path);
+  const free = Object.values(A).filter((x) => (def.who === 'any' ? x.key !== 'gaby' : def.who.includes(x.key)) && !state.busy.has(x.key) && !x.act && !x.path);
   if (free.length < (def.n || 1)) return null;
   const actors = free.sort(() => Math.random() - 0.5).slice(0, def.n || 1);
   actors.forEach((x) => { x.restUntil = performance.now() + 60000; });

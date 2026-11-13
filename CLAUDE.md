@@ -498,6 +498,17 @@ barang + 🔁 uji tahan lama (semua barang bergantian). Uji: Edge t-props 24/24 
 40 aktivitas acak), WebKit UA iPhone (hemat) 7 menit / 97 aktivitas tanpa tumbang, elemen datar ±3.400. Saat rilis: salin ke js/office.js
 (sed impor & kunci) DAN set `window.LIVE_PROPS = true` di aplikasi (misal di `openOfficeScreen` sebelum `import('./office.js')`, atau
 ganti bawaan di office-art.js).
+**v1.27 putaran 2 (14 Nov 2026, temuan pemilik di prototipe):** "kuas Lukas, buku Rara, kulkas, microwave belum; bangku merah
+salah tumpang tindih; kaki meja ping-pong di atas meja". `office-art.js`: `liveAbs(key, svg)` = potongan gambar berkoordinat kantor yang
+saat LIVE_PROPS disimpan di `window.LIVE_ABS` (raraOpenBook, raraShelfBook, lukasBrush0–2) & dibuat office.js (`absProp`); bangku
+oranye-merah pantry dulu MASUK ke meja bundar (pusat 1,4 dari pusat meja, jari-jari ±1,6) → (3.65, 2.85) + kursi s1 (4.0, 3.2); kaki meja
+ping-pong digambar SEBELUM permukaan (dulu sesudah → kaki belakang menembus ke atas). Semua cabang `LIVE()` (aplikasi dicek sama persis).
+Prototipe: LPROPS `book`, `brush0–2`; Rara `baca` (55% ke rak `spot rara.shelf` ambil buku kuning, selain itu angkat buku terbuka di
+kursi; dipegang, kembali saat selesai); Lukas `lukis` (ambil kuas dari toples → cat sewarna kuas → kembalikan + 🫧) & `kuas` (cuci); kulkas:
+pintu dibuka ±150° (panel di kiri, TIDAK menutupi isi; 135° = segaris pandang kamera → tak terlihat) + isi terang, 2 rak, 5 botol, ❄️;
+microwave: mangkuk 🍜 bergeser (piring berputar). Tempat berdiri dipindah supaya badan tidak menutupi barang: coffee (1.05, 1.55), micro
+(7.4, 1.2, face −1), fridge (2.05, 4.95). Uji: t-props3 (Rara 3/3, Lukas 4/4, kulkas & microwave tertutup 0%), t-props 24/24, WebKit iPhone
+7 menit / 91 aktivitas tanpa tumbang, elemen ±3.410.
 
 ## Riwayat rilis (ringkas)
 | Versi | Isi |

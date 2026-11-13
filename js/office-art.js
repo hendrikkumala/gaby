@@ -467,6 +467,13 @@ const plant = (x, y, z = 0, s = 1) => box(x, y, z, 0.7 * s, 0.7 * s, 0.7 * s, '#
 // Barang yang bisa DIPAKAI karakter (v1.27 "barang hidup"): gambarnya juga dipakai office.js.
 // window.LIVE_PROPS = true → barang ini TIDAK digambar di latar (office.js menggambarnya terpisah & menggerakkannya).
 const LIVE = () => window.LIVE_PROPS === true;
+// Potongan gambar yang sudah berkoordinat kantor (box/at): saat LIVE_PROPS disimpan di window.LIVE_ABS[key] dan TIDAK
+// digambar di latar; office.js membuatnya sebagai elemen sendiri (bisa disembunyikan saat "dipinjam" karakter).
+const liveAbs = (key, svgText) => {
+  if (!LIVE()) return svgText;
+  (window.LIVE_ABS || (window.LIVE_ABS = {}))[key] = svgText;
+  return '';
+};
 const PROP_SVG = {
   mug: (c = '#f8fafc', steam = true) => `<rect x="-5" y="-11" width="10" height="11" rx="2" fill="${c}"/><path d="M5,-8 q5,2 0,6" stroke="${c}" stroke-width="2" fill="none"/>${steam ? '<path d="M-2,-14 q-3,-4 0,-8 M3,-14 q-3,-4 0,-8" stroke="#e2e8f0" stroke-width="1.4" fill="none" opacity=".7"/>' : ''}`,
   teapot: `<ellipse cx="0" cy="-8" rx="10" ry="8" fill="#f8fafc" stroke="#94a3b8"/><path d="M9,-10 q7,-3 9,-9" stroke="#f8fafc" stroke-width="3" fill="none"/><path d="M-10,-11 q-6,0 -5,6" stroke="#f8fafc" stroke-width="2.4" fill="none"/><ellipse cx="0" cy="-15" rx="5" ry="2" fill="#93c5fd"/><circle cx="0" cy="-17.5" r="1.8" fill="#93c5fd"/><path d="M-3,-22 q-3,-4 0,-8" stroke="#e2e8f0" stroke-width="1.4" fill="none" opacity=".7"/>`,
@@ -571,14 +578,16 @@ const DESKS = [
     { t: 'Observatorium', d: 'Dinding berbintang. Santai: kursi baca ungu, rak buku, meja teh. Kerja: panggung bundar dengan hologram bumi.', draw: () =>
       room({ floor: ['#1e1b4b', '#221f52'], wallL: '#13123a', wallR: '#171648', slab: '#0b0a26' })
       + Array.from({ length: 28 }, (_, i) => (i % 2 ? faceX(0.02, (i * 1.7) % 8, 1 + ((i * 2.3) % 4.2), 0.07, 0.07, '#fde68a') : faceY((i * 1.3) % 8, 0.02, 1 + ((i * 1.9) % 4.2), 0.07, 0.07, '#fff'))).join('')
-      + box(0, 4.6, 0, 0.8, 2.8, 3.6, '#4c1d95') + [0.5, 1.4, 2.3].map((z) => books(0.05, 4.8, z) + books(0.05, 5.9, z, ['#f472b6', '#38bdf8', '#fde047'])).join('')
+      + box(0, 4.6, 0, 0.8, 2.8, 3.6, '#4c1d95') + [0.5, 1.4, 2.3].map((z) => books(0.05, 4.8, z) + (z === 1.4 && LIVE()
+        ? books(0.05, 5.9, z, ['#f472b6', '#38bdf8']) + liveAbs('raraShelfBook', box(0.05, 5.9, z + 2 * 0.18, 0.9 - 2 * 0.06, 0.6, 0.18, '#fde047'))
+        : books(0.05, 5.9, z, ['#f472b6', '#38bdf8', '#fde047']))).join('')
       // meja teh (lebih besar) di samping kursi; teko & cangkir berjauhan supaya tidak menempel
       + box(0.9, 1.4, 0, 1.4, 1.4, 1.0, '#a16207') + at(1.6, 2.1, 1.0, '<ellipse rx="22" ry="11" fill="#fef3c7" opacity=".5"/>')
       + teapot(1.2, 2.5, 1.0) + at(2.0, 1.75, 1.0, '<ellipse cx="0" cy="0" rx="8" ry="2.6" fill="#f1f5f9"/>') + mug(2.0, 1.75, 1.0, '#fef3c7')
       // kursi baca di sebelah lemari, menghadap ke hologram bumi
       + box(0.9, 3.0, 0, 0.3, 1.5, 2.1, '#6d28d9') + box(1.2, 2.85, 0.75, 1.5, 0.25, 0.45, '#6d28d9')
       + box(1.2, 3.0, 0, 1.5, 1.5, 0.75, '#7c3aed') + box(1.2, 4.45, 0.75, 1.5, 0.25, 0.45, '#6d28d9')
-      + at(2.0, 3.75, 0.75, '<path d="M-10,-2 q10,-6 20,0 l-2,-6 q-8,-4 -16,0 z" fill="#fff7ed" stroke="#b45309"/>')
+      + liveAbs('raraOpenBook', at(2.0, 3.75, 0.75, '<path d="M-10,-2 q10,-6 20,0 l-2,-6 q-8,-4 -16,0 z" fill="#fff7ed" stroke="#b45309"/>'))
       + box(3.6, 1.8, 0, 3, 3, 0.4, '#312e81') + box(4.6, 2.8, 0.4, 1, 1, 0.9, '#4338ca')
       + globe(5.1, 3.3, 2.9, 26) + holoScreen(3.6, 1.6, 2.4, 2.6, 1.6)
       + charAt(CH.raraK, 7.3, 5.4, 0) },
@@ -675,7 +684,10 @@ const DESKS = [
       + box(6.0, 0.2, 0, 0.25, 1.6, 2.2, '#f8fafc') + box(6.5, 0.3, 0, 0.25, 1.4, 1.8, '#fde68a')
       + at(4.0, 2.6, 0, '<path d="M-20,0 L-6,-96 M20,0 L6,-96 M0,0 L0,-100" stroke="#92400e" stroke-width="3"/><rect x="-30" y="-92" width="60" height="44" fill="#fff" stroke="#92400e" stroke-width="3"/><rect x="-27" y="-89" width="54" height="38" fill="#fdba74"/><circle cx="0" cy="-62" r="10" fill="#f97316"/><rect x="-27" y="-62" width="54" height="11" fill="#7c3aed" opacity=".6"/><path d="M-27,-58 q14,-8 27,0 t27,0" stroke="#4c1d95" fill="none"/><path d="M-28,-48 h56" stroke="#92400e" stroke-width="4"/>')
       + charAt(CH.lukas, 6.2, 3.4, 0)
-      + box(5.6, 5.6, 0, 1.3, 1.3, 1.1, '#78350f') + [0, 1, 2].map((i) => at(5.9 + i * 0.35, 6.0 + i * 0.1, 1.1, `<rect x="-4" y="-10" width="8" height="10" rx="2" fill="rgba(186,230,253,.7)"/><path d="M-2,-10 l-2,-10 M1,-10 v-12 M3,-10 l3,-9" stroke="#92400e" stroke-width="1.5"/><circle cx="-4" cy="-20" r="1.8" fill="${['#ef4444', '#3b82f6', '#22c55e'][i]}"/>`)).join('') },
+      + box(5.6, 5.6, 0, 1.3, 1.3, 1.1, '#78350f') + (LIVE()
+        ? [0, 1, 2].map((i) => at(5.9 + i * 0.35, 6.0 + i * 0.1, 1.1, '<rect x="-4" y="-10" width="8" height="10" rx="2" fill="rgba(186,230,253,.7)"/>')
+        + liveAbs(`lukasBrush${i}`, at(5.9 + i * 0.35, 6.0 + i * 0.1, 1.1, `<path d="M-2,-10 l-2,-10 M1,-10 v-12 M3,-10 l3,-9" stroke="#92400e" stroke-width="1.5"/><circle cx="-4" cy="-20" r="1.8" fill="${['#ef4444', '#3b82f6', '#22c55e'][i]}"/>`))).join('')
+        : [0, 1, 2].map((i) => at(5.9 + i * 0.35, 6.0 + i * 0.1, 1.1, `<rect x="-4" y="-10" width="8" height="10" rx="2" fill="rgba(186,230,253,.7)"/><path d="M-2,-10 l-2,-10 M1,-10 v-12 M3,-10 l3,-9" stroke="#92400e" stroke-width="1.5"/><circle cx="-4" cy="-20" r="1.8" fill="${['#ef4444', '#3b82f6', '#22c55e'][i]}"/>`)).join('')) },
     { t: 'Studio Grafiti', d: 'Dinding bata penuh grafiti warna-warni bertuliskan LUKAS, kaleng semprot, tangga, kanvas besar di dinding.', draw: () =>
       room({ floor: ['#78716c', '#6f6964'], wallL: '#9a3412', wallR: '#a33a16' })
       + Array.from({ length: 10 }, (_, r) => faceX(0.02, 0, 0.5 * r + 0.25, D, 0.04, '#7c2d12') + faceY(0, 0.02, 0.5 * r + 0.25, W, 0.04, '#7c2d12')).join('')
@@ -732,7 +744,7 @@ function pantry() {
     // dispenser air
     + box(10.4, 0.3, 0, 0.8, 0.8, 1.5, '#e2e8f0') + at(10.8, 0.7, 1.5, '<rect x="-6" y="-18" width="12" height="18" rx="5" fill="rgba(56,189,248,.6)"/>')
     // meja makan bundar + kursi + camilan
-    + chair(4.0, 3.2) + chair(6.4, 3.0, '#22c55e') + (window.PROTO ? '<!--SLOT-->' : '')
+    + (LIVE() ? chair(3.65, 2.85) : chair(4.0, 3.2)) + chair(6.4, 3.0, '#22c55e') + (window.PROTO ? '<!--SLOT-->' : '')
     + box(5.2, 4.4, 0, 0.3, 0.3, 1.1, '#78350f') + at(5.35, 4.55, 1.1, '<ellipse rx="44" ry="22" fill="#a16207"/><ellipse cy="-3" rx="44" ry="22" fill="#ca8a04"/>')
     + (LIVE() ? '' : at(5.0, 4.4, 1.25, '<ellipse rx="11" ry="4.5" fill="#f8fafc"/><path d="M-7,-2 q3,-6 6,0 M0,-2 q3,-6 6,0" stroke="#b45309" stroke-width="4" stroke-linecap="round"/>') + mug(5.9, 4.7, 1.2, '#38bdf8') + mug(4.7, 5.0, 1.2, '#f472b6') + teapot(5.7, 4.1, 1.2))
     + at(7.4, 5.9, 0, '<rect x="-6" y="-14" width="12" height="14" rx="2" fill="#0ea5e9"/><rect x="-7" y="-15" width="14" height="3" fill="#0369a1"/>') + chair(3.6, 5.6, '#3b82f6')
@@ -750,7 +762,9 @@ function gameRoom() {
     + box(1.8, 4.6, 0, 3.8, 0.4, 1.3, '#be185d') + box(1.8, 3.6, 0, 3.8, 1.0, 0.6, '#db2777') + box(1.6, 3.6, 0, 0.3, 1.4, 0.9, '#be185d') + box(5.5, 3.6, 0, 0.3, 1.4, 0.9, '#be185d')
     + (LIVE() ? '' : at(3.0, 2.6, 0, PROP_SVG.pad))
     // meja ping-pong
-    + box(7.2, 2.0, 0.7, 3.6, 2.0, 0.15, '#15803d', '#16a34a') + [7.4, 10.5].map((x) => box(x, 2.2, 0, 0.15, 0.15, 0.7, '#1f2937') + box(x, 3.7, 0, 0.15, 0.15, 0.7, '#1f2937')).join('')
+    + (LIVE()
+      ? [7.4, 10.5].map((x) => box(x, 2.2, 0, 0.15, 0.15, 0.7, '#1f2937') + box(x, 3.7, 0, 0.15, 0.15, 0.7, '#1f2937')).join('') + box(7.2, 2.0, 0.7, 3.6, 2.0, 0.15, '#15803d', '#16a34a')
+      : box(7.2, 2.0, 0.7, 3.6, 2.0, 0.15, '#15803d', '#16a34a') + [7.4, 10.5].map((x) => box(x, 2.2, 0, 0.15, 0.15, 0.7, '#1f2937') + box(x, 3.7, 0, 0.15, 0.15, 0.7, '#1f2937')).join(''))
     + faceX(9.0, 2.0, 0.85, 2.0, 0.3, 'rgba(255,255,255,.75)') + at(9.0, 3.0, 0.85, '<path d="M-30,0 L30,0" stroke="#fff" stroke-width="1" opacity=".0"/>')
     + (LIVE() ? '' : at(8.0, 2.5, 0.85, PROP_SVG.paddle('#dc2626')) + at(10.2, 3.6, 0.85, PROP_SVG.paddle('#111827')) + at(9.6, 2.6, 1.6, PROP_SVG.ball))
     // mesin arcade

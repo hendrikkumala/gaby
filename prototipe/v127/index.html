@@ -61,6 +61,12 @@
       <button data-act="pingpong" data-room="game">🏓 Ping-pong</button>
       <button data-act="arcade" data-room="game">👾 Arcade</button>
     </div>
+    <h3>📚 Rara &amp; 🎨 Lukas</h3>
+    <div class="b">
+      <button data-act="baca" data-room="rara">📚 Rara baca buku</button>
+      <button data-act="lukis" data-room="lukas">🖌️ Lukas ambil kuas</button>
+      <button data-act="kuas" data-room="lukas">🧼 Cuci kuas</button>
+    </div>
     <h3>📱 Uji tahan lama (untuk iPhone)</h3>
     <div class="b">
       <button class="main" id="u-soak">🔁 Ulang terus (semua barang)</button>
@@ -125,7 +131,7 @@ for (const b of document.querySelectorAll('#uji button[data-act]')) b.onclick = 
 
 // ---------- uji tahan lama: semua barang bergantian, beberapa sekaligus ----------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const ALL = [['teh', 'pantry'], ['konsol', 'game'], ['pisang', 'pantry'], ['pingpong', 'game'], ['ngobrol', 'pantry'], ['arcade', 'game'], ['kopi', 'pantry'], ['mie', 'pantry'], ['jus', 'pantry'], ['air', 'pantry']];
+const ALL = [['teh', 'pantry'], ['konsol', 'game'], ['pisang', 'pantry'], ['pingpong', 'game'], ['ngobrol', 'pantry'], ['arcade', 'game'], ['kopi', 'pantry'], ['mie', 'pantry'], ['jus', 'pantry'], ['air', 'pantry'], ['baca', 'rara'], ['lukis', 'lukas'], ['kuas', 'lukas']];
 let rounds = 0, soakStart = 0, soaking = false;
 $('u-soak').onclick = async () => {
   if (soaking) return;
