@@ -1,9 +1,13 @@
 // RUANG KERJA GABY: kantor 2.5D tempat tim Gaby bekerja sesuai kejadian SUNGGUHAN
 // (mic Gaby, ucapan, alat ingatan, papan kerja Rara/Pandu/Lukas/Vera). Dimuat hanya saat tombol 🏢 dibuka.
 // Mesinnya berasal dari prototipe/proto.js (sudah disetujui pemilik); gambarnya dari office-art.js.
-import { officeLayers, character25, CH } from './office-art.js';
+import { officeLayers, character25, CH, PROP_SVG } from './office-art.js';
 import { officeListen, officeState } from './officebus.js';
 import { CATEGORIES, guessCats } from './memory.js';
+
+// v1.27 "barang hidup": teko, mug, joystick, bet & bola ping-pong, buku Rara, kuas Lukas… digambar & digerakkan di sini,
+// bukan di latar (office-art.js membaca tanda ini saat officeLayers() dipanggil di bawah). false = latar lama (darurat).
+window.LIVE_PROPS = window.LIVE_PROPS !== false;
 
 // ---------- tampilan (harus sama dengan officeLayers: setView(24, 632, 200)) ----------
 const VS = 24, VOX = 632, VOY = 200, VK = VS / 20;
@@ -39,8 +43,9 @@ const ITEMS = items.map((it) => {
     it.fx0 = el('g'); // efek di belakang karakter (laci menyala)
     it.slotG = el('g'); // karakter yang berada di belakang perabot depan
     it.frontG = el('g', { class: 'static' }, it.front2);
+    it.liveG = el('g'); // barang hidup di atas perabot depan (teko & mug di meja pantry)
     it.overG = el('g'); // karakter / efek di depan perabot
-    g.append(it.backG, it.fx0, it.slotG, it.frontG, it.overG);
+    g.append(it.backG, it.fx0, it.slotG, it.frontG, it.liveG, it.overG);
   }
   it.g = g;
   it.afterG = el('g'); // karakter yang lewat di lorong setelah ruangan ini
@@ -65,7 +70,7 @@ for (const k of ['pantry', 'game']) {
 // frontY: karakter dengan y lokal < frontY digambar DI BELAKANG perabot depan ruangan itu.
 const NAV = {
   rara: { frontY: null, obs: [[0, 4.6, 0.8, 2.8], [0.9, 1.4, 1.4, 1.4], [0.9, 2.85, 1.8, 1.85], [3.6, 1.8, 3, 3]],
-    spots: { santai: [2.0, 3.75, 0.75], visit: [6.2, 6.9, 0, { face: -1 }] } },
+    spots: { santai: [2.0, 3.75, 0.75], shelf: [1.35, 6.1, 0, { face: -1 }], visit: [6.2, 6.9, 0, { face: -1 }] } },
   pandu: { frontY: 4.4, obs: [[3, 4.4, 3.6, 1.5], [1.2, 5.6, 1, 0.8], [6.8, 2.3, 0.6, 0.6]],
     spots: { board: [3.4, 1.3, 0, { view: 'back' }], pace: [6.9, 3.4, 0], pack: [2.8, 6.2, 0, { face: -1 }], visit: [7.0, 6.9, 0, { face: -1 }] } },
   lukas: { frontY: 5.6, obs: [[3.4, 2.0, 1.2, 1.2], [5.6, 5.6, 1.3, 1.3], [6.0, 0.2, 1.0, 1.8]],
@@ -76,8 +81,8 @@ const NAV = {
   vera: { frontY: 4.0, obs: [[0.6, 5.4, 0.5, 0.5], [3.6, 2.5, 1.3, 1.4], [2.4, 4.0, 4.4, 1.4], [1.4, 0, 4.8, 0.3]],
     spots: { drop: [7.4, 3.7, 0, { face: -1 }], rack: [1.6, 5.0, 0, { face: -1 }], visit: [4.4, 6.5, 0] } },
   pantry: { frontY: 4.5, obs: [[0, 5.4, 1.2, 1.4], [1.6, 0, 3.8, 1.1], [10.4, 0.3, 0.8, 0.8], [9.4, 0, 2.2, 0.2], [4.3, 3.7, 2.2, 1.8], [7.2, 5.7, 0.4, 0.4], [11, 6.8, 0.9, 0.9]],
-    spots: { s1: [4.35, 3.55, 0.6], s2: [6.75, 3.35, 0.6, { face: -1 }], s3: [3.95, 5.95, 0.6], s4: [7.0, 6.4, 0, { face: -1 }],
-      coffee: [2.4, 1.6, 0, { view: 'back' }], micro: [4.6, 1.7, 0, { view: 'back' }], water: [10.8, 1.9, 0, { view: 'back' }], fridge: [1.9, 6.1, 0, { face: -1 }] } },
+    spots: { s1: [4.0, 3.2, 0.6], s2: [6.75, 3.35, 0.6, { face: -1 }], s3: [3.95, 5.95, 0.6], s4: [7.0, 6.4, 0, { face: -1 }],
+      coffee: [1.05, 1.55, 0, { view: 'back' }], micro: [7.4, 1.2, 0, { view: 'back', face: -1 }], water: [10.8, 1.9, 0, { view: 'back' }], fridge: [2.05, 4.95, 0, { face: -1 }] } },
   game: { frontY: null, obs: [[1.8, 0.05, 3.8, 1.05], [1.6, 3.6, 4.2, 1.4], [7.2, 2.0, 3.6, 2.0], [10.6, 0.3, 1.1, 1.0], [8.0, 5.9, 1.2, 1.0], [10.0, 5.1, 1.2, 1.0]],
     spots: { pongA: [6.5, 3.0, 0], pongB: [11.5, 3.0, 0, { face: -1 }], arcade: [11.15, 1.95, 0, { view: 'back' }],
       sofa1: [2.9, 4.1, 0.6, { view: 'back' }], sofa2: [4.5, 4.1, 0.6, { view: 'back' }], bean1: [8.6, 6.4, 0.45, { deep: true }], bean2: [10.6, 5.6, 0.45, { face: -1, deep: true }], dance: [6.6, 6.3, 0] } },
@@ -184,6 +189,8 @@ const PROPS = {
 };
 // barang di tangan kiri (koordinat gambar karakter, titik 0,0 = tangan)
 const LPROPS = {
+  book: '<path d="M-15,-26 q7,-4 15,0 q8,-4 15,0 v17 q-7,-4 -15,0 q-8,-4 -15,0 z" fill="#fff7ed" stroke="#b45309" stroke-width="1.6"/><path d="M0,-26 v17" stroke="#b45309" stroke-width="1.4"/><path d="M-12,-21 h9 M-12,-17 h9 M3,-21 h9 M3,-17 h9" stroke="#94a3b8" stroke-width="1.2"/>',
+  ...Object.fromEntries(['#ef4444', '#3b82f6', '#22c55e'].map((c, i) => [`brush${i}`, `<path d="M-3,-2 L9,-26" stroke="#92400e" stroke-width="3" stroke-linecap="round"/><path d="M9,-26 l2,-5" stroke="${c}" stroke-width="4.5" stroke-linecap="round"/>`])),
   mug: '<rect x="-8" y="-20" width="16" height="18" rx="3" fill="#f8fafc" stroke="#94a3b8"/><path d="M8,-15 q7,2 0,9" stroke="#94a3b8" stroke-width="3" fill="none"/><rect x="-8" y="-20" width="16" height="4" fill="#78350f" opacity=".7"/><path d="M-3,-25 q-3,-5 0,-9 M3,-25 q-3,-5 0,-9" stroke="#e2e8f0" stroke-width="2" fill="none" opacity=".7"/>',
   glass: '<path d="M-7,-20 h14 l-2,18 h-10 z" fill="rgba(186,230,253,.75)" stroke="#7dd3fc"/><rect x="-6" y="-12" width="12" height="9" fill="#38bdf8" opacity=".6"/>',
   news: '<rect x="-30" y="-34" width="36" height="42" fill="#f5f5f4" stroke="#a8a29e"/><rect x="-27" y="-30" width="16" height="12" fill="#cbd5e1"/><path d="M-9,-28 h12 M-9,-22 h12 M-27,-14 h30 M-27,-8 h30 M-27,-2 h24 M-27,4 h30" stroke="#a8a29e" stroke-width="2"/>',
@@ -618,6 +625,103 @@ async function work(a, room, ms, text, pose = 'working') {
   a.progress(null); a.cls('rush', false); a.pose(pose, false); busy(room, false); a.say('');
 }
 
+// ---------- BARANG HIDUP (v1.27; pemilik 14 Nov 2026: "joystick cuma pajangan di lantai, bet pingpong tetap di meja
+// walau dimainkan, teko di pantry gak pernah dituang"). Barang yang bisa dipakai TIDAK digambar di latar
+// (office-art: window.LIVE_PROPS) tapi di sini: dibuat SEKALI, lalu hanya dipindah / disembunyikan (jumlah elemen tetap).
+// Barang yang dipinjam karakter otomatis kembali ke tempatnya saat aktivitasnya selesai/dibatalkan (cancelAct → giveBack).
+const LIVE = window.LIVE_PROPS === true;
+const P = {};
+const setT = (g, x, y, rot = 0) => g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})${rot ? ` rotate(${rot.toFixed(0)})` : ''}`);
+function propAt(room, x, y, z, svgText, layer = 'fx0') {
+  const [gx, gy] = G(R[room].off[0] + x, R[room].off[1] + y, z);
+  const g = el('g', { class: 'liveprop' }, `<g transform="scale(${VK})">${svgText}</g>`);
+  g.home = [gx, gy];
+  g.homeLayer = R[room][layer];
+  g.homeLayer.append(g);
+  setT(g, gx, gy);
+  return g;
+}
+const showP = (g, on = true) => { if (g) g.style.display = on ? '' : 'none'; };
+function homeP(g) { if (!g) return; if (g.parentNode !== g.homeLayer) g.homeLayer.append(g); setT(g, ...g.home); showP(g, true); }
+// Pinjam barang (hilang dari tempatnya) — kembali sendiri saat aktivitas si peminjam berakhir.
+function borrow(a, g) { if (!g || g.style.display === 'none') return false; showP(g, false); (a.loans || (a.loans = [])).push(g); return true; }
+function giveBack(a) { for (const g of a.loans || []) homeP(g); a.loans = []; }
+function facePoly(room, pts, fill, layer = 'fx0') {
+  const o = R[room].off;
+  const g = el('g', { class: 'liveprop', style: 'display:none' }, poly(pts.map(([x, y, z]) => G(o[0] + x, o[1] + y, z)), `fill="${fill}"`));
+  R[room][layer].append(g);
+  return g;
+}
+if (LIVE) {
+  // pantry: mug di mesin kopi, teko + 2 mug + piring pisang goreng di meja, layar microwave, pintu kulkas
+  P.machMug = propAt('pantry', 2.45, 0.95, 1.4, PROP_SVG.mug('#fef3c7', false));
+  P.teapot = propAt('pantry', 5.7, 4.1, 1.2, PROP_SVG.teapot, 'liveG');
+  P.mugA = propAt('pantry', 5.9, 4.7, 1.2, PROP_SVG.mug('#38bdf8', false), 'liveG');
+  P.mugB = propAt('pantry', 4.7, 5.0, 1.2, PROP_SVG.mug('#f472b6', false), 'liveG');
+  P.plate = propAt('pantry', 5.0, 4.4, 1.25, PROP_SVG.plate, 'liveG');
+  P.fritters = [-7, 0].map((dx) => propAt('pantry', 5.0, 4.4, 1.25, PROP_SVG.fritter(dx), 'liveG'));
+  P.microLight = facePoly('pantry', [[4.1, 0.97, 1.5], [4.9, 0.97, 1.5], [4.9, 0.97, 2.0], [4.1, 0.97, 2.0]], '#fde68a');
+  { const [mx, my] = G(R.pantry.off[0] + 4.5, R.pantry.off[1] + 0.97, 1.6); P.microBowl = el('text', { 'text-anchor': 'middle', 'font-size': 11, x: mx.toFixed(1), y: my.toFixed(1) }, '🍜'); P.microLight.append(P.microBowl); }
+  {
+    const o = R.pantry.off, Q = (x, y, z) => G(o[0] + x, o[1] + y, z);
+    const shelf = (z) => poly([Q(1.22, 5.45, z), Q(1.22, 6.75, z), Q(1.22, 6.75, z + 0.06), Q(1.22, 5.45, z + 0.06)], 'fill="#cbd5e1"');
+    const bottle = (y, z, c) => poly([Q(1.23, y, z), Q(1.23, y + 0.22, z), Q(1.23, y + 0.22, z + 0.6), Q(1.23, y + 0.15, z + 0.75), Q(1.23, y + 0.07, z + 0.75), Q(1.23, y, z + 0.6)], `fill="${c}"`);
+    P.fridgeOpen = el('g', { class: 'liveprop', style: 'display:none' },
+      poly([Q(1.21, 5.45, 0.15), Q(1.21, 6.75, 0.15), Q(1.21, 6.75, 3.15), Q(1.21, 5.45, 3.15)], 'fill="#fefce8"')
+      + shelf(1.05) + shelf(2.1) + bottle(5.65, 1.11, '#f97316') + bottle(5.95, 1.11, '#22c55e') + bottle(6.3, 1.11, '#facc15')
+      + bottle(5.8, 2.16, '#38bdf8') + bottle(6.15, 2.16, '#ef4444'));
+    R.pantry.fx0.append(P.fridgeOpen);
+    // pintu dibuka ±150° (engsel depan-kiri, mengayun ke arah kamera-kiri) → tampak sebagai panel di kiri kulkas, isinya tidak tertutup
+    P.fridgeDoor = el('g', { class: 'liveprop', style: 'display:none' },
+      poly([Q(1.2, 6.8, 0.05), Q(1.8, 7.84, 0.05), Q(1.8, 7.84, 3.3), Q(1.2, 6.8, 3.3)], 'fill="#e2e8f0" stroke="#94a3b8" stroke-width="1"')
+      + poly([Q(1.68, 7.6, 1.6), Q(1.74, 7.7, 1.6), Q(1.74, 7.7, 2.4), Q(1.68, 7.6, 2.4)], 'fill="#64748b"'));
+    R.pantry.liveG.append(P.fridgeDoor);
+  }
+  // ruang game: joystick di lantai, tokoh kecil di layar TV, 2 bet & bola di meja ping-pong, layar arcade
+  P.pad = propAt('game', 3.0, 2.6, 0, PROP_SVG.pad);
+  P.tvHero = propAt('game', 2.6, 0.6, 0.95, '<rect x="-4" y="-9" width="8" height="9" rx="1.5" fill="#fde047" stroke="#0f172a" stroke-width="1"/><circle cx="1.5" cy="-6" r="1" fill="#0f172a"/>');
+  showP(P.tvHero, false);
+  P.padR = propAt('game', 8.0, 2.5, 0.85, PROP_SVG.paddle('#dc2626'));
+  P.padB = propAt('game', 10.2, 3.6, 0.85, PROP_SVG.paddle('#111827'));
+  P.ball = propAt('game', 9.6, 2.6, 1.6, PROP_SVG.ball);
+  // Rara: buku terbuka di kursi baca & 1 buku di rak; Lukas: kuas di 3 toples (gambar dari office-art: window.LIVE_ABS)
+  const absProp = (room, key, layer = 'fx0') => {
+    const g = el('g', { class: 'liveprop' }, (window.LIVE_ABS || {})[key] || '');
+    g.home = [0, 0]; g.homeLayer = R[room][layer]; g.homeLayer.append(g);
+    return g;
+  };
+  P.raraOpenBook = absProp('rara', 'raraOpenBook');
+  P.raraShelfBook = absProp('rara', 'raraShelfBook');
+  P.brushes = [0, 1, 2].map((i) => absProp('lukas', `lukasBrush${i}`, 'liveG'));
+  P.arcadeFlash = facePoly('game', [[10.7, 1.32, 1.5], [11.6, 1.32, 1.5], [11.6, 1.32, 2.3], [10.7, 1.32, 2.3]], '#f0abfc');
+}
+const ptOf = (g, dy = 0) => [g.home[0], g.home[1] + dy];
+// Teko terangkat, miring di atas mug, tetesan teh, lalu kembali.
+async function pourTea(mug) {
+  if (!LIVE || !mug) return;
+  const [hx, hy] = P.teapot.home, [mx, my] = mug.home;
+  const tx = mx - 12, ty = my - 22;
+  await anim(450, (t) => setT(P.teapot, hx + (tx - hx) * ease(t), hy + (ty - hy) * ease(t) - Math.sin(t * Math.PI) * 10));
+  await anim(300, (t) => setT(P.teapot, tx, ty, 38 * t));
+  for (let i = 0; i < 3; i++) { rise([mx + 2, my - 14], '💧', 9, 500); await wait(220); }
+  rise([mx, my - 18], '♨️', 12, 900);
+  await anim(300, (t) => setT(P.teapot, tx, ty, 38 * (1 - t)));
+  await anim(450, (t) => setT(P.teapot, tx + (hx - tx) * ease(t), ty + (hy - ty) * ease(t) - Math.sin(t * Math.PI) * 10));
+  homeP(P.teapot);
+}
+// Pisang goreng di piring: diambil satu-satu, terisi lagi 40 dtk setelah habis.
+let refillT = 0;
+function takeFritter() {
+  if (!LIVE) return true;
+  const f = P.fritters.find((g) => g.style.display !== 'none');
+  if (!f) return false;
+  showP(f, false);
+  if (!P.fritters.some((g) => g.style.display !== 'none') && !refillT) {
+    refillT = setTimeout(() => { refillT = 0; P.fritters.forEach((g) => showP(g, true)); rise(ptOf(P.plate, -10), '🍌', 14, 1200); }, 40000 / SPD);
+  }
+  return true;
+}
+
 // ---------- status & kunci adegan ----------
 const state = { busy: new Set(), santai: true, tidur: false, ptt: false }; // santai = waktu bebas (mic OFF)
 const NAMES = { gaby: 'Gaby', meri: 'Meri', rara: 'Rara', pandu: 'Pandu', vera: 'Vera', lukas: 'Lukas' };
@@ -630,6 +734,7 @@ function cancelAct(a) {
   a.act = null;
   for (const [id, who] of [...TAKEN]) if (who === a) TAKEN.delete(id);
   a.clearPose();
+  giveBack(a);
   if (a.key === 'rara') a.variant('santai');
 }
 function claim(keys, label) {
@@ -717,7 +822,20 @@ const ACTS = [
   { who: ['meri'], w: 2, s: 1, run: async ([a], ok) => { if (!await go(a, spot('meri', 'jurnal'), ok)) return; a.holdL('diary'); a.say('📖 baca catatan kemarin', 2000); await hold(3000, ok); a.holdL(null); await go(a, a.home, ok); } },
   { who: ['meri'], w: 2, s: 1, run: async ([a], ok) => { if (!await go(a, spot('meri', 'jurnal'), ok)) return; a.holdL('mug'); a.say('🍵', 1000); await sipLoop(a, 'sipL', ok, 2); a.holdL(null); await go(a, a.home, ok); } },
   // ----- Rara -----
-  { who: ['rara'], w: 3, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.say('📖 hmm, seru…', 2600); await hold(3000, ok); } },
+  { name: 'baca', who: ['rara'], w: 3, s: 1, run: async ([a], ok) => {
+    if (LIVE && P.raraShelfBook.style.display !== 'none' && Math.random() < 0.55) {
+      // ke rak dulu, pilih buku
+      if (!await go(a, spot('rara', 'shelf'), ok)) return;
+      a.pose('reaching'); a.say('📚 baca yang mana ya…', 1300); if (!await hold(1200, ok)) return; a.pose('reaching', false);
+      borrow(a, P.raraShelfBook); a.holdL('book');
+      if (!await go(a, a.home, ok)) return;
+    } else {
+      if (!await homeFirst(a, ok)) return;
+      borrow(a, P.raraOpenBook); a.holdL('book'); // buku yang terbuka di kursi diangkat
+    }
+    a.say('📖 hmm, seru…', 2600); if (!await hold(3200, ok)) return;
+    rise(a.headPt(), pick(['😮', '🤓', '💡']), 14, 1000); await hold(1600, ok);
+  } },
   { who: ['rara'], w: 3, s: 1, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.say('🍵 teh melati', 1300); await sipLoop(a, 'sipR', ok, 2); } },
   { who: ['rara'], w: 0, s: 1.5, run: async ([a], ok) => { if (!await homeFirst(a, ok)) return; a.pose('sleeping'); await zzzOf(a, 3600); a.pose('sleeping', false); a.say('Eh, ketiduran 😳', 1200); await hold(1000, ok); } },
   { who: ['rara'], w: 2, s: 0.5, run: async ([a], ok) => {
@@ -741,43 +859,117 @@ const ACTS = [
   { who: ['vera'], w: 2, s: 0.5, run: async ([a], ok) => { a.pose('stamping'); await hold(500, ok); rise(VERA_PAPER(), '✅', 20); a.say('DOK! 😤', 900); await hold(800, ok); } },
   { who: ['vera'], w: 1.5, s: 1, run: async ([a], ok) => { if (!await go(a, spot('vera', 'rack'), ok)) return; a.say('🕵️‍♀️ topinya miring', 1200); a.pose('reaching'); await hold(1200, ok); a.pose('reaching', false); await go(a, a.home, ok); } },
   // ----- Lukas -----
-  { who: ['lukas'], w: 4, s: 1, run: async ([a], ok) => {
+  { name: 'lukis', who: ['lukas'], w: 4, s: 1, run: async ([a], ok) => {
+    // ambil kuas dari toples dulu (warna kuas = warna cat yang dipakai), kembalikan sesudahnya
+    let dot = ['🔴', '🟡', '🔵', '🟣'];
+    if (LIVE) {
+      const i = [0, 1, 2].filter((k) => P.brushes[k].style.display !== 'none').sort(() => Math.random() - 0.5)[0];
+      if (i != null) {
+        if (!await go(a, spot('lukas', 'jars'), ok)) return;
+        a.pose('reaching'); if (!await hold(600, ok)) return; a.pose('reaching', false);
+        borrow(a, P.brushes[i]); a.holdL(`brush${i}`); a.say(['🔴 merah dulu', '🔵 biru dulu', '🟢 hijau dulu'][i], 1200);
+        dot = [['🔴', '🟠'], ['🔵', '🟣'], ['🟢', '🟡']][i];
+      }
+    }
     if (!await go(a, spot('lukas', 'paint'), ok)) return;
     a.pose('painting'); a.say('🎨', 1000);
-    for (let i = 0; i < 5 && ok(); i++) { const [x, y] = CANVAS(); rise([x + rnd(-20, 20), y + rnd(-14, 10)], pick(['🔴', '🟡', '🔵', '🟣']), 8, 900); await wait(600); }
-    a.pose('painting', false); await go(a, a.home, ok);
+    for (let i = 0; i < 5 && ok(); i++) { const [x, y] = CANVAS(); rise([x + rnd(-20, 20), y + rnd(-14, 10)], pick(dot), 8, 900); await wait(600); }
+    a.pose('painting', false);
+    if (LIVE && a.loans && a.loans.length) { if (!await go(a, spot('lukas', 'jars'), ok)) return; rise(G(R.lukas.off[0] + 6.25, R.lukas.off[1] + 6.15, 1.6), '🫧', 11, 900); await hold(700, ok); giveBack(a); a.holdL(null); }
+    await go(a, a.home, ok);
   } },
   { who: ['lukas'], w: 2, s: 1, run: async ([a], ok) => { if (!await go(a, spot('lukas', 'admire'), ok)) return; a.say('🤔…', 1200); await hold(1300, ok); a.say('😍 mahakarya!', 1200); a.hop(); await hold(1200, ok); await go(a, a.home, ok); } },
   { who: ['lukas'], w: 2, s: 1, run: async ([a], ok) => { a.holdL('sketch'); a.pose('working'); a.say('✏️ sketsa', 1500); await hold(2200, ok); } },
-  { who: ['lukas'], w: 1.5, s: 0.5, run: async ([a], ok) => { if (!await go(a, spot('lukas', 'jars'), ok)) return; a.pose('working'); a.say('🧼 cuci kuas', 1400); await hold(1600, ok); a.pose('working', false); await go(a, a.home, ok); } },
+  { name: 'kuas', who: ['lukas'], w: 1.5, s: 0.5, run: async ([a], ok) => {
+    if (!await go(a, spot('lukas', 'jars'), ok)) return;
+    const i = LIVE ? [0, 1, 2].find((k) => P.brushes[k].style.display !== 'none') : null;
+    if (i != null) { borrow(a, P.brushes[i]); a.holdL(`brush${i}`); }
+    a.pose('working'); a.say('🧼 cuci kuas', 1400);
+    for (let k = 0; k < 3; k++) { rise(G(R.lukas.off[0] + 6.25, R.lukas.off[1] + 6.15, 1.6), '🫧', 11, 900); if (!await hold(550, ok)) return; }
+    a.pose('working', false); giveBack(a); a.holdL(null);
+    await go(a, a.home, ok);
+  } },
   // ----- siapa saja: pantry -----
-  { who: 'any', w: 1, s: 3, run: async ([a], ok) => {
+  { name: 'kopi', who: 'any', w: 1, s: 3, run: async ([a], ok) => {
     const c = takeSpot([spot('pantry', 'coffee')], a); if (!c) return;
     if (!await go(a, c, ok)) return;
-    a.pose('working'); a.say('☕ bikin kopi', 1200); await hold(1300, ok); a.pose('working', false);
-    rise(G(c.x - 0.6, c.y - 0.6, 2.4), '♨️', 16); a.holdL('mug'); TAKEN.delete(c.id);
+    a.pose('working'); a.say('☕ bikin kopi', 1200);
+    if (LIVE) { rise(ptOf(P.machMug, -16), '☕', 11, 900); if (!await hold(500, ok)) return; rise(ptOf(P.machMug, -16), '♨️', 13, 900); }
+    if (!await hold(LIVE ? 800 : 1300, ok)) return; a.pose('working', false);
+    rise(G(c.x - 0.6, c.y - 0.6, 2.4), '♨️', 16); borrow(a, P.machMug); a.holdL('mug'); TAKEN.delete(c.id);
     const seat = state.santai ? takeSpot(['s1', 's2', 's3', 's4'].map((k) => spot('pantry', k)), a) : null;
     if (seat) { if (!await go(a, seat, ok)) return; await sipLoop(a, 'sipL', ok, 3); }
     else { if (!await go(a, a.home, ok)) return; await sipLoop(a, 'sipL', ok, 2); }
   } },
-  { who: 'any', w: 0, s: 2, run: async ([a], ok) => {
+  { name: 'mie', who: 'any', w: 0, s: 2, run: async ([a], ok) => {
     const c = takeSpot([spot('pantry', 'micro')], a); if (!c) return;
     if (!await go(a, c, ok)) return;
-    a.say('⏳ panasin mie', 1500); await hold(1700, ok); rise(G(c.x, c.y - 0.6, 2.6), '🔔', 18); a.say('Ting! 😋', 900); a.holdL('bowl'); TAKEN.delete(c.id);
+    a.say('⏳ panasin mie', 1500);
+    if (LIVE) { // layar microwave menyala berkedip selama memanaskan
+      showP(P.microLight, true);
+      for (let i = 0; i < 6; i++) { P.microLight.style.opacity = i % 2 ? '1' : '.75'; P.microBowl.setAttribute('transform', `translate(${(i % 2 ? 4 : -4)} 0)`); if (!await hold(330, ok)) { showP(P.microLight, false); return; } }
+      showP(P.microLight, false);
+    } else await hold(1700, ok);
+    rise(G(c.x, c.y - 0.6, 2.6), '🔔', 18); a.say('Ting! 😋', 900); a.holdL('bowl'); TAKEN.delete(c.id);
     const seat = takeSpot(['s1', 's2', 's3', 's4'].map((k) => spot('pantry', k)), a);
     if (seat && await go(a, seat, ok)) { a.say('😋 nyam nyam', 1600); await hold(2400, ok); }
   } },
-  { who: 'any', w: 1, s: 1, run: async ([a], ok) => { const c = takeSpot([spot('pantry', 'water')], a); if (!c) return; if (!await go(a, c, ok)) return; a.holdL('glass'); a.say('💧 minum dulu', 1200); await sipLoop(a, 'sipL', ok, 2); } },
-  { who: 'any', w: 0.5, s: 1.5, run: async ([a], ok) => { const c = takeSpot([spot('pantry', 'fridge')], a); if (!c) return; if (!await go(a, c, ok)) return; a.pose('reaching'); a.say('🧃 ada jus!', 1200); await hold(1200, ok); a.pose('reaching', false); a.holdL('juice'); await sipLoop(a, 'sipL', ok, 1); } },
+  { name: 'air', who: 'any', w: 1, s: 1, run: async ([a], ok) => {
+    const c = takeSpot([spot('pantry', 'water')], a); if (!c) return; if (!await go(a, c, ok)) return;
+    if (LIVE) { a.pose('reaching'); for (let i = 0; i < 3; i++) { rise(G(R.pantry.off[0] + 10.8, R.pantry.off[1] + 0.7, 2.1), '🫧', 10, 800); if (!await hold(280, ok)) return; } a.pose('reaching', false); }
+    a.holdL('glass'); a.say('💧 minum dulu', 1200); await sipLoop(a, 'sipL', ok, 2);
+  } },
+  { name: 'jus', who: 'any', w: 0.5, s: 1.5, run: async ([a], ok) => {
+    const c = takeSpot([spot('pantry', 'fridge')], a); if (!c) return; if (!await go(a, c, ok)) return;
+    showP(P.fridgeOpen, true); showP(P.fridgeDoor, true); // pintu kulkas terbuka, dalamnya terang
+    if (LIVE) rise(G(R.pantry.off[0] + 1.6, R.pantry.off[1] + 6.1, 2.6), '❄️', 13, 1100);
+    a.pose('reaching'); a.say('🧃 ada jus!', 1200); const fine = await hold(1200, ok);
+    a.pose('reaching', false); showP(P.fridgeOpen, false); showP(P.fridgeDoor, false); if (!fine) return;
+    a.holdL('juice'); await sipLoop(a, 'sipL', ok, 1);
+  } },
+  { name: 'teh', who: 'any', w: 0.6, s: 1.5, run: async ([a], ok) => {
+    const seat = takeSpot(['s1', 's2', 's3'].map((k) => spot('pantry', k)), a); if (!seat) return;
+    if (!await go(a, seat, ok)) return;
+    const mug = LIVE ? [P.mugA, P.mugB].find((m) => m.style.display !== 'none') : null;
+    a.say('🫖 ngeteh dulu~', 1300);
+    await pourTea(mug); if (!ok()) return;
+    if (mug) borrow(a, mug);
+    a.holdL('mug'); await sipLoop(a, 'sipL', ok, 3);
+  } },
+  { name: 'pisang', who: 'any', w: 0.5, s: 1.2, run: async ([a], ok) => {
+    const seat = takeSpot(['s1', 's2', 's3'].map((k) => spot('pantry', k)), a); if (!seat) return;
+    if (!await go(a, seat, ok)) return;
+    if (!takeFritter()) { a.say('Yah, pisangnya habis 😢', 1500); await hold(1500, ok); return; }
+    a.pose('reaching'); a.say('🍌 pisang goreng!', 1200); if (!await hold(700, ok)) return; a.pose('reaching', false);
+    for (let i = 0; i < 3; i++) { a.pose('sipL'); if (!await hold(600, ok)) return; a.pose('sipL', false); rise(a.headPt(), '😋', 13, 800); if (!await hold(500, ok)) return; }
+  } },
   // ----- siapa saja: ruang game -----
-  { who: 'any', w: 0, s: 3, run: async ([a], ok) => {
+  { name: 'arcade', who: 'any', w: 0, s: 3, run: async ([a], ok) => {
     const c = takeSpot([spot('game', 'arcade')], a); if (!c) return;
     if (!await go(a, c, ok)) return;
     a.pose('working'); a.cls('rush');
-    for (const t of ['👾 ayo!', 'COMBO! 💥', 'yesss! 🙌']) { a.say(t, 1200); if (!await hold(1400, ok)) return; }
+    for (const t of ['👾 ayo!', 'COMBO! 💥', 'yesss! 🙌']) {
+      a.say(t, 1200);
+      if (!LIVE) { if (!await hold(1400, ok)) return; continue; }
+      for (let i = 0; i < 4; i++) { showP(P.arcadeFlash, i % 2 === 0); P.arcadeFlash.style.opacity = '.55'; if (!await hold(350, ok)) { showP(P.arcadeFlash, false); return; } }
+    }
+    showP(P.arcadeFlash, false);
   } },
   { who: 'any', w: 0, s: 2, run: async ([a], ok) => { const c = takeSpot([spot('game', 'bean1'), spot('game', 'bean2')], a); if (!c) return; if (!await go(a, c, ok)) return; a.pose('sleeping'); await zzzOf(a, 4200); } },
-  { who: 'any', w: 0, s: 2, run: async ([a], ok) => { const c = takeSpot([spot('game', 'sofa1'), spot('game', 'sofa2')], a); if (!c) return; if (!await go(a, c, ok)) return; a.holdL('pad'); a.pose('working'); a.say('🎮 main game', 1500); await hold(4200, ok); } },
+  { name: 'konsol', who: 'any', w: 0, s: 2, run: async ([a], ok) => {
+    const c = takeSpot([spot('game', 'sofa1'), spot('game', 'sofa2')], a); if (!c) return; if (!await go(a, c, ok)) return;
+    borrow(a, P.pad); a.holdL('pad'); a.pose('working'); a.say('🎮 main game', 1500); // joystick diambil dari lantai
+    if (!LIVE) { await hold(4200, ok); return; }
+    // tokoh kecil di layar TV berlari & melompat selama dimainkan
+    const [x0, y0] = P.tvHero.home; showP(P.tvHero, true);
+    for (let i = 0; i < 12 && ok(); i++) {
+      const k = i % 6, jump = i % 3 === 2;
+      await anim(330, (t) => setT(P.tvHero, x0 + (k + t) * 9, y0 + (k + t) * 5.2 - (jump ? Math.sin(t * Math.PI) * 9 : 0)));
+      if (i === 5) rise([x0 + 30, y0 + 4], '⭐', 11, 700);
+    }
+    homeP(P.tvHero); showP(P.tvHero, false);
+    if (ok()) { a.say(pick(['Menang! 🏆', 'Kalah 😭', 'Lagi ah 🎮']), 1200); await hold(1200, ok); }
+  } },
   { who: 'any', w: 0, s: 2, run: async ([a], ok) => { const c = takeSpot([spot('game', 'dance')], a); if (!c) return; if (!await go(a, c, ok)) return; a.pose('dance'); a.say('💃 joget dulu~', 1400); await notes(a, 5); await hold(800, ok); } },
   // ----- siapa saja: lorong -----
   { who: 'any', w: 0.6, s: 1, run: async ([a], ok) => {
@@ -787,18 +979,25 @@ const ACTS = [
   { who: 'any', w: 0, s: 1.5, run: async ([a], ok) => { a.say('🏃 olahraga dulu!', 1300); for (let i = 0; i < 4; i++) { const [x, y] = pick(CORRIDOR); if (!await go(a, pt(x, y), ok, true)) return; } a.say('Fiuh 😅', 1000); } },
   { who: 'any', w: 0.6, s: 1, run: async ([a], ok) => { const w = pick(WINDOWS); if (!await go(a, pt(w.x, w.y, { view: 'back', face: w.face }), ok)) return; a.say('🌤️ cerah ya', 1400); await hold(2200, ok); } },
   // ----- berdua -----
-  { who: 'any', n: 2, w: 0, s: 4, run: async ([a, b], ok) => {
+  { name: 'ngobrol', who: 'any', n: 2, w: 0, s: 4, run: async ([a, b], ok) => {
     const seats = ['s1', 's2', 's3'].map((k) => spot('pantry', k));
     const sa = takeSpot(seats, a), sb = takeSpot(seats, b); if (!sa || !sb) return;
     const [ra, rb] = await Promise.all([go(a, sa, ok), go(b, sb, ok)]); if (!ra || !rb) return;
-    a.holdL('mug'); b.holdL('glass');
+    if (LIVE) { // teh dituang ke 2 mug di meja, lalu mugnya diambil
+      a.say('Aku tuangin teh ya 🫖', 1300);
+      for (const m of [P.mugA, P.mugB]) { if (m.style.display === 'none') continue; await pourTea(m); if (!ok()) return; }
+      borrow(a, P.mugA); borrow(b, P.mugB);
+    }
+    a.holdL('mug'); b.holdL(LIVE ? 'mug' : 'glass');
     await chat(a, b, ok, 5);
   } },
-  { who: 'any', n: 2, w: 0, s: 3, run: async ([a, b], ok) => {
+  { name: 'pingpong', who: 'any', n: 2, w: 0, s: 3, run: async ([a, b], ok) => {
     const pa = takeSpot([spot('game', 'pongA')], a), pb = takeSpot([spot('game', 'pongB')], b); if (!pa || !pb) return;
     const [ra, rb] = await Promise.all([go(a, pa, ok), go(b, pb, ok)]); if (!ra || !rb) return;
+    borrow(a, P.padR); borrow(b, P.padB); // bet diambil dari meja
     a.holdL('paddle'); b.holdL('paddle');
-    const ball = el('g', {}, '<circle r="3.2" fill="#fff" stroke="#94a3b8" stroke-width=".6"/>');
+    // bola meja dipakai (dipindah ke depan selama main, kembali ke meja sesudahnya)
+    const ball = LIVE ? P.ball : el('g', {}, '<circle r="3.2" fill="#fff" stroke="#94a3b8" stroke-width=".6"/>');
     R.game.overG.append(ball);
     const s = G(a.x + 0.5, a.y, 1.3), e = G(b.x - 0.5, b.y, 1.3);
     for (let i = 0; i < 7 && ok(); i++) {
@@ -806,7 +1005,7 @@ const ACTS = [
       (i % 2 ? b : a).hop();
       await anim(620, (t) => ball.setAttribute('transform', `translate(${p[0] + (q[0] - p[0]) * t} ${p[1] + (q[1] - p[1]) * t - Math.sin(t * Math.PI) * 26})`));
     }
-    ball.remove();
+    if (LIVE) homeP(ball); else ball.remove();
     if (ok()) { const win = pick([a, b]); win.say('Menang! 🏆', 1300); win.hop(); await hold(1200, ok); }
   } },
   { who: 'any', n: 2, w: 0.6, s: 2.5, run: async ([a, b], ok) => {
@@ -1567,4 +1766,14 @@ export function closeOffice() {
 }
 
 // Untuk uji otomatis (tidak dipakai aplikasi).
-export const _test = { A, state, JOBS, R, TAKEN, route, routePins, routeLines, veraDocs, veraMarks, roundTag, easel, eP, eFrames, easelG, get docShown() { return docShown; } };
+// Uji (prototipe): jalankan aktivitas bernama dengan teman yang sedang bebas.
+function playNamed(name) {
+  const def = ACTS.find((d) => d.name === name); if (!def) return 'tidak ada';
+  const free = Object.values(A).filter((x) => (def.who === 'any' ? x.key !== 'gaby' : def.who.includes(x.key)) && !state.busy.has(x.key) && !x.act && !x.path);
+  if (free.length < (def.n || 1)) return null;
+  const actors = free.sort(() => Math.random() - 0.5).slice(0, def.n || 1);
+  actors.forEach((x) => { x.restUntil = performance.now() + 60000; });
+  runAct(def, actors).then(() => actors.forEach((x) => { x.restUntil = performance.now() + 1500; }));
+  return actors.map((x) => NAMES[x.key]).join(' & ');
+}
+export const _test = { playNamed, P, LIVE, A, state, JOBS, R, TAKEN, route, routePins, routeLines, veraDocs, veraMarks, roundTag, easel, eP, eFrames, easelG, get docShown() { return docShown; } };

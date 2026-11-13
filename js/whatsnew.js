@@ -5,6 +5,14 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.27.0',
+    items: [
+      'Ruang Kerja makin hidup! Barang-barangnya sekarang beneran dipakai: teko dituang ke mug, joystick diambil dari lantai buat main game, bet & bola ping-pong diambil dari meja, pisang goreng di piring dimakan sampai habis',
+      'Rara ngambil buku dari rak buat dibaca, Lukas ambil kuas dari toples (warnanya ikut warna kuas) lalu dicuci, kulkas kebuka kelihatan isinya, microwave nyala dengan mangkuk mie berputar',
+      'Bangku di pantry nggak masuk ke meja lagi, dan kaki meja ping-pong udah di bawah meja',
+    ],
+  },
+  {
     version: '1.26.1',
     items: ['Aku sekarang hafal isi kantor kita di Ruang Kerja 🏢, termasuk pantry (kopi, teh, pisang goreng!) dan ruang game (konsol, ping-pong, arcade). Tanya aja kalau penasaran'],
   },

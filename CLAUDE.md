@@ -240,7 +240,15 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini — per 14 Nov 2026
+## Status saat ini — per 14 Nov 2026 (rilis v1.27.0)
+**v1.27.0 "barang hidup" di-commit lokal, menunggu pemilik push** (pemilik "gas" setelah menonton prototipe v127 putaran 2; cadangan
+`backup-v1.26.1`, lokal). `js/office.js` = `prototipe/v127/office.js` lewat sed (impor `./…`, kunci `gaby.officeLite`) + baris
+`window.LIVE_PROPS = window.LIVE_PROPS !== false;` di atas (sebelum `officeLayers()`), jadi barang hidup AKTIF di aplikasi; prototipe lama
+(v122/v123) tidak terpengaruh karena memakai office.js-nya sendiri. Uji aplikasi: test-office27 41/41 (Ruang Kerja + 8 cek barang hidup:
+teko, joystick, bet, buku Rara, kuas Lukas, kulkas, semua kembali), test-browser 16/16, WebKit UA iPhone aplikasi asli (gerbang & setelan
+disembunyikan karena WebKit uji tanpa mikrofon) 4 menit / 44 aktivitas tanpa tumbang, elemen ±3.430.
+
+## Status sebelumnya — per 14 Nov 2026 (v1.26.1)
 **v1.26.0 TERBIT** (Pandu ditegur kalau isi sama, jadwal pulang otomatis, tombol 🗺️). **v1.26.1 di-commit lokal, menunggu push:** Gaby tahu
 isi Ruang Kerja (bagian "RUANG KERJA" di `persona.js`: ruangan tim, PANTRY, RUANG GAME, kebiasaan waktu bebas; keluhan pemilik "Gaby gak
 tau kalau dia punya ruang game & pantry"). **Prototipe v1.27 "barang hidup"** di `prototipe/v127/` (lihat bagian Ruang Kerja), menunggu
@@ -513,6 +521,7 @@ microwave: mangkuk 🍜 bergeser (piring berputar). Tempat berdiri dipindah supa
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.27.0 | Ruang Kerja "barang hidup": teko dituang, mug/joystick/bet/bola/buku Rara/kuas Lukas diambil & dikembalikan, pisang goreng dimakan, kulkas terbuka berisi, microwave & arcade & TV bergerak; bangku pantry keluar dari meja, kaki meja ping-pong di bawah permukaan |
 | 1.26.1 | Gaby tahu isi Ruang Kerja (ruangan tim, pantry, ruang game) lewat bagian "RUANG KERJA" di prompt |
 | 1.26.0 | Pandu tidak lagi "memperbaiki" dengan isi yang sama (ditegur, tidak dihitung, termasuk lengkapi yang cuma ganti judul); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
 | 1.25.2 | Meteran Pandu tidak hilang saat bekerja lama / HP ditinggal (muncul lagi saat ada kabar), Gaby memberi keadaan asli Pandu + alat `cek_pandu`; cuaca/jarak di Pandu maks 30 dtk |
