@@ -213,6 +213,15 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
   menit, dibulatkan 30) dan/atau check-out (setelah kegiatan terakhir sebelum pulang, atau 11:00 kalau pulang sore); dicatat di `fixes`
   (catatan Vera "ditambahkan otomatis"). Penyebab: model Pandu kadang tidak menulis baris pulang walau ditolak Vera 2× dan saat
   "lengkapi" (#2 = salinan #1). Lencana Vera kini dipotong di batas kata + "(+N catatan)" (dulu "…transportas").
+  **Penjaga "isi tidak berubah"** (pemilik: "Vera komennya selalu sama karena Pandu gak pernah selesai"): penyebab = model menyimpan ulang
+  isi SAMA setelah ditolak (dihitung perbaikan → 2 kesempatan habis), dan saat "lengkapi" cuma mengganti judul (prompt "Judul baru harus
+  menyebut pembedanya") → #2 = salinan #1. Sekarang di `runPandu`: `rejected` = { sig (`sigOf`: isi tanpa judul/ringkasan/sumber),
+  issues, local (`quickIssues` = catatan pasti vera.js) } dicatat tiap Vera menolak, dan untuk rencana turunan diisi dari rencana lama
+  (`base.vera.issues`). `simpan_rencana` dengan sig sama & masih ada catatan yang berlaku (`stillOpen`: catatan pasti yang sudah hilang =
+  beres, misal ditambal `addTripEnds`) → `tidak_berubah` + teguran, TIDAK ke Vera, TIDAK dihitung perbaikan; maks 2 teguran per
+  penolakan, lalu jalan seperti biasa (tidak berputar). Ikut titik simpan (`rejected`, `nudges`). Uji test-lazy 13/13 (ditolak → isi sama
+  → ditegur → diperbaiki; lengkapi ganti judul saja → ditegur → tempat makan ditambah ✅; lengkapi Cirebon lama → tidak ditegur, lolos
+  dengan jadwal pulang otomatis).
   Uji: t-ends 8/8 (rencana Cirebon dari PDF pemilik → "Hari 2, 14:00 pulang ke Jakarta naik Mobil pribadi (standar)"), test-browser
   16/16 & test-office22 33/33 (tes lama diperbarui untuk v1.25: pesan pembuka Pandu = 2 pesan pengguna, 1 "lengkapi hari" + 2
   perbaikan = 4 panggilan, PNG → PDF; skenario "lengkapi" kini memakai catatan tempat makan karena pulang sudah ditambal otomatis),
@@ -241,7 +250,9 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 **v1.26.0 di-commit lokal 13 Nov 2026, menunggu pemilik push** (cadangan `backup-v1.25.2`, lokal). Tiga temuan pemilik:
 (1) APK Android: Gaby tidak bisa dipotong (iPhone bisa: Gaby mengecil lalu diam) → penjaga gema `EchoGate`;
 (2) tombol 🗺️ daftar rencana di layar utama; (3) "lengkapi" rencana Cirebon #1 → #2 sama persis, Vera tetap "belum ada jadwal pulang"
-→ tambalan pasti `addTripEnds`. Lihat Keputusan penting "v1.26". Belum dicoba pemilik di HP.
+→ tambalan pasti `addTripEnds` + penjaga "isi tidak berubah". Lihat Keputusan penting "v1.26". Belum dicoba pemilik di HP.
+Temuan (1) ternyata karena **"Mode anti-gema" menyala** di HP pemilik (dimatikan → bisa dipotong); `EchoGate` disarankan dibatalkan
+(menunggu jawaban pemilik).
 
 ## Status sebelumnya — per 10 Nov 2026
 **v1.25.2 TERBIT 10 Nov 2026** (meteran Pandu + `cek_pandu`, lihat Keputusan penting). **v1.25.1 TERBIT 10 Nov 2026** (pemilik "terbitkan"; cabang `claude/inspiring-hawking-ioxiae` digabung fast-forward ke `main`):
@@ -476,7 +487,7 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
-| 1.26.0 | Android: Gaby bisa dipotong (penjaga gema belajar per HP, iPhone tetap cara lama); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
+| 1.26.0 | Pandu tidak lagi "memperbaiki" dengan isi yang sama (ditegur, tidak dihitung, termasuk lengkapi yang cuma ganti judul); Android: Gaby bisa dipotong (penjaga gema belajar per HP, iPhone tetap cara lama); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
 | 1.25.2 | Meteran Pandu tidak hilang saat bekerja lama / HP ditinggal (muncul lagi saat ada kabar), Gaby memberi keadaan asli Pandu + alat `cek_pandu`; cuaca/jarak di Pandu maks 30 dtk |
 | 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |
 | 1.25.0 | Pandu menyelesaikan rencana panjang (draf bertahap, lanjut kalau terpotong, isi hari yang kurang, perbaikan sebagian, jadwal maks 150 & kuliner 30 — cukup 12–30 hari, OpenRouter 16.000 token); Rara & Vera menunggu jatah Groq pulih (maks 3x → habis harian); Vera membaca rencana utuh bertahap; titik simpan 2 hari + "lanjutkan rencananya" (`lanjutkan_rencana`) |

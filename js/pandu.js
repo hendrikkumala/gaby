@@ -12,7 +12,7 @@ import { groqLabel } from './groq.js';
 import { research } from './research.js';
 import { weather } from './tools.js';
 import { getPosition, geocode, route } from './location.js';
-import { scheduleGaps, dayOf, tripEnds } from './vera.js';
+import { scheduleGaps, dayOf, tripEnds, quickIssues } from './vera.js';
 
 const MAX_TURNS = 24; // v1.25: lebih banyak giliran karena otak Groq menulis bertahap (draf per bagian / per 2 hari)
 const MAX_SEARCH = 3; // 3 pencarian gabungan per topik (transportasi, penginapan, kuliner/wisata)
@@ -510,6 +510,20 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
   let lastStep = R.lastStep || '';
   let modeVia = '';
   let touched = !!R.draft; // Pandu sudah menulis sesuatu ke draf
+  // Penjaga "tidak berubah" (v1.26, keluhan pemilik 13 Nov 2026: "Vera komennya selalu sama, Pandu gak pernah selesai"):
+  // model kadang menyimpan ulang isi yang SAMA (hanya judul/ringkasan beda) setelah ditolak Vera, atau saat "lengkapi"
+  // cuma mengganti judul. Itu tidak dihitung sebagai perbaikan & tidak diserahkan ke Vera; Pandu ditegur (maks 2x).
+  const sigOf = (p) => JSON.stringify({ ...p, judul: '', ringkasan: '', sumber: [] });
+  let rejected = R.rejected || null; // { sig, issues[], local[] } = isi yang terakhir ditolak + catatannya
+  if (!rejected && base && base.vera && base.vera.ok === false && arr(base.vera.issues).length) {
+    rejected = { sig: sigOf(normalizePlan({ ...base.data }).plan), issues: arr(base.vera.issues).map(String), local: quickIssues({ ...base.data }) };
+  }
+  let nudges = R.nudges || 0;
+  // Catatan yang masih berlaku: catatan pasti (tanpa AI) yang sekarang sudah hilang = sudah beres (misal ditambal otomatis).
+  const stillOpen = (plan) => {
+    const now = quickIssues(plan);
+    return rejected.issues.filter((t) => !(rejected.local.includes(t) && !now.includes(t)));
+  };
   const step = (text) => {
     calls++;
     lastStep = text;
@@ -656,6 +670,7 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
         const { plan, fixes } = normalizePlan(draft);
         plan.sumber = sources.slice(0, 8);
         const gaps = scheduleGaps(plan);
+        const open = rejected && nudges < 2 && !last && sigOf(plan) === rejected.sig ? stillOpen(plan) : [];
         if (!plan.jadwal.length && !plan.rincian_biaya.length && !plan.checklist.length) {
           result = { error: 'Rencana masih kosong. Isi jadwal / rincian_biaya / checklist (boleh bertahap lewat tulis_draf), lalu simpan_rencana lagi.' };
         } else if (gaps.missing.length && gaps.missing.length < lastGap && fills < MAX_FILL && !last) {
@@ -666,12 +681,24 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
           const next = gaps.missing.slice(0, use.via === 'groq' ? 2 : 4);
           step(`Melengkapi jadwal hari ${ranges(next)}`);
           result = { belum_lengkap: true, draf: draftSummary(draft), catatan: `Perjalanan ${gaps.days} hari, tapi jadwal hari ${ranges(gaps.missing)} belum ada. LANJUTKAN: tulis_draf berisi jadwal hari ${ranges(next)}${gaps.missing.length > next.length ? ' (sisanya di panggilan berikutnya)' : ''}, termasuk check-out & perjalanan pulang di hari terakhir. Lalu simpan_rencana lagi dengan kolom lain dikosongkan (otomatis dari draf).` };
+        } else if (open.length) {
+          nudges++;
+          step('Isinya belum berubah — Pandu diminta memperbaiki dulu');
+          result = {
+            tidak_berubah: true,
+            perbaiki: open.join(' '),
+            draf: draftSummary(draft),
+            catatan: `Isi rencanamu SAMA PERSIS dengan ${checks === 0 && base ? `Rencana #${base.no}` : 'yang tadi ditolak Vera'} (mengganti judul/ringkasan saja tidak dihitung), jadi belum ada yang diperbaiki dan TIDAK diserahkan ke Vera. Tulis ISI yang kurang dulu lewat tulis_draf — misal baris jadwal baru {"jadwal":[{"waktu":"Hari N, 14:00","kegiatan":"…"}]} atau isi kuliner/transportasi/biaya yang diminta — lalu simpan_rencana lagi.`,
+          };
         } else if (checks < maxFixes(use) && hooks.verify) {
           checks++;
           if (hooks.onStep) hooks.onStep(Math.max(stepsCount - 1, 0), 'Menyerahkan ke Vera…');
           const v = await hooks.verify(plan, fixes);
           if (v && !v.ok && v.feedback) {
             const lastFix = checks >= maxFixes(use);
+            const serious = arr(v.issues).filter((i) => i && i.serius).map((i) => String(i.text));
+            rejected = { sig: sigOf(plan), issues: serious.length ? serious : [str(v.feedback, 400)], local: quickIssues(plan) };
+            nudges = 0;
             result = {
               ditolak_vera: true,
               perbaiki: v.feedback,
@@ -699,7 +726,7 @@ export async function runPandu({ request, base = null, hooks = {}, resume = null
   const progress = searches > 0 || touched || calls > 2;
   if (failures.length && progress) {
     compact(messages);
-    const saved = saveResume({ v: 1, request, baseNo: base ? base.no : null, at: Date.now(), why, messages, draft, sources, searches, steps, calls, checks, fills, lastGap: Number.isFinite(lastGap) ? lastGap : null, lastStep });
+    const saved = saveResume({ v: 1, request, baseNo: base ? base.no : null, at: Date.now(), why, messages, draft, sources, searches, steps, calls, checks, fills, lastGap: Number.isFinite(lastGap) ? lastGap : null, lastStep, rejected, nudges });
     if (saved) {
       logPandu({ paused: { request: str(request, 120), at: Date.now() } });
       throw new PanduPaused(`Pandu berhenti sementara (${why}). Hasil kerjanya sudah disimpan di HP selama 2 hari.`, { why, lastStep, request });

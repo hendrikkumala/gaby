@@ -255,6 +255,11 @@ function tripScheduleIssues(plan) {
   return issues;
 }
 
+// Catatan serius dari pemeriksaan pasti saja (tanpa AI) — dipakai Pandu untuk tahu catatan mana yang sudah beres.
+export function quickIssues(plan) {
+  return localPlanIssues(plan).filter((i) => i.serius).map((i) => i.text);
+}
+
 // Pemeriksaan pasti tanpa AI: hal yang tidak disukai, pengingat yang sudah lewat, bentrok jadwal.
 function localPlanIssues(plan) {
   const issues = [];
