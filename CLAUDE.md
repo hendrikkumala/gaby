@@ -240,7 +240,13 @@ Data pengguna **hanya di perangkat** (localStorage/IndexedDB); tidak ada server,
 - Kartu update APK di aplikasi membandingkan nomor perakitan di nama rilis ("Gaby APK (perakitan #N)") dengan versionCode terpasang.
 - Cabang `ci-check` sisa uji coba, boleh dihapus (belum bisa lewat sesi cloud).
 
-## Status saat ini — per 13 Nov 2026
+## Status saat ini — per 14 Nov 2026
+**v1.26.0 TERBIT** (Pandu ditegur kalau isi sama, jadwal pulang otomatis, tombol 🗺️). **v1.26.1 di-commit lokal, menunggu push:** Gaby tahu
+isi Ruang Kerja (bagian "RUANG KERJA" di `persona.js`: ruangan tim, PANTRY, RUANG GAME, kebiasaan waktu bebas; keluhan pemilik "Gaby gak
+tau kalau dia punya ruang game & pantry"). **Prototipe v1.27 "barang hidup"** di `prototipe/v127/` (lihat bagian Ruang Kerja), menunggu
+pemilik menonton & tes iPhone → "gas" → terbit v1.27.0.
+
+## Status sebelumnya — per 13 Nov 2026
 **v1.26.0 di-commit lokal 13 Nov 2026, menunggu pemilik push** (cadangan `backup-v1.25.2`, lokal). Tiga temuan pemilik:
 (1) APK Android: Gaby tidak bisa dipotong → ternyata "Mode anti-gema" menyala (bukan bug, kode tidak diubah);
 (2) tombol 🗺️ daftar rencana di layar utama; (3) "lengkapi" rencana Cirebon #1 → #2 sama persis, Vera tetap "belum ada jadwal pulang"
@@ -476,9 +482,27 @@ lama yang mengulang terus + angka elemen + pencatat restart `proto122.crash`). M
   ke 3 + Lukas "🖌️ alasan"; end ok → 5 (bingkai emas + 3 kilau) + bingkai dinding +1 (maks 3); gagal → −1 (lukisan lama). Gambar ASLI
   sengaja TIDAK dimuat (risiko memori iPhone); ini lukisan hiasan.
 
+**v1.27 — prototipe `prototipe/v127/` "BARANG HIDUP" (14 Nov 2026; pemilik: "aset di ruang game & pantry cuma pajangan: joystick di
+lantai tidak dipakai saat main, bet ping-pong tetap di meja walau dimainkan, teko tidak pernah dituang — detail kecil ini yang bikin hidup").**
+`office-art.js`: barang yang bisa dipakai diekspor sebagai `PROP_SVG` (mug, teapot, plate, fritter, pad, paddle, ball) dan TIDAK digambar di
+latar kalau `window.LIVE_PROPS === true` (diset halaman prototipe; aplikasi = gambar sama persis, dicek huruf demi huruf). `prototipe/v127/
+office.js` (= js/office.js v1.26 + impor `../../js/`, kunci `proto127.lite`): lapisan baru `it.liveG` (antara frontG statis & overG — untuk
+teko/mug di meja pantry yang ada di depan kursi; lapisan `static` bisa diubah jadi foto oleh `setLight`, jadi barang hidup TIDAK boleh di
+sana), `propAt`/`facePoly` membuat barang SEKALI, `borrow(a, g)` menyembunyikan barang yang dipegang & `giveBack` (dipanggil di
+`cancelAct`) mengembalikannya saat aktivitas selesai/dibatalkan. Aktivitas: kopi (mug mesin diambil), mie (layar microwave berkedip), air
+(gelembung galon), jus (pintu kulkas terbuka), **teh** baru (teko terbang & miring menuang ke mug meja, mug diambil), **pisang** baru (2 pisang
+goreng di piring diambil satu-satu, terisi lagi 40 dtk setelah habis), ngobrol berdua (teh dituang ke 2 mug lalu diminum), konsol (joystick
+lantai diambil, tokoh kecil di layar TV lari & lompat), ping-pong (2 bet diambil dari meja, BOLA MEJA yang dipakai — tidak lagi membuat
+elemen bola baru), arcade (layar berkedip). Aktivitas punya `name`; `_test.playNamed(name)` untuk tombol uji. Panel 🧪 Uji: tombol per
+barang + 🔁 uji tahan lama (semua barang bergantian). Uji: Edge t-props 24/24 (barang hilang saat dipakai & kembali ke posisi persis setelah
+40 aktivitas acak), WebKit UA iPhone (hemat) 7 menit / 97 aktivitas tanpa tumbang, elemen datar ±3.400. Saat rilis: salin ke js/office.js
+(sed impor & kunci) DAN set `window.LIVE_PROPS = true` di aplikasi (misal di `openOfficeScreen` sebelum `import('./office.js')`, atau
+ganti bawaan di office-art.js).
+
 ## Riwayat rilis (ringkas)
 | Versi | Isi |
 |---|---|
+| 1.26.1 | Gaby tahu isi Ruang Kerja (ruangan tim, pantry, ruang game) lewat bagian "RUANG KERJA" di prompt |
 | 1.26.0 | Pandu tidak lagi "memperbaiki" dengan isi yang sama (ditegur, tidak dihitung, termasuk lengkapi yang cuma ganti judul); tombol 🗺️ daftar rencana di layar utama; jadwal pulang & check-out ditambah otomatis kalau Pandu lupa (rencana Cirebon); lencana Vera tidak terpotong di tengah kata |
 | 1.25.2 | Meteran Pandu tidak hilang saat bekerja lama / HP ditinggal (muncul lagi saat ada kabar), Gaby memberi keadaan asli Pandu + alat `cek_pandu`; cuaca/jarak di Pandu maks 30 dtk |
 | 1.25.1 | 📄 Kartu Rencana/Perbandingan disimpan sebagai PDF (A4 putih, berhalaman, jadwal per hari bertanggal, tajam & bisa dicari, utuh di WhatsApp sebagai dokumen) menggantikan gambar PNG panjang. Uji Chromium 15/15 (unduhan laptop, tombol dari suara, saran PDF untuk teks panjang, perbandingan, APK tiruan menulis .pdf ke menu Bagikan) |

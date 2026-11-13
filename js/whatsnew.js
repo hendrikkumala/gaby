@@ -5,6 +5,10 @@
 
 export const WHATS_NEW = [
   {
+    version: '1.26.1',
+    items: ['Aku sekarang hafal isi kantor kita di Ruang Kerja 🏢, termasuk pantry (kopi, teh, pisang goreng!) dan ruang game (konsol, ping-pong, arcade). Tanya aja kalau penasaran'],
+  },
+  {
     version: '1.26.0',
     items: [
       'Pandu sekarang benar-benar memperbaiki catatan Vera. Dulu kadang dia cuma ganti judul, jadi Vera komentarnya itu-itu terus. Sekarang kalau isinya belum berubah, Pandu langsung ditegur buat beresin dulu',

@@ -464,8 +464,20 @@ const windowL = (y, z, w, h, sky = '#7dd3fc') => MODE.L !== true ? '' : faceX(0.
   + faceX(0.03, y + w / 2 - 0.05, z + 0.15, 0.1, h - 0.3, '#e2e8f0') + faceX(0.03, y + 0.15, z + h / 2 - 0.05, w - 0.3, 0.1, '#e2e8f0');
 const plant = (x, y, z = 0, s = 1) => box(x, y, z, 0.7 * s, 0.7 * s, 0.7 * s, '#b45309')
   + at(x + 0.35 * s, y + 0.35 * s, z + 0.7 * s, `<circle cx="0" cy="-14" r="11" fill="#16a34a"/><circle cx="-9" cy="-6" r="8" fill="#22c55e"/><circle cx="9" cy="-7" r="8" fill="#15803d"/><circle cx="2" cy="-24" r="7" fill="#4ade80"/>`, s);
-const mug = (x, y, z, c = '#f8fafc', steam = true) => at(x, y, z, `<rect x="-5" y="-11" width="10" height="11" rx="2" fill="${c}"/><path d="M5,-8 q5,2 0,6" stroke="${c}" stroke-width="2" fill="none"/>${steam ? '<path d="M-2,-14 q-3,-4 0,-8 M3,-14 q-3,-4 0,-8" stroke="#e2e8f0" stroke-width="1.4" fill="none" opacity=".7"/>' : ''}`);
-const teapot = (x, y, z) => at(x, y, z, `<ellipse cx="0" cy="-8" rx="10" ry="8" fill="#f8fafc" stroke="#94a3b8"/><path d="M9,-10 q7,-3 9,-9" stroke="#f8fafc" stroke-width="3" fill="none"/><path d="M-10,-11 q-6,0 -5,6" stroke="#f8fafc" stroke-width="2.4" fill="none"/><ellipse cx="0" cy="-15" rx="5" ry="2" fill="#93c5fd"/><circle cx="0" cy="-17.5" r="1.8" fill="#93c5fd"/><path d="M-3,-22 q-3,-4 0,-8" stroke="#e2e8f0" stroke-width="1.4" fill="none" opacity=".7"/>`);
+// Barang yang bisa DIPAKAI karakter (v1.27 "barang hidup"): gambarnya juga dipakai office.js.
+// window.LIVE_PROPS = true → barang ini TIDAK digambar di latar (office.js menggambarnya terpisah & menggerakkannya).
+const LIVE = () => window.LIVE_PROPS === true;
+const PROP_SVG = {
+  mug: (c = '#f8fafc', steam = true) => `<rect x="-5" y="-11" width="10" height="11" rx="2" fill="${c}"/><path d="M5,-8 q5,2 0,6" stroke="${c}" stroke-width="2" fill="none"/>${steam ? '<path d="M-2,-14 q-3,-4 0,-8 M3,-14 q-3,-4 0,-8" stroke="#e2e8f0" stroke-width="1.4" fill="none" opacity=".7"/>' : ''}`,
+  teapot: `<ellipse cx="0" cy="-8" rx="10" ry="8" fill="#f8fafc" stroke="#94a3b8"/><path d="M9,-10 q7,-3 9,-9" stroke="#f8fafc" stroke-width="3" fill="none"/><path d="M-10,-11 q-6,0 -5,6" stroke="#f8fafc" stroke-width="2.4" fill="none"/><ellipse cx="0" cy="-15" rx="5" ry="2" fill="#93c5fd"/><circle cx="0" cy="-17.5" r="1.8" fill="#93c5fd"/><path d="M-3,-22 q-3,-4 0,-8" stroke="#e2e8f0" stroke-width="1.4" fill="none" opacity=".7"/>`,
+  plate: '<ellipse rx="11" ry="4.5" fill="#f8fafc"/>',
+  fritter: (dx) => `<path d="M${dx},-2 q3,-6 6,0" stroke="#b45309" stroke-width="4" stroke-linecap="round" fill="none"/>`,
+  pad: '<rect x="-7" y="-4" width="14" height="6" rx="3" fill="#e5e7eb"/><circle cx="-3" cy="-1" r="1.4" fill="#ef4444"/><circle cx="3" cy="-1" r="1.4" fill="#3b82f6"/>',
+  paddle: (c) => `<circle cx="0" cy="-2" r="5" fill="${c}"/><rect x="-1" y="2" width="2" height="6" fill="#78350f"/>`,
+  ball: '<circle r="2.4" fill="#fff"/>',
+};
+const mug = (x, y, z, c = '#f8fafc', steam = true) => at(x, y, z, PROP_SVG.mug(c, steam));
+const teapot = (x, y, z) => at(x, y, z, PROP_SVG.teapot);
 const books = (x, y, z, cols = ['#ef4444', '#3b82f6', '#facc15', '#22c55e']) => cols.map((c, i) => box(x, y, z + i * 0.18, 0.9 - i * 0.06, 0.6, 0.18, c)).join('');
 const globe = (x, y, z, r = 22) => at(x, y, z, `<g class="globe">
   <circle r="${r * 1.6}" fill="rgba(56,189,248,.12)"/>
@@ -711,7 +723,7 @@ function pantry() {
     + at(0.6, 6.1, 3.3, '<text text-anchor="middle" font-size="11">🧲</text>')
     // meja dapur menempel ke kaca belakang: mesin kopi, microwave, rak piring
     + box(1.6, 0, 0, 3.8, 1.1, 1.4, '#f8fafc', '#cbd5e1') + [0, 1, 2].map((i) => faceY(1.75 + i * 1.18, 1.11, 0.15, 1.05, 1.05, '#e2e8f0', EDGE)).join('')
-    + box(2.0, 0.15, 1.4, 0.9, 0.7, 1.05, '#1f2937') + faceY(2.15, 0.86, 1.95, 0.6, 0.35, '#ef4444') + mug(2.45, 0.95, 1.4, '#fef3c7')
+    + box(2.0, 0.15, 1.4, 0.9, 0.7, 1.05, '#1f2937') + faceY(2.15, 0.86, 1.95, 0.6, 0.35, '#ef4444') + (LIVE() ? '' : mug(2.45, 0.95, 1.4, '#fef3c7'))
     + box(4.0, 0.15, 1.4, 1.3, 0.8, 0.7, '#94a3b8') + faceY(4.1, 0.96, 1.5, 0.8, 0.5, '#1e293b')
 
     // papan menu (berkaki kalau tidak menempel di tembok)
@@ -722,7 +734,7 @@ function pantry() {
     // meja makan bundar + kursi + camilan
     + chair(4.0, 3.2) + chair(6.4, 3.0, '#22c55e') + (window.PROTO ? '<!--SLOT-->' : '')
     + box(5.2, 4.4, 0, 0.3, 0.3, 1.1, '#78350f') + at(5.35, 4.55, 1.1, '<ellipse rx="44" ry="22" fill="#a16207"/><ellipse cy="-3" rx="44" ry="22" fill="#ca8a04"/>')
-    + at(5.0, 4.4, 1.25, '<ellipse rx="11" ry="4.5" fill="#f8fafc"/><path d="M-7,-2 q3,-6 6,0 M0,-2 q3,-6 6,0" stroke="#b45309" stroke-width="4" stroke-linecap="round"/>') + mug(5.9, 4.7, 1.2, '#38bdf8') + mug(4.7, 5.0, 1.2, '#f472b6') + teapot(5.7, 4.1, 1.2)
+    + (LIVE() ? '' : at(5.0, 4.4, 1.25, '<ellipse rx="11" ry="4.5" fill="#f8fafc"/><path d="M-7,-2 q3,-6 6,0 M0,-2 q3,-6 6,0" stroke="#b45309" stroke-width="4" stroke-linecap="round"/>') + mug(5.9, 4.7, 1.2, '#38bdf8') + mug(4.7, 5.0, 1.2, '#f472b6') + teapot(5.7, 4.1, 1.2))
     + at(7.4, 5.9, 0, '<rect x="-6" y="-14" width="12" height="14" rx="2" fill="#0ea5e9"/><rect x="-7" y="-15" width="14" height="3" fill="#0369a1"/>') + chair(3.6, 5.6, '#3b82f6')
     + plant(11, 6.8, 0, 1.2);
 }
@@ -736,11 +748,11 @@ function gameRoom() {
     + box(3.0, 0.4, 0.8, 0.6, 0.4, 0.15, '#e5e7eb')
     // sofa menghadap TV
     + box(1.8, 4.6, 0, 3.8, 0.4, 1.3, '#be185d') + box(1.8, 3.6, 0, 3.8, 1.0, 0.6, '#db2777') + box(1.6, 3.6, 0, 0.3, 1.4, 0.9, '#be185d') + box(5.5, 3.6, 0, 0.3, 1.4, 0.9, '#be185d')
-    + at(3.0, 2.6, 0, '<rect x="-7" y="-4" width="14" height="6" rx="3" fill="#e5e7eb"/><circle cx="-3" cy="-1" r="1.4" fill="#ef4444"/><circle cx="3" cy="-1" r="1.4" fill="#3b82f6"/>')
+    + (LIVE() ? '' : at(3.0, 2.6, 0, PROP_SVG.pad))
     // meja ping-pong
     + box(7.2, 2.0, 0.7, 3.6, 2.0, 0.15, '#15803d', '#16a34a') + [7.4, 10.5].map((x) => box(x, 2.2, 0, 0.15, 0.15, 0.7, '#1f2937') + box(x, 3.7, 0, 0.15, 0.15, 0.7, '#1f2937')).join('')
     + faceX(9.0, 2.0, 0.85, 2.0, 0.3, 'rgba(255,255,255,.75)') + at(9.0, 3.0, 0.85, '<path d="M-30,0 L30,0" stroke="#fff" stroke-width="1" opacity=".0"/>')
-    + at(8.0, 2.5, 0.85, '<circle cx="0" cy="-2" r="5" fill="#dc2626"/><rect x="-1" y="2" width="2" height="6" fill="#78350f"/>') + at(10.2, 3.6, 0.85, '<circle cx="0" cy="-2" r="5" fill="#111827"/><rect x="-1" y="2" width="2" height="6" fill="#78350f"/>') + at(9.6, 2.6, 1.6, '<circle r="2.4" fill="#fff"/>')
+    + (LIVE() ? '' : at(8.0, 2.5, 0.85, PROP_SVG.paddle('#dc2626')) + at(10.2, 3.6, 0.85, PROP_SVG.paddle('#111827')) + at(9.6, 2.6, 1.6, PROP_SVG.ball))
     // mesin arcade
     + box(10.6, 0.3, 0, 1.1, 1.0, 2.8, '#7c3aed') + faceY(10.7, 1.31, 1.5, 0.9, 0.8, '#22d3ee') + textY(10.75, 1.32, 1.9, '👾', 9, '#fff') + faceY(10.7, 1.31, 2.4, 0.9, 0.3, '#f472b6')
     // tulisan neon & bean bag
@@ -849,4 +861,4 @@ function officeLayers() {
   return { shell, items };
 }
 
-export { officeLayers, character25, CH };
+export { officeLayers, character25, CH, PROP_SVG };
